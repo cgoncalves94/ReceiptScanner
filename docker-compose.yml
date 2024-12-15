@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  app-dev:
+    container_name: receipt-api-dev
+    image: receipt-dev-image
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/app
+      - ./uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: receipt-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: receipt_analyzer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  backend:
+    driver: bridge
