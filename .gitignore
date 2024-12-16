@@ -164,9 +164,7 @@ cython_debug/
 
 .vscode
 
-# Add these lines
-uploads/
 postgres_data/
 .env
-
 .ruff_cache/
+uploads/

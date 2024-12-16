@@ -17,14 +17,23 @@ class ReceiptRepository:
         self.db.refresh(receipt)
         return receipt
 
-    def create_items(self, items: list[ReceiptItem]) -> None:
+    def create_many_items(self, items: list[ReceiptItem]) -> None:
         """Create multiple receipt items."""
         self.db.add_all(items)
         self.db.commit()
 
-    def get_by_id(self, receipt_id: int) -> Receipt | None:
+    def get(self, receipt_id: int) -> Receipt | None:
         """Get a receipt by ID."""
         statement = select(Receipt).where(Receipt.id == receipt_id)
+        return self.db.exec(statement).first()
+
+    def get_with_items(self, receipt_id: int) -> Receipt | None:
+        """Get a receipt with its items by ID."""
+        statement = (
+            select(Receipt)
+            .where(Receipt.id == receipt_id)
+            .options(selectinload(Receipt.items))
+        )
         return self.db.exec(statement).first()
 
     def list(self, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
@@ -41,6 +50,20 @@ class ReceiptRepository:
             .options(selectinload(Receipt.items))
         )
         return self.db.exec(statement).all()
+
+    def update(self, receipt: Receipt) -> Receipt:
+        """Update a receipt."""
+        self.db.add(receipt)
+        self.db.commit()
+        self.db.refresh(receipt)
+        return receipt
+
+    def delete(self, receipt_id: int) -> None:
+        """Delete a receipt."""
+        receipt = self.get(receipt_id)
+        if receipt:
+            self.db.delete(receipt)
+            self.db.commit()
 
     def rollback(self) -> None:
         """Rollback the current transaction."""

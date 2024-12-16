@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from pydantic import BaseModel
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -32,28 +31,3 @@ class Receipt(SQLModel, table=True):
     processed: bool = Field(default=False)
 
     items: list[ReceiptItem] = Relationship(back_populates="receipt")
-
-
-class ReceiptCreate(BaseModel):
-    store_name: str | None = None  # Will be filled by AI
-    total_amount: float | None = None  # Will be filled by AI
-    image_path: str
-    date: datetime | None = None  # Will be filled by AI with receipt's actual date
-
-
-class ReceiptResponse(BaseModel):
-    id: int
-    store_name: str
-    total_amount: float
-    date: datetime
-    items: list[ReceiptItem]
-
-
-class ReceiptListResponse(BaseModel):
-    """Simplified receipt response for listing."""
-
-    id: int
-    store_name: str
-    total_amount: float
-    date: datetime
-    processed: bool

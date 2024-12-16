@@ -1,11 +1,14 @@
 import shutil
+from collections.abc import Sequence
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel import Session
 
 from app.api.deps import get_db
-from app.models.receipt import Category, Receipt, ReceiptListResponse, ReceiptResponse
+from app.models.receipt import Category, Receipt
+from app.schemas.category import Category as CategorySchema
+from app.schemas.receipt import ReceiptListResponse, ReceiptResponse
 from app.services.receipt_scanner import ReceiptScanner
 from app.services.receipt_service import ReceiptService
 
@@ -17,7 +20,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 
 @router.post("/scan/", response_model=ReceiptResponse)
-async def scan_receipt(
+async def create_receipt_from_scan(
     file: UploadFile = File(...), db: Session = Depends(get_db)
 ) -> Receipt:
     """
@@ -31,7 +34,7 @@ async def scan_receipt(
             shutil.copyfileobj(file.file, buffer)
 
         # Process the receipt
-        receipt, items_data, category_names = await receipt_scanner.analyze_receipt(
+        receipt, items_data, category_names = await receipt_scanner.scan_and_analyze(
             str(file_path)
         )
 
@@ -51,7 +54,7 @@ async def scan_receipt(
 @router.get("/", response_model=list[ReceiptListResponse])
 def list_receipts(
     skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-) -> list[Receipt]:
+) -> Sequence[Receipt]:
     """List all receipts with basic information (no items)."""
     receipt_service = ReceiptService(db)
     return receipt_service.list_receipts(skip, limit)
@@ -60,7 +63,7 @@ def list_receipts(
 @router.get("/full/", response_model=list[ReceiptResponse])
 def list_receipts_with_items(
     skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-) -> list[Receipt]:
+) -> Sequence[Receipt]:
     """List all receipts with their items."""
     receipt_service = ReceiptService(db)
     return receipt_service.list_receipts_with_items(skip, limit)
@@ -73,8 +76,10 @@ def get_receipt(receipt_id: int, db: Session = Depends(get_db)) -> Receipt:
     return receipt_service.get_receipt(receipt_id)
 
 
-@router.get("/categories/", response_model=list[Category])
-def list_categories(db: Session = Depends(get_db)) -> list[Category]:
+@router.get("/categories/", response_model=list[CategorySchema])
+def list_categories(
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+) -> Sequence[Category]:
     """List all available categories."""
     receipt_service = ReceiptService(db)
-    return receipt_service.list_categories()
+    return receipt_service.list_categories(skip, limit)

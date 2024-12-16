@@ -18,7 +18,7 @@ class Config:
     API_V1_STR: str = "/api/v1"
 
     # Database settings
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "db")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
     POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")

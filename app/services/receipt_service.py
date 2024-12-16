@@ -1,11 +1,12 @@
 import logging
+from collections.abc import Sequence
 
 from fastapi import HTTPException
 from sqlmodel import Session
 
+from app.crud.category import CategoryRepository
+from app.crud.receipt import ReceiptRepository
 from app.models.receipt import Category, Receipt, ReceiptItem
-from app.repositories.category_repository import CategoryRepository
-from app.repositories.receipt_repository import ReceiptRepository
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +40,34 @@ class ReceiptService:
                 )
                 for item_data in items_data
             ]
-            self.receipt_repo.create_items(receipt_items)
+            self.receipt_repo.create_many_items(receipt_items)
 
             return db_receipt
 
         except Exception as e:
             self.receipt_repo.rollback()
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    def get_receipt(self, receipt_id: int) -> Receipt:
+        """Get a specific receipt by ID."""
+        receipt = self.receipt_repo.get_with_items(receipt_id)
+        if not receipt:
+            raise HTTPException(status_code=404, detail="Receipt not found")
+        return receipt
+
+    def list_receipts(self, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
+        """List all receipts with pagination (no items loaded)."""
+        return self.receipt_repo.list(skip, limit)
+
+    def list_receipts_with_items(
+        self, skip: int = 0, limit: int = 100
+    ) -> Sequence[Receipt]:
+        """List all receipts with their items."""
+        return self.receipt_repo.list_with_items(skip, limit)
+
+    def list_categories(self, skip: int = 0, limit: int = 100) -> Sequence[Category]:
+        """List all categories with pagination."""
+        return self.category_repo.list(skip, limit)
 
     def _get_or_create_categories(self, items_data: list[dict]) -> dict[str, Category]:
         """Get existing categories or create new ones using AI-generated descriptions."""
@@ -75,24 +97,3 @@ class ReceiptService:
                 category_map[category_name] = db_category
 
         return category_map
-
-    def list_receipts(self, skip: int = 0, limit: int = 100) -> list[Receipt]:
-        """List all receipts with pagination (no items loaded)."""
-        return self.receipt_repo.list(skip, limit)
-
-    def list_receipts_with_items(
-        self, skip: int = 0, limit: int = 100
-    ) -> list[Receipt]:
-        """List all receipts with their items."""
-        return self.receipt_repo.list_with_items(skip, limit)
-
-    def get_receipt(self, receipt_id: int) -> Receipt:
-        """Get a specific receipt by ID."""
-        receipt = self.receipt_repo.get_by_id(receipt_id)
-        if not receipt:
-            raise HTTPException(status_code=404, detail="Receipt not found")
-        return receipt
-
-    def list_categories(self) -> list[Category]:
-        """List all available categories."""
-        return self.category_repo.list()
