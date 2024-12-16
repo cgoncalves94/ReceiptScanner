@@ -2,91 +2,96 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import TypeAlias
 
 import google.generativeai as genai
 from PIL import Image
 
 from app.core.config import settings
 from app.schemas.receipt import ReceiptCreate
+from app.templates.prompts import RECEIPT_ANALYSIS_PROMPT
 
 logger = logging.getLogger(__name__)
 
+# Type aliases
+ReceiptAnalysis: TypeAlias = tuple[ReceiptCreate, list[dict], list[str]]
+ItemData: TypeAlias = dict[str, str | float]
+
 
 class GeminiReceiptAnalyzer:
+    DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+    DEFAULT_QUANTITY = 1.0
+    MEMORY_IMAGE_PATH = "memory_image.jpg"
+
     def __init__(self):
+        if not settings.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY is not configured")
+
         genai.configure(api_key=settings.GEMINI_API_KEY)
         self.model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
     @staticmethod
     def _normalize_category_name(name: str) -> str:
-        """Normalize category names to avoid duplicates by converting to lowercase and removing extra spaces."""
+        """Normalize category names to avoid duplicates."""
+        if not name:
+            raise ValueError("Category name cannot be empty")
         return " ".join(name.lower().strip().split())
 
-    async def analyze_receipt(
-        self, image_input: str | Image.Image
-    ) -> tuple[ReceiptCreate, list[dict], list[str]]:
-        """
-        Analyze receipt image using Gemini Vision API.
-        Args:
-            image_input: Either a path to an image file or a PIL Image object
-        """
-        try:
-            # Handle image input
-            if isinstance(image_input, str):
-                logger.info(f"Opening image from path: {image_input}")
-                if not Path(image_input).exists():
-                    raise FileNotFoundError(f"Image file not found: {image_input}")
-                image = Image.open(image_input)
-                image_path = image_input
-            else:
-                logger.info("Using provided PIL Image")
-                image = image_input
-                image_path = "memory_image.jpg"  # Placeholder path for ReceiptCreate
+    @staticmethod
+    def _validate_image(image: Image.Image) -> None:
+        """Validate image format and dimensions."""
+        if not isinstance(image, Image.Image):
+            raise ValueError("Invalid image format")
 
+        # Add any specific image validation requirements
+        min_width, min_height = 100, 100  # Example minimum dimensions
+        if image.width < min_width or image.height < min_height:
+            raise ValueError(
+                f"Image dimensions too small: {image.width}x{image.height}"
+            )
+
+    def _process_image_input(
+        self, image_input: str | Image.Image
+    ) -> tuple[Image.Image, str]:
+        """Process and validate image input."""
+        if isinstance(image_input, str):
+            logger.info(f"Opening image from path: {image_input}")
+            path = Path(image_input)
+            if not path.exists():
+                raise FileNotFoundError(f"Image file not found: {image_input}")
+            if not path.is_file():
+                raise ValueError(f"Not a file: {image_input}")
+
+            image = Image.open(image_input)
+            image_path = image_input
+        else:
+            logger.info("Using provided PIL Image")
+            image = image_input
+            image_path = self.MEMORY_IMAGE_PATH
+
+        self._validate_image(image)
+        return image, image_path
+
+    async def analyze_receipt(self, image_input: str | Image.Image) -> ReceiptAnalysis:
+        """Analyze receipt image using Gemini Vision API."""
+        # Initialize image_path with a default value
+        image_path = self.MEMORY_IMAGE_PATH
+
+        try:
+            image, image_path = self._process_image_input(image_input)
             logger.info("Successfully prepared image for analysis")
 
-            prompt = """
-            You are a receipt analyzer. Your task is to extract information from a receipt image and return it in a specific JSON format.
-            The response must be ONLY a valid JSON object with no additional text or markdown.
-
-            Required format:
-            {
-                "store_name": "store name",
-                "total_amount": float,
-                "date": "YYYY-MM-DD HH:mm:ss",  # Extract the actual receipt date and time
-                "items": [
-                    {
-                        "name": "item name",
-                        "price": float,
-                        "quantity": float,
-                        "category": {
-                            "name": "category name",  # Create a meaningful category name based on the item type
-                            "description": "category description"  # Provide a clear description of what belongs in this category
-                        }
-                    }
-                ]
-            }
-
-            Important:
-            - The date should be extracted from the receipt and formatted exactly as "YYYY-MM-DD HH:mm:ss"
-            - If you see a date like "21 JUL 2022", convert it to "2022-07-21"
-            - Include the time if present in the receipt
-            - For each item, create a meaningful category based on its characteristics
-            - Each category should have a clear description explaining what types of items belong in it
-            - Similar items should be grouped into the same category
-            - Be specific but not too granular with categories (e.g., "dairy" for milk, cheese, yogurt instead of separate categories)
-            """
-
-            logger.info("Sending request to Gemini API")
-            response = self.model.generate_content([prompt, image])
+            response = self.model.generate_content([RECEIPT_ANALYSIS_PROMPT, image])
             response.resolve()
-            logger.info(f"Raw response from Gemini: {response.text}")
 
-            # Clean and parse response
-            response_text = self._clean_response_text(response.text)
-            result = json.loads(response_text)
+            if not response.text:
+                raise ValueError("Empty response from Gemini API")
 
-            # Create receipt and extract data
+            logger.debug(f"Raw response from Gemini: {response.text}")
+
+            result = json.loads(self._clean_response_text(response.text))
+            self._validate_result(result)
+
             receipt = self._create_receipt(result, image_path)
             items_data, category_names = self._extract_items_and_categories(
                 result["items"]
@@ -94,25 +99,34 @@ class GeminiReceiptAnalyzer:
 
             return receipt, items_data, category_names
 
-        except FileNotFoundError as e:
-            logger.error(f"File not found error: {str(e)}")
-            raise
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON parsing error: {str(e)}")
-            logger.error(f"Invalid JSON text: {response_text}")
-            raise
         except Exception as e:
-            logger.error(f"Error during receipt analysis: {str(e)}")
-            # Fallback to empty data if parsing fails
-            return (
-                ReceiptCreate(
-                    store_name="Unknown Store", total_amount=0.0, image_path=image_path
-                ),
-                [],
-                [],
-            )
+            logger.error(f"Error during receipt analysis: {str(e)}", exc_info=True)
+            return self._create_fallback_response(image_path)
 
-    def _clean_response_text(self, text: str) -> str:
+    @staticmethod
+    def _validate_result(result: dict) -> None:
+        """Validate the parsed JSON result has required fields."""
+        required_fields = {"store_name", "total_amount", "items"}
+        missing_fields = required_fields - set(result.keys())
+        if missing_fields:
+            raise ValueError(f"Missing required fields: {missing_fields}")
+
+    @staticmethod
+    def _create_fallback_response(image_path: str) -> ReceiptAnalysis:
+        """Create a fallback response when analysis fails."""
+        return (
+            ReceiptCreate(
+                store_name="Unknown Store",
+                total_amount=0.0,
+                image_path=image_path,
+                date=datetime.now(),  # Use current time as fallback
+            ),
+            [],
+            [],
+        )
+
+    @staticmethod
+    def _clean_response_text(text: str) -> str:
         """Clean the response text to ensure valid JSON."""
         text = text.strip()
         if text.startswith("```json"):
@@ -121,7 +135,8 @@ class GeminiReceiptAnalyzer:
             text = text[:-3]
         return text.strip()
 
-    def _create_receipt(self, result: dict, image_path: str) -> ReceiptCreate:
+    @staticmethod
+    def _create_receipt(result: dict, image_path: str) -> ReceiptCreate:
         """Create a ReceiptCreate instance from the analysis result."""
         receipt_date = None
         if "date" in result:

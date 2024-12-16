@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 class ReceiptScanner:
+    """Integration layer component that orchestrates the receipt scanning process."""
+
     def __init__(self):
         self.image_processor = ImageProcessor()
         self.receipt_analyzer = GeminiReceiptAnalyzer()
