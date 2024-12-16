@@ -3,12 +3,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlmodel import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_receipt_service
 from app.integrations.scanner.receipt_scanner import ReceiptScanner
-from app.models.receipt import Receipt
-from app.schemas.receipt import ReceiptListResponse, ReceiptResponse
+from app.models import Receipt
+from app.schemas import ReceiptListResponse, ReceiptResponse
 from app.services import ReceiptService
 
 router = APIRouter()
@@ -20,7 +19,8 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 @router.post("/scan/", response_model=ReceiptResponse)
 async def create_receipt_from_scan(
-    file: UploadFile = File(...), db: Session = Depends(get_db)
+    file: UploadFile = File(...),
+    receipt_service: ReceiptService = Depends(get_receipt_service),
 ) -> Receipt:
     """
     Upload and scan a receipt image.
@@ -38,7 +38,6 @@ async def create_receipt_from_scan(
         )
 
         # Use service layer to handle database operations
-        receipt_service = ReceiptService(db)
         return receipt_service.create_receipt_with_items(receipt, items_data)
 
     except Exception as e:
@@ -52,10 +51,11 @@ async def create_receipt_from_scan(
 
 @router.get("/", response_model=list[ReceiptListResponse])
 def list_receipts(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+    skip: int = 0,
+    limit: int = 100,
+    receipt_service: ReceiptService = Depends(get_receipt_service),
 ) -> Sequence[Receipt]:
     """List all receipts with basic information (no items)."""
-    receipt_service = ReceiptService(db)
     return receipt_service.list_receipts(skip, limit)
 
 
@@ -63,15 +63,15 @@ def list_receipts(
 def list_receipts_with_items(
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
+    receipt_service: ReceiptService = Depends(get_receipt_service),
 ) -> Sequence[Receipt]:
     """List all receipts with their items."""
-    receipt_service = ReceiptService(db)
     return receipt_service.list_receipts_with_items(skip=skip, limit=limit)
 
 
 @router.get("/{receipt_id}", response_model=ReceiptResponse)
-def get_receipt(receipt_id: int, db: Session = Depends(get_db)) -> Receipt:
+def get_receipt(
+    receipt_id: int, receipt_service: ReceiptService = Depends(get_receipt_service)
+) -> Receipt:
     """Get a specific receipt by ID."""
-    receipt_service = ReceiptService(db)
     return receipt_service.get_receipt(receipt_id)
