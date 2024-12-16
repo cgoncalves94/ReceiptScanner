@@ -8,7 +8,7 @@ import google.generativeai as genai
 from PIL import Image
 
 from app.core.config import settings
-from app.schemas.receipt import ReceiptCreate
+from app.schemas import ReceiptCreate
 from app.templates.prompts import RECEIPT_ANALYSIS_PROMPT
 
 logger = logging.getLogger(__name__)

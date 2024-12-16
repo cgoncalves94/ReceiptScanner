@@ -3,7 +3,7 @@ from pathlib import Path
 
 from app.integrations.gemini.receipt_analyzer import GeminiReceiptAnalyzer
 from app.integrations.image_processing.scanner import ImageProcessor
-from app.schemas.receipt import ReceiptCreate
+from app.schemas import ReceiptCreate
 
 logger = logging.getLogger(__name__)
 
