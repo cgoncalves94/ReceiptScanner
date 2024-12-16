@@ -42,6 +42,18 @@ class ReceiptCreate(BaseModel):
     date: datetime | None = None  # Will be filled by AI with receipt's actual date
 
 
+# Add this new class for updates
+class ReceiptUpdate(BaseModel):
+    store_name: str | None = None
+    total_amount: float | None = None
+    date: datetime | None = None
+    processed: bool | None = None
+
+    class Config:
+        from_attributes = True
+        model = DBReceipt
+
+
 class Receipt(ReceiptBase):
     id: int
     processed: bool = False

@@ -24,10 +24,10 @@ class ReceiptService:
             # Create receipt
             db_receipt = Receipt.model_validate(receipt)
             db_receipt.processed = True  # Mark as processed since we have the items
-            db_receipt = self.receipt_repo.create(db_receipt)
+            db_receipt = self.receipt_repo.create(receipt_in=db_receipt)
 
             # Get or create categories
-            category_map = self._get_or_create_categories(items_data)
+            category_map = self._get_or_create_categories(items_data=items_data)
 
             # Create items with proper category IDs
             receipt_items = [
@@ -40,7 +40,7 @@ class ReceiptService:
                 )
                 for item_data in items_data
             ]
-            self.receipt_repo.create_many_items(receipt_items)
+            self.receipt_repo.create_many_items(items=receipt_items)
 
             return db_receipt
 
@@ -50,24 +50,24 @@ class ReceiptService:
 
     def get_receipt(self, receipt_id: int) -> Receipt:
         """Get a specific receipt by ID."""
-        receipt = self.receipt_repo.get_with_items(receipt_id)
+        receipt = self.receipt_repo.get_with_items(receipt_id=receipt_id)
         if not receipt:
             raise HTTPException(status_code=404, detail="Receipt not found")
         return receipt
 
     def list_receipts(self, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
         """List all receipts with pagination (no items loaded)."""
-        return self.receipt_repo.list(skip, limit)
+        return self.receipt_repo.list(skip=skip, limit=limit)
 
     def list_receipts_with_items(
         self, skip: int = 0, limit: int = 100
     ) -> Sequence[Receipt]:
         """List all receipts with their items."""
-        return self.receipt_repo.list_with_items(skip, limit)
+        return self.receipt_repo.list_with_items(skip=skip, limit=limit)
 
     def list_categories(self, skip: int = 0, limit: int = 100) -> Sequence[Category]:
-        """List all categories with pagination."""
-        return self.category_repo.list(skip, limit)
+        """List all categories."""
+        return self.category_repo.list(skip=skip, limit=limit)
 
     def _get_or_create_categories(self, items_data: list[dict]) -> dict[str, Category]:
         """Get existing categories or create new ones using AI-generated descriptions."""
@@ -80,7 +80,7 @@ class ReceiptService:
 
         # Then check which categories already exist
         for category_name, description in unique_categories.items():
-            db_category = self.category_repo.get_by_name(category_name)
+            db_category = self.category_repo.get_by_name(name=category_name)
             if db_category:
                 logger.info(f"Using existing category: {category_name}")
                 category_map[category_name] = db_category
@@ -89,7 +89,7 @@ class ReceiptService:
                     f"Creating new category: {category_name} with description: {description}"
                 )
                 db_category = self.category_repo.create(
-                    Category(
+                    category_in=Category(
                         name=category_name,
                         description=description,
                     )

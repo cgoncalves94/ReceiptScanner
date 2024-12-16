@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel import Session
 
 from app.api.deps import get_db
+from app.integrations.scanner.receipt_scanner import ReceiptScanner
 from app.models.receipt import Category, Receipt
 from app.schemas.category import Category as CategorySchema
 from app.schemas.receipt import ReceiptListResponse, ReceiptResponse
-from app.services.receipt_scanner import ReceiptScanner
 from app.services.receipt_service import ReceiptService
 
 router = APIRouter()
@@ -62,11 +62,13 @@ def list_receipts(
 
 @router.get("/full/", response_model=list[ReceiptResponse])
 def list_receipts_with_items(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
 ) -> Sequence[Receipt]:
     """List all receipts with their items."""
     receipt_service = ReceiptService(db)
-    return receipt_service.list_receipts_with_items(skip, limit)
+    return receipt_service.list_receipts_with_items(skip=skip, limit=limit)
 
 
 @router.get("/{receipt_id}", response_model=ReceiptResponse)
@@ -78,8 +80,10 @@ def get_receipt(receipt_id: int, db: Session = Depends(get_db)) -> Receipt:
 
 @router.get("/categories/", response_model=list[CategorySchema])
 def list_categories(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
 ) -> Sequence[Category]:
-    """List all available categories."""
+    """List all categories."""
     receipt_service = ReceiptService(db)
-    return receipt_service.list_categories(skip, limit)
+    return receipt_service.list_categories(skip=skip, limit=limit)
