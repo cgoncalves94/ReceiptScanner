@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from ..models.receipt import Category as DBCategory
+from ..models import Category as DBCategory
 
 
 class CategoryBase(BaseModel):

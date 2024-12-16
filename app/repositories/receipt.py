@@ -1,10 +1,9 @@
 from collections.abc import Sequence
 
-from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from app.models.receipt import Receipt, ReceiptItem
-from app.schemas.receipt import ReceiptCreate, ReceiptUpdate
+from app.models import Receipt, ReceiptItem
+from app.schemas import ReceiptCreate, ReceiptUpdate
 
 
 class ReceiptRepository:
@@ -26,17 +25,16 @@ class ReceiptRepository:
 
     def get(self, *, receipt_id: int) -> Receipt | None:
         """Get a receipt by ID."""
-        statement = select(Receipt).where(Receipt.id == receipt_id)
+        statement = select(Receipt).filter_by(id=receipt_id)
         return self.db.exec(statement).first()
 
     def get_with_items(self, *, receipt_id: int) -> Receipt | None:
         """Get a receipt with its items by ID."""
-        statement = (
-            select(Receipt)
-            .where(Receipt.id == receipt_id)
-            .options(selectinload(Receipt.items))
-        )
-        return self.db.exec(statement).first()
+        statement = select(Receipt).filter_by(id=receipt_id)
+        result = self.db.exec(statement).first()
+        if result:
+            _ = result.items
+        return result
 
     def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
         """List receipts with pagination."""
@@ -45,13 +43,11 @@ class ReceiptRepository:
 
     def list_with_items(self, *, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
         """List receipts with their items."""
-        statement = (
-            select(Receipt)
-            .offset(skip)
-            .limit(limit)
-            .options(selectinload(Receipt.items))
-        )
-        return self.db.exec(statement).all()
+        statement = select(Receipt).offset(skip).limit(limit)
+        results = self.db.exec(statement).all()
+        for result in results:
+            _ = result.items
+        return results
 
     def update(self, *, db_obj: Receipt, receipt_in: ReceiptUpdate) -> Receipt:
         """Update a receipt."""
@@ -64,9 +60,9 @@ class ReceiptRepository:
 
     def delete(self, *, receipt_id: int) -> None:
         """Delete a receipt."""
-        receipt = self.get(receipt_id=receipt_id)
-        if receipt:
-            self.db.delete(receipt)
+        db_obj = self.get(receipt_id=receipt_id)
+        if db_obj:
+            self.db.delete(db_obj)
             self.db.commit()
 
     def rollback(self) -> None:

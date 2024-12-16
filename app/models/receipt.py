@@ -2,21 +2,18 @@ from datetime import datetime
 
 from sqlmodel import Field, Relationship, SQLModel
 
-
-class Category(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(unique=True)
-    description: str | None = None
-    items: list["ReceiptItem"] = Relationship(back_populates="category")
+from .category import Category
 
 
 class ReceiptItem(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    receipt_id: int = Field(foreign_key="receipt.id")
+    receipt_id: int = Field(foreign_key="receipt.id", ondelete="CASCADE")
     name: str
     price: float
     quantity: float = 1.0
-    category_id: int | None = Field(default=None, foreign_key="category.id")
+    category_id: int | None = Field(
+        default=None, foreign_key="category.id", ondelete="SET NULL"
+    )
 
     receipt: "Receipt" = Relationship(back_populates="items")
     category: Category | None = Relationship(back_populates="items")

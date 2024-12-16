@@ -2,8 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from ..models.receipt import Receipt as DBReceipt
-from ..models.receipt import ReceiptItem as DBReceiptItem
+from ..models import Receipt as DBReceipt
+from ..models import ReceiptItem as DBReceiptItem
 from .category import Category
 
 

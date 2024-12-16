@@ -7,10 +7,9 @@ from sqlmodel import Session
 
 from app.api.deps import get_db
 from app.integrations.scanner.receipt_scanner import ReceiptScanner
-from app.models.receipt import Category, Receipt
-from app.schemas.category import Category as CategorySchema
+from app.models.receipt import Receipt
 from app.schemas.receipt import ReceiptListResponse, ReceiptResponse
-from app.services.receipt_service import ReceiptService
+from app.services import ReceiptService
 
 router = APIRouter()
 receipt_scanner = ReceiptScanner()
@@ -76,14 +75,3 @@ def get_receipt(receipt_id: int, db: Session = Depends(get_db)) -> Receipt:
     """Get a specific receipt by ID."""
     receipt_service = ReceiptService(db)
     return receipt_service.get_receipt(receipt_id)
-
-
-@router.get("/categories/", response_model=list[CategorySchema])
-def list_categories(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db),
-) -> Sequence[Category]:
-    """List all categories."""
-    receipt_service = ReceiptService(db)
-    return receipt_service.list_categories(skip=skip, limit=limit)
