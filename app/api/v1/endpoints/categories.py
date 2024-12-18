@@ -1,7 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 
 from app.api.deps import CategoryServiceDep
-from app.exceptions import DomainException, ErrorCode
 from app.models import (
     CategoriesRead,
     CategoryCreate,
@@ -18,12 +17,7 @@ async def create_category(
     service: CategoryServiceDep,
 ) -> CategoryRead:
     """Create a new category."""
-    try:
-        return await service.create(category_in)
-    except DomainException as e:
-        if e.code == ErrorCode.ALREADY_EXISTS:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+    return await service.create(category_in)
 
 
 @router.get("/", response_model=CategoriesRead)
@@ -43,12 +37,7 @@ async def get_category(
     service: CategoryServiceDep,
 ) -> CategoryRead:
     """Get a specific category by ID."""
-    try:
-        return await service.get(category_id)
-    except DomainException as e:
-        if e.code == ErrorCode.NOT_FOUND:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+    return await service.get(category_id)
 
 
 @router.put("/{category_id}", response_model=CategoryRead)
@@ -58,14 +47,7 @@ async def update_category(
     service: CategoryServiceDep,
 ) -> CategoryRead:
     """Update a category."""
-    try:
-        return await service.update(category_id, category_in)
-    except DomainException as e:
-        if e.code == ErrorCode.NOT_FOUND:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
-        if e.code == ErrorCode.ALREADY_EXISTS:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+    return await service.update(category_id, category_in)
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -74,9 +56,4 @@ async def delete_category(
     service: CategoryServiceDep,
 ) -> None:
     """Delete a category."""
-    try:
-        await service.delete(category_id)
-    except DomainException as e:
-        if e.code == ErrorCode.NOT_FOUND:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+    await service.delete(category_id)

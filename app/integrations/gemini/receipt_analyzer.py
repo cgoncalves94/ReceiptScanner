@@ -7,7 +7,7 @@ import google.generativeai as genai
 from PIL import Image
 
 from app.core.config import settings
-from app.exceptions import DomainException, ErrorCode
+from app.core.exceptions import DomainException, ErrorCode
 from app.integrations.gemini.prompts import RECEIPT_ANALYSIS_PROMPT
 from app.integrations.gemini.schemas import AnalysisResult, ItemData, ReceiptData
 

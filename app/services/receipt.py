@@ -1,9 +1,10 @@
 import logging
 from collections.abc import Sequence
 
+from fastapi import status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.exceptions import DomainException, ErrorCode
+from app.core.exceptions import DomainException, ErrorCode
 from app.models import (
     ReceiptCreate,
     ReceiptItemCreate,
@@ -33,7 +34,9 @@ class ReceiptService:
         receipt = await self.repository.get(receipt_id=receipt_id)
         if not receipt:
             raise DomainException(
-                ErrorCode.NOT_FOUND, f"Receipt with ID {receipt_id} not found"
+                code=ErrorCode.NOT_FOUND,
+                message=f"Receipt with ID {receipt_id} not found",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
 
         # Get items for this receipt
@@ -50,14 +53,18 @@ class ReceiptService:
         db_obj = await self.repository.get(receipt_id=receipt_id)
         if not db_obj:
             raise DomainException(
-                ErrorCode.NOT_FOUND, f"Receipt with ID {receipt_id} not found"
+                code=ErrorCode.NOT_FOUND,
+                message=f"Receipt with ID {receipt_id} not found",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
         updated_obj = await self.repository.update(
             receipt_id=receipt_id, receipt_in=receipt_in
         )
         if not updated_obj:
             raise DomainException(
-                ErrorCode.NOT_FOUND, f"Receipt with ID {receipt_id} not found"
+                code=ErrorCode.NOT_FOUND,
+                message=f"Receipt with ID {receipt_id} not found",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
         return ReceiptRead.model_validate(updated_obj)
 

@@ -1,14 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.v1.api import api_router
 from app.core.config import settings
+from app.core.exceptions import DomainException
+from app.core.handlers import domain_exception_handler, sqlalchemy_exception_handler
 from app.db.session import engine, init_db
 
 logger = logging.getLogger(__name__)
@@ -21,13 +22,11 @@ async def lifespan(_app: FastAPI):
         logger.info("Initializing database...")
         await init_db()
         logger.info("Database initialized successfully")
-    except Exception as e:
-        logger.error(f"Error initializing database: {e}")
-
-    yield
-
-    # Cleanup (if needed)
-    logger.info("Application shutdown")
+        yield
+    finally:
+        logger.info("Shutting down database connections...")
+        await engine.dispose()
+        logger.info("Database connections closed")
 
 
 app = FastAPI(
@@ -36,6 +35,10 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     lifespan=lifespan,
 )
+
+# Add exception handlers
+app.add_exception_handler(DomainException, domain_exception_handler)
+app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
 
 # Set up CORS middleware
 app.add_middleware(
@@ -53,34 +56,18 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-            await conn.commit()
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={"status": "healthy", "database": "connected"},
-        )
-    except SQLAlchemyError as e:
-        # Log the full error for debugging
-        logger.error(f"Database health check failed: {e}")
-        # Return a simplified response with 207 Multi-Status
-        return JSONResponse(
-            status_code=status.HTTP_207_MULTI_STATUS,
-            content={
-                "status": "unhealthy",
-                "database": "disconnected",
-                "message": "Database connection is currently unavailable",
-            },
-        )
+    async with engine.connect() as conn:
+        await conn.execute(text("SELECT 1"))
+        await conn.commit()
+    return {"status": "healthy", "database": "connected"}
 
 
 @app.get("/")
 async def root():
     """Root endpoint with API information."""
     return {
-        "message": "Receipt Scanner API is running",
-        "docs_url": "/docs",
+        "status": "ok",
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
+        "docs_url": "/docs",
     }

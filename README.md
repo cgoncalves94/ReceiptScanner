@@ -69,8 +69,7 @@ pre-commit run --all-files
 app/
 ├── api/         # API routes
 ├── core/        # Core business logic
-├── models/      # Database models
-├── schemas/     # Pydantic schemas
+├── models/      # Database models and schemas
 ├── services/    # Business services
 ├── repositories/# Data access layer
 └── main.py      # App entry point

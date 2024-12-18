@@ -1,10 +1,9 @@
 import logging
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, UploadFile
 
 from app.api.deps import CategoryServiceDep, ReceiptServiceDep
 from app.core.config import settings
-from app.exceptions import DomainException, ErrorCode
 from app.integrations.scanner.receipt_scanner import ReceiptScanner
 from app.models import (
     CategoryCreate,
@@ -32,89 +31,70 @@ async def create_receipt_from_scan(
     Upload and scan a receipt image.
     The image will be processed and analyzed using AI to extract information.
     """
-    try:
-        # Save and analyze receipt
-        file_path = settings.UPLOADS_ORIGINAL_DIR / file.filename
-        with file_path.open("wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
-            await file.seek(0)
+    # Save and analyze receipt
+    file_path = settings.UPLOADS_ORIGINAL_DIR / file.filename
+    with file_path.open("wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+        await file.seek(0)
 
-        # Get existing categories to help with classification
-        existing_categories = await category_service.list()
-        existing_categories_dict = [
-            {"name": cat.name, "description": cat.description}
-            for cat in existing_categories
-        ]
+    # Get existing categories to help with classification
+    existing_categories = await category_service.list()
+    existing_categories_dict = [
+        {"name": cat.name, "description": cat.description}
+        for cat in existing_categories
+    ]
 
-        try:
-            analysis = await receipt_scanner.scan_and_analyze(
-                str(file_path), existing_categories=existing_categories_dict
-            )
-        except DomainException as e:
-            if e.code in (ErrorCode.VALIDATION_ERROR, ErrorCode.INTERNAL_ERROR):
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=e.message,
-                )
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=e.message,
-            )
+    analysis = await receipt_scanner.scan_and_analyze(
+        str(file_path), existing_categories=existing_categories_dict
+    )
 
-        # First, create all necessary categories
-        category_map = {}  # Store category_name -> category_id mapping
-        for item in analysis.items:
-            if item.category_name not in category_map:
-                category = await category_service.get_by_name(item.category_name)
-                if not category:
-                    category = await category_service.create(
-                        CategoryCreate(
-                            name=item.category_name,
-                            description=item.category_description,
-                        )
+    # First, create all necessary categories
+    category_map = {}  # Store category_name -> category_id mapping
+    for item in analysis.items:
+        if item.category_name not in category_map:
+            category = await category_service.get_by_name(item.category_name)
+            if not category:
+                category = await category_service.create(
+                    CategoryCreate(
+                        name=item.category_name,
+                        description=item.category_description,
                     )
-                category_map[item.category_name] = category.id
+                )
+            category_map[item.category_name] = category.id
 
-        # Then create the receipt
-        receipt = await service.create(
-            ReceiptCreate(
-                store_name=analysis.receipt.store_name,
-                total_amount=analysis.receipt.total_amount,
-                currency=analysis.receipt.currency,
-                image_path=analysis.receipt.image_path,
-                date=analysis.receipt.date,
-            )
+    # Then create the receipt
+    receipt = await service.create(
+        ReceiptCreate(
+            store_name=analysis.receipt.store_name,
+            total_amount=analysis.receipt.total_amount,
+            currency=analysis.receipt.currency,
+            image_path=analysis.receipt.image_path,
+            date=analysis.receipt.date,
         )
+    )
 
-        # Finally create all items with their category IDs
-        items_in = [
-            ReceiptItemCreate(
-                name=item.name,
-                price=item.price,
-                quantity=item.quantity,
-                currency=item.currency,
-                category_id=category_map[item.category_name],
-                receipt_id=receipt.id,
-            )
-            for item in analysis.items
-        ]
-
-        if items_in:
-            await service.create_items(items_in)
-
-        # Mark receipt as processed after successful item creation
-        await service.update(receipt.id, ReceiptUpdate(processed=True))
-
-        # Return complete receipt with items
-        return await service.get(receipt.id)
-
-    except Exception as e:
-        logger.error(f"Error processing receipt: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing receipt: {str(e)}",
+    # Finally create all items with their category IDs
+    items_in = [
+        ReceiptItemCreate(
+            name=item.name,
+            price=item.price,
+            quantity=item.quantity,
+            currency=item.currency,
+            category_id=category_map[item.category_name],
+            receipt_id=receipt.id,
         )
+        for item in analysis.items
+    ]
+
+    if items_in:
+        await service.create_items(items_in)
+
+    # Mark receipt as processed after successful item creation
+    await service.update(receipt.id, ReceiptUpdate(processed=True))
+
+    # Return complete receipt with items
+    return await service.get(receipt.id)
 
 
 @router.get("/", response_model=ReceiptsRead)
@@ -124,15 +104,8 @@ async def list_receipts(
     limit: int = 100,
 ) -> ReceiptsRead:
     """List all receipts with their items."""
-    try:
-        receipts = await service.list(skip=skip, limit=limit)
-        return ReceiptsRead(data=receipts, count=len(receipts))
-    except Exception as e:
-        logger.error(f"Error listing receipts: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error listing receipts: {str(e)}",
-        )
+    receipts = await service.list(skip=skip, limit=limit)
+    return ReceiptsRead(data=receipts, count=len(receipts))
 
 
 @router.get("/{receipt_id}", response_model=ReceiptRead)
@@ -141,18 +114,7 @@ async def get_receipt(
     service: ReceiptServiceDep,
 ) -> ReceiptRead:
     """Get a specific receipt by ID."""
-    try:
-        return await service.get(receipt_id=receipt_id)
-    except DomainException as e:
-        if e.code == ErrorCode.NOT_FOUND:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
-    except Exception as e:
-        logger.error(f"Error getting receipt: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting receipt: {str(e)}",
-        )
+    return await service.get(receipt_id=receipt_id)
 
 
 @router.get(
@@ -166,24 +128,8 @@ async def list_items_by_category(
     limit: int = 100,
 ) -> list[ReceiptItemsByCategory]:
     """List all receipt items in a category."""
-    try:
-        # Verify category exists
-        category = await category_service.get(category_id)
-        if not category:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Category not found",
-            )
-        return await receipt_service.list_items_by_category(
-            category_id=category_id, skip=skip, limit=limit
-        )
-    except DomainException as e:
-        if e.code == ErrorCode.NOT_FOUND:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
-    except Exception as e:
-        logger.error(f"Error getting items by category: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting items by category: {str(e)}",
-        )
+    # Verify category exists
+    await category_service.get(category_id)
+    return await receipt_service.list_items_by_category(
+        category_id=category_id, skip=skip, limit=limit
+    )

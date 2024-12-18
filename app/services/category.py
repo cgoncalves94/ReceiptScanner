@@ -1,9 +1,10 @@
 import logging
 from collections.abc import Sequence
 
+from fastapi import status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.exceptions import DomainException, ErrorCode
+from app.core.exceptions import DomainException, ErrorCode
 from app.models import CategoryCreate, CategoryRead, CategoryUpdate
 from app.repositories import CategoryRepository
 
@@ -21,8 +22,9 @@ class CategoryService:
         existing = await self.get_by_name(category_in.name)
         if existing:
             raise DomainException(
-                ErrorCode.ALREADY_EXISTS,
-                f"Category with name '{category_in.name}' already exists",
+                code=ErrorCode.ALREADY_EXISTS,
+                message=f"Category with name '{category_in.name}' already exists",
+                status_code=status.HTTP_409_CONFLICT,
             )
 
         db_obj = await self.category_repo.create(category_in=category_in)
@@ -33,7 +35,9 @@ class CategoryService:
         category = await self.category_repo.get(category_id=category_id)
         if not category:
             raise DomainException(
-                ErrorCode.NOT_FOUND, f"Category with ID {category_id} not found"
+                code=ErrorCode.NOT_FOUND,
+                message=f"Category with ID {category_id} not found",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
         return CategoryRead.model_validate(category)
 
@@ -55,7 +59,9 @@ class CategoryService:
         db_obj = await self.category_repo.get(category_id=category_id)
         if not db_obj:
             raise DomainException(
-                ErrorCode.NOT_FOUND, f"Category with ID {category_id} not found"
+                code=ErrorCode.NOT_FOUND,
+                message=f"Category with ID {category_id} not found",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
 
         # Update and return
@@ -64,7 +70,9 @@ class CategoryService:
         )
         if not updated_obj:
             raise DomainException(
-                ErrorCode.NOT_FOUND, f"Category with ID {category_id} not found"
+                code=ErrorCode.NOT_FOUND,
+                message=f"Category with ID {category_id} not found",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
         return CategoryRead.model_validate(updated_obj)
 
