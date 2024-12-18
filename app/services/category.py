@@ -4,8 +4,8 @@ from collections.abc import Sequence
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.exceptions import DomainException, ErrorCode
+from app.models import CategoryCreate, CategoryRead, CategoryUpdate
 from app.repositories import CategoryRepository
-from app.schemas import CategoryCreate, CategoryRead, CategoryUpdate
 
 logger = logging.getLogger(__name__)
 

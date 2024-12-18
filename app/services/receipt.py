@@ -4,8 +4,7 @@ from collections.abc import Sequence
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.exceptions import DomainException, ErrorCode
-from app.repositories import ReceiptRepository
-from app.schemas import (
+from app.models import (
     ReceiptCreate,
     ReceiptItemCreate,
     ReceiptItemRead,
@@ -13,6 +12,7 @@ from app.schemas import (
     ReceiptRead,
     ReceiptUpdate,
 )
+from app.repositories import ReceiptRepository
 
 logger = logging.getLogger(__name__)
 
@@ -22,57 +22,28 @@ class ReceiptService:
         self.db = db
         self.repository = ReceiptRepository(db)
 
+    # Receipt Operations
     async def create(self, receipt_in: ReceiptCreate) -> ReceiptRead:
         """Create a new receipt."""
         receipt_dict = await self.repository.create(receipt_in=receipt_in)
         return ReceiptRead.model_validate(receipt_dict)
 
-    async def create_items(
-        self, items_in: list[ReceiptItemCreate]
-    ) -> list[ReceiptItemRead]:
-        """Create receipt items."""
-        items_dict = await self.repository.create_items(items_in=items_in)
-        return [ReceiptItemRead.model_validate(item) for item in items_dict]
-
     async def get(self, receipt_id: int) -> ReceiptRead:
-        """Get a receipt by ID (without items)."""
-        receipt_dict = await self.repository.get(receipt_id=receipt_id)
-        if not receipt_dict:
+        """Get a receipt by ID with its items."""
+        receipt = await self.repository.get(receipt_id=receipt_id)
+        if not receipt:
             raise DomainException(
                 ErrorCode.NOT_FOUND, f"Receipt with ID {receipt_id} not found"
             )
-        return ReceiptRead.model_validate(receipt_dict)
 
-    async def get_with_items(self, receipt_id: int) -> ReceiptRead:
-        """Get a receipt by ID with items and categories."""
-        receipt_dict = await self.repository.get_with_items(receipt_id=receipt_id)
-        if not receipt_dict:
-            raise DomainException(
-                ErrorCode.NOT_FOUND, f"Receipt with ID {receipt_id} not found"
-            )
-        return ReceiptRead.model_validate(receipt_dict)
-
-    async def get_items_by_category(
-        self, *, category_id: int, skip: int = 0, limit: int = 100
-    ) -> Sequence[ReceiptItemsByCategory]:
-        """Get all items in a category with aggregated values."""
-        return await self.repository.get_items_by_category(
-            category_id=category_id,
-            skip=skip,
-            limit=limit,
-        )
+        # Get items for this receipt
+        items = await self.repository.list_receipt_items(receipt_id=receipt_id)
+        receipt.items = [ReceiptItemRead.model_validate(item) for item in items]
+        return receipt
 
     async def list(self, skip: int = 0, limit: int = 100) -> Sequence[ReceiptRead]:
-        """List all receipts."""
-        receipts = await self.repository.list(skip=skip, limit=limit)
-        return [ReceiptRead.model_validate(receipt) for receipt in receipts]
-
-    async def list_with_items(
-        self, skip: int = 0, limit: int = 100
-    ) -> Sequence[ReceiptRead]:
         """List all receipts with their items and categories."""
-        receipts = await self.repository.list_with_items(skip=skip, limit=limit)
-        return [ReceiptRead.model_validate(receipt) for receipt in receipts]
+        return await self.repository.list(skip=skip, limit=limit)
 
     async def update(self, receipt_id: int, receipt_in: ReceiptUpdate) -> ReceiptRead:
         """Update a receipt."""
@@ -94,3 +65,21 @@ class ReceiptService:
         """Delete a receipt."""
         await self.get(receipt_id)
         await self.repository.delete(receipt_id=receipt_id)
+
+    # Receipt Item Operations
+    async def create_items(
+        self, items_in: Sequence[ReceiptItemCreate]
+    ) -> Sequence[ReceiptItemRead]:
+        """Create receipt items."""
+        items_dict = await self.repository.create_items(items_in=items_in)
+        return [ReceiptItemRead.model_validate(item) for item in items_dict]
+
+    async def list_items_by_category(
+        self, *, category_id: int, skip: int = 0, limit: int = 100
+    ) -> Sequence[ReceiptItemsByCategory]:
+        """List all items in a category with aggregated values."""
+        return await self.repository.list_items_by_category(
+            category_id=category_id,
+            skip=skip,
+            limit=limit,
+        )

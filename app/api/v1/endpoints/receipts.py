@@ -1,5 +1,4 @@
 import logging
-from collections.abc import Sequence
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
@@ -7,13 +6,13 @@ from app.api.deps import CategoryServiceDep, ReceiptServiceDep
 from app.core.config import settings
 from app.exceptions import DomainException, ErrorCode
 from app.integrations.scanner.receipt_scanner import ReceiptScanner
-from app.schemas import (
+from app.models import (
     CategoryCreate,
     ReceiptCreate,
     ReceiptItemCreate,
     ReceiptItemsByCategory,
-    ReceiptListResponse,
     ReceiptRead,
+    ReceiptsRead,
     ReceiptUpdate,
 )
 
@@ -108,7 +107,7 @@ async def create_receipt_from_scan(
         await service.update(receipt.id, ReceiptUpdate(processed=True))
 
         # Return complete receipt with items
-        return await service.get_with_items(receipt.id)
+        return await service.get(receipt.id)
 
     except Exception as e:
         logger.error(f"Error processing receipt: {str(e)}")
@@ -118,34 +117,21 @@ async def create_receipt_from_scan(
         )
 
 
-@router.get("/", response_model=list[ReceiptListResponse])
+@router.get("/", response_model=ReceiptsRead)
 async def list_receipts(
     service: ReceiptServiceDep,
     skip: int = 0,
     limit: int = 100,
-) -> Sequence[ReceiptRead]:
-    """List all receipts with basic information (no items)."""
-    return await service.list(skip=skip, limit=limit)
-
-
-@router.get("/full/", response_model=list[ReceiptRead])
-async def list_receipts_with_items(
-    service: ReceiptServiceDep,
-    skip: int = 0,
-    limit: int = 100,
-) -> Sequence[ReceiptRead]:
+) -> ReceiptsRead:
     """List all receipts with their items."""
     try:
-        return await service.list_with_items(skip=skip, limit=limit)
-    except DomainException as e:
-        if e.code == ErrorCode.NOT_FOUND:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+        receipts = await service.list(skip=skip, limit=limit)
+        return ReceiptsRead(data=receipts, count=len(receipts))
     except Exception as e:
-        logger.error(f"Error listing receipts with items: {str(e)}")
+        logger.error(f"Error listing receipts: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error listing receipts with items: {str(e)}",
+            detail=f"Error listing receipts: {str(e)}",
         )
 
 
@@ -156,7 +142,7 @@ async def get_receipt(
 ) -> ReceiptRead:
     """Get a specific receipt by ID."""
     try:
-        return await service.get_with_items(receipt_id=receipt_id)
+        return await service.get(receipt_id=receipt_id)
     except DomainException as e:
         if e.code == ErrorCode.NOT_FOUND:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
@@ -172,14 +158,14 @@ async def get_receipt(
 @router.get(
     "/category/{category_id}/items", response_model=list[ReceiptItemsByCategory]
 )
-async def get_items_by_category(
+async def list_items_by_category(
     category_id: int,
     receipt_service: ReceiptServiceDep,
     category_service: CategoryServiceDep,
     skip: int = 0,
     limit: int = 100,
 ) -> list[ReceiptItemsByCategory]:
-    """Get all receipt items in a category."""
+    """List all receipt items in a category."""
     try:
         # Verify category exists
         category = await category_service.get(category_id)
@@ -188,7 +174,7 @@ async def get_items_by_category(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Category not found",
             )
-        return await receipt_service.get_items_by_category(
+        return await receipt_service.list_items_by_category(
             category_id=category_id, skip=skip, limit=limit
         )
     except DomainException as e:

@@ -1,10 +1,9 @@
-from collections.abc import Sequence
-
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CategoryServiceDep
 from app.exceptions import DomainException, ErrorCode
-from app.schemas import (
+from app.models import (
+    CategoriesRead,
     CategoryCreate,
     CategoryRead,
     CategoryUpdate,
@@ -27,14 +26,15 @@ async def create_category(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.get("/", response_model=list[CategoryRead])
+@router.get("/", response_model=CategoriesRead)
 async def list_categories(
     service: CategoryServiceDep,
     skip: int = 0,
     limit: int = 100,
-) -> Sequence[CategoryRead]:
+) -> CategoriesRead:
     """List all categories."""
-    return await service.list(skip=skip, limit=limit)
+    categories = await service.list(skip=skip, limit=limit)
+    return CategoriesRead(data=categories, count=len(categories))
 
 
 @router.get("/{category_id}", response_model=CategoryRead)
