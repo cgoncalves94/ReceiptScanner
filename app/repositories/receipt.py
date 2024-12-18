@@ -8,7 +8,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import Receipt, ReceiptItem
-from app.schemas.receipt import (
+from app.schemas import (
     ReceiptCreate,
     ReceiptItemCreate,
     ReceiptItemRead,
