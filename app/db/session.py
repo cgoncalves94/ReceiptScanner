@@ -1,21 +1,30 @@
 import logging
+from collections.abc import AsyncGenerator
 
-from sqlmodel import Session, create_engine
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Log the database URL (remove sensitive info first)
-db_url = settings.database_url
-safe_db_url = db_url.replace(settings.POSTGRES_PASSWORD, "****")
-logger.debug(f"Attempting to connect to database with URL: {safe_db_url}")
+# Create a single engine instance
+engine = create_async_engine(settings.database_url)
 
-# Create SQLAlchemy engine
-engine = create_engine(
-    settings.database_url,
-    pool_pre_ping=True,  # Enable connection pool "pre-ping" feature
-)
 
-# Create SessionLocal class for dependency injection
-SessionLocal = Session
+async def init_db() -> None:
+    """Initialize database by creating all tables."""
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """Get database session."""
+    async with AsyncSession(engine) as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

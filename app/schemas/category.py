@@ -1,7 +1,5 @@
 from pydantic import BaseModel
 
-from ..models import Category as DBCategory
-
 
 class CategoryBase(BaseModel):
     name: str
@@ -13,13 +11,12 @@ class CategoryCreate(CategoryBase):
 
 
 class CategoryUpdate(CategoryBase):
-    name: str | None = None
-    description: str | None = None
+    name: str | None
+    description: str | None
 
 
-class Category(CategoryBase):
+class CategoryRead(CategoryBase):
     id: int
 
     class Config:
         from_attributes = True
-        model = DBCategory

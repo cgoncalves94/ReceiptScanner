@@ -11,6 +11,7 @@ class ReceiptItem(SQLModel, table=True):
     name: str
     price: float
     quantity: float = 1.0
+    currency: str = Field(max_length=10)
     category_id: int | None = Field(
         default=None, foreign_key="category.id", ondelete="SET NULL"
     )
@@ -23,6 +24,7 @@ class Receipt(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     store_name: str = Field(index=True)
     total_amount: float
+    currency: str = Field(max_length=10)
     date: datetime
     image_path: str
     processed: bool = Field(default=False)

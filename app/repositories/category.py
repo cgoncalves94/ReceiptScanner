@@ -1,50 +1,83 @@
+import logging
 from collections.abc import Sequence
 
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import Category
-from app.schemas import CategoryCreate, CategoryUpdate
+from app.schemas import CategoryCreate, CategoryRead, CategoryUpdate
+
+logger = logging.getLogger(__name__)
 
 
 class CategoryRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def create(self, *, category_in: CategoryCreate) -> Category:
+    async def create(self, *, category_in: CategoryCreate) -> CategoryRead:
         """Create a new category."""
         db_obj = Category.model_validate(category_in)
         self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
-        return db_obj
+        await self.db.flush()
+        await self.db.refresh(db_obj)
 
-    def get(self, *, category_id: int) -> Category | None:
+        category = CategoryRead.model_validate(db_obj)
+        await self.db.commit()
+        return category
+
+    async def get(self, *, category_id: int) -> CategoryRead | None:
         """Get a category by ID."""
         statement = select(Category).filter_by(id=category_id)
-        return self.db.exec(statement).first()
+        result = await self.db.exec(statement)
+        db_obj = result.first()
+        if not db_obj:
+            return None
+        return CategoryRead.model_validate(db_obj)
 
-    def get_by_name(self, *, name: str) -> Category | None:
+    async def get_by_name(self, *, name: str) -> CategoryRead | None:
         """Get a category by name."""
         statement = select(Category).filter_by(name=name)
-        return self.db.exec(statement).first()
+        result = await self.db.exec(statement)
+        db_obj = result.first()
+        if not db_obj:
+            return None
+        return CategoryRead.model_validate(db_obj)
 
-    def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[Category]:
+    async def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[CategoryRead]:
         """List all categories with pagination."""
         statement = select(Category).offset(skip).limit(limit)
-        return self.db.exec(statement).all()
+        results = await self.db.exec(statement)
+        categories = results.all()
+        return [CategoryRead.model_validate(cat) for cat in categories]
 
-    def update(self, *, db_obj: Category, category_in: CategoryUpdate) -> Category:
+    async def update(
+        self, *, db_obj: CategoryRead, category_in: CategoryUpdate
+    ) -> CategoryRead:
         """Update a category."""
-        category_data = category_in.model_dump(exclude_unset=True)
-        db_obj.sqlmodel_update(category_data)
-        self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
-        return db_obj
+        # Get the actual model instance
+        statement = select(Category).filter_by(id=db_obj.id)
+        result = await self.db.exec(statement)
+        model_obj = result.first()
 
-    def delete(self, *, category_id: int) -> None:
+        # Update the model
+        category_data = category_in.model_dump(exclude_unset=True)
+        for key, value in category_data.items():
+            setattr(model_obj, key, value)
+
+        self.db.add(model_obj)
+        await self.db.flush()
+        await self.db.refresh(model_obj)
+
+        category = CategoryRead.model_validate(model_obj)
+        await self.db.commit()
+        return category
+
+    async def delete(self, *, category_id: int) -> None:
         """Delete a category."""
-        db_obj = self.get(category_id=category_id)
-        if db_obj:
-            self.db.delete(db_obj)
-            self.db.commit()
+        statement = select(Category).filter_by(id=category_id)
+        result = await self.db.exec(statement)
+        model_obj = result.first()
+        if model_obj:
+            await self.db.delete(model_obj)
+            await self.db.flush()
+            await self.db.commit()

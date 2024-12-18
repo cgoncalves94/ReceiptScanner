@@ -1,79 +1,98 @@
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
-from ..models import Receipt as DBReceipt
-from ..models import ReceiptItem as DBReceiptItem
-from .category import Category
+from .category import CategoryRead
 
 
 class ReceiptItemBase(BaseModel):
     name: str
     price: float
     quantity: float = 1.0
-    category_id: int | None = None
+    currency: str
+    category_id: int | None
 
 
 class ReceiptItemCreate(ReceiptItemBase):
-    pass
+    receipt_id: int | None
 
 
-class ReceiptItem(ReceiptItemBase):
+class ReceiptItemRead(ReceiptItemBase):
     id: int
     receipt_id: int
-    category: Category | None = None
+    category: CategoryRead | None
 
     class Config:
         from_attributes = True
-        model = DBReceiptItem
+
+
+class ReceiptItemsByCategory(BaseModel):
+    """Item in category with computed values."""
+
+    id: int
+    name: str
+    price: float
+    quantity: float
+    currency: str
+    category_id: int
+
+    @computed_field
+    @property
+    def total_cost(self) -> float:
+        """Calculate total cost (price * quantity)."""
+        return self.price * self.quantity
+
+    class Config:
+        from_attributes = True
+
+    @classmethod
+    def from_aggregation(cls, item: Any, category_id: int) -> "ReceiptItemsByCategory":
+        """Create from aggregated database results."""
+        return cls(
+            id=item.id,
+            name=item.name,
+            price=item.total_price / item.quantity if item.quantity > 0 else 0,
+            quantity=item.quantity,
+            currency=item.currency,
+            category_id=category_id,
+        )
 
 
 class ReceiptBase(BaseModel):
     store_name: str
     total_amount: float
+    currency: str
     image_path: str
-    date: datetime | None = None
+    date: datetime | None
 
 
 class ReceiptCreate(BaseModel):
-    store_name: str | None = None  # Will be filled by AI
-    total_amount: float | None = None  # Will be filled by AI
+    store_name: str | None
+    total_amount: float | None
+    currency: str
     image_path: str
-    date: datetime | None = None  # Will be filled by AI with receipt's actual date
+    date: datetime | None
 
 
-# Add this new class for updates
 class ReceiptUpdate(BaseModel):
     store_name: str | None = None
     total_amount: float | None = None
+    currency: str | None = None
     date: datetime | None = None
     processed: bool | None = None
 
     class Config:
         from_attributes = True
-        model = DBReceipt
 
 
-class Receipt(ReceiptBase):
+class ReceiptRead(ReceiptBase):
     id: int
     processed: bool = False
-    items: list[ReceiptItem]
+    items: list[ReceiptItemRead]
 
     class Config:
         from_attributes = True
-        model = DBReceipt
-
-
-class ReceiptResponse(BaseModel):
-    id: int
-    store_name: str
-    total_amount: float
-    date: datetime
-    items: list[ReceiptItem]
-
-    class Config:
-        from_attributes = True
-        model = DBReceipt
 
 
 class ReceiptListResponse(BaseModel):
@@ -82,9 +101,9 @@ class ReceiptListResponse(BaseModel):
     id: int
     store_name: str
     total_amount: float
+    currency: str
     date: datetime
     processed: bool
 
     class Config:
         from_attributes = True
-        model = DBReceipt

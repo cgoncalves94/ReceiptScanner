@@ -1,25 +1,25 @@
 """Schemas package initialization."""
 
-from .category import Category, CategoryCreate, CategoryUpdate
+from .category import CategoryCreate, CategoryRead, CategoryUpdate
 from .receipt import (
-    Receipt,
     ReceiptCreate,
-    ReceiptItem,
     ReceiptItemCreate,
+    ReceiptItemRead,
+    ReceiptItemsByCategory,
     ReceiptListResponse,
-    ReceiptResponse,
+    ReceiptRead,
     ReceiptUpdate,
 )
 
 __all__ = [
-    "Category",
     "CategoryCreate",
+    "CategoryRead",
     "CategoryUpdate",
-    "Receipt",
     "ReceiptCreate",
-    "ReceiptUpdate",
-    "ReceiptItem",
     "ReceiptItemCreate",
-    "ReceiptResponse",
+    "ReceiptItemRead",
+    "ReceiptItemsByCategory",
     "ReceiptListResponse",
+    "ReceiptRead",
+    "ReceiptUpdate",
 ]

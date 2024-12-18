@@ -1,70 +1,195 @@
+import logging
 from collections.abc import Sequence
 
-from sqlmodel import Session, select
+from sqlalchemy import func
+from sqlalchemy import select as sa_select
+from sqlalchemy.orm import selectinload
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import Receipt, ReceiptItem
-from app.schemas import ReceiptCreate, ReceiptUpdate
+from app.schemas.receipt import (
+    ReceiptCreate,
+    ReceiptItemCreate,
+    ReceiptItemRead,
+    ReceiptItemsByCategory,
+    ReceiptRead,
+    ReceiptUpdate,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class ReceiptRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def create(self, *, receipt_in: ReceiptCreate) -> Receipt:
+    async def create(self, *, receipt_in: ReceiptCreate) -> ReceiptRead:
         """Create a new receipt."""
         db_obj = Receipt.model_validate(receipt_in)
         self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
-        return db_obj
+        await self.db.flush()
+        await self.db.refresh(db_obj)
 
-    def create_many_items(self, *, items: list[ReceiptItem]) -> None:
+        # Convert to Pydantic model to detach from session
+        receipt = ReceiptRead(**db_obj.model_dump(), items=[])
+        await self.db.commit()
+        return receipt
+
+    async def create_items(
+        self, *, items_in: Sequence[ReceiptItemCreate]
+    ) -> Sequence[ReceiptItemRead]:
         """Create multiple receipt items."""
-        self.db.add_all(items)
-        self.db.commit()
+        db_objs = [ReceiptItem.model_validate(item) for item in items_in]
+        self.db.add_all(db_objs)
+        await self.db.flush()
 
-    def get(self, *, receipt_id: int) -> Receipt | None:
+        # First refresh all objects to get their IDs
+        for obj in db_objs:
+            await self.db.refresh(obj)
+
+        # Now load all items with their categories in a single query
+        statement = (
+            select(ReceiptItem)
+            .filter_by(receipt_id=db_objs[0].receipt_id)
+            .options(selectinload(ReceiptItem.category))
+        )
+        result = await self.db.exec(statement)
+        items = result.all()
+
+        # Convert to Pydantic models to detach from session
+        items_read = [ReceiptItemRead.model_validate(item) for item in items]
+
+        await self.db.commit()
+        return items_read
+
+    async def get(self, *, receipt_id: int) -> ReceiptRead | None:
         """Get a receipt by ID."""
         statement = select(Receipt).filter_by(id=receipt_id)
-        return self.db.exec(statement).first()
+        result = await self.db.exec(statement)
+        db_obj = result.first()
+        if not db_obj:
+            return None
 
-    def get_with_items(self, *, receipt_id: int) -> Receipt | None:
+        # Convert to Pydantic model to detach from session
+        return ReceiptRead(**db_obj.model_dump(), items=[])
+
+    async def get_with_items(self, *, receipt_id: int) -> ReceiptRead | None:
         """Get a receipt with its items by ID."""
-        statement = select(Receipt).filter_by(id=receipt_id)
-        result = self.db.exec(statement).first()
-        if result:
-            _ = result.items
-        return result
+        receipt = await self.get(receipt_id=receipt_id)
+        if not receipt:
+            return None
 
-    def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
+        # Get all items for this receipt
+        items = await self.get_receipt_items(receipt_id=receipt_id)
+
+        # Convert to Pydantic model to detach from session
+        receipt.items = [ReceiptItemRead.model_validate(item) for item in items]
+        return receipt
+
+    async def get_receipt_items(
+        self, *, receipt_id: int, skip: int = 0, limit: int = 100
+    ) -> Sequence[ReceiptItem]:
+        """Get all items in a receipt with pagination."""
+        statement = (
+            select(ReceiptItem)
+            .filter_by(receipt_id=receipt_id)
+            .options(selectinload(ReceiptItem.category))
+            .offset(skip)
+            .limit(limit)
+        )
+        results = await self.db.exec(statement)
+        return results.all()
+
+    async def get_items_by_category(
+        self, *, category_id: int, skip: int = 0, limit: int = 100
+    ) -> Sequence[ReceiptItemsByCategory]:
+        """Get all items in a category with pagination, grouped by name."""
+        # Create a subquery to get the aggregated values using SQLAlchemy's select
+        subquery = (
+            sa_select(
+                ReceiptItem.name,
+                func.min(ReceiptItem.id).label("id"),
+                func.sum(ReceiptItem.quantity).label("quantity"),
+                func.sum(ReceiptItem.price * ReceiptItem.quantity).label("total_price"),
+                func.min(ReceiptItem.currency).label("currency"),
+            )
+            .filter_by(category_id=category_id)
+            .group_by(ReceiptItem.name)
+            .offset(skip)
+            .limit(limit)
+        )
+
+        results = await self.db.exec(subquery)
+        items = results.all()
+
+        return [
+            ReceiptItemsByCategory.from_aggregation(
+                item,
+                category_id=category_id,
+            )
+            for item in items
+        ]
+
+    async def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[ReceiptRead]:
         """List receipts with pagination."""
         statement = select(Receipt).offset(skip).limit(limit)
-        return self.db.exec(statement).all()
+        result = await self.db.exec(statement)
+        receipts = result.all()
 
-    def list_with_items(self, *, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
+        # Convert to Pydantic models to detach from session
+        return [ReceiptRead(**receipt.model_dump(), items=[]) for receipt in receipts]
+
+    async def list_with_items(
+        self, *, skip: int = 0, limit: int = 100
+    ) -> Sequence[ReceiptRead]:
         """List receipts with their items."""
+        # Get all receipts with items
         statement = select(Receipt).offset(skip).limit(limit)
-        results = self.db.exec(statement).all()
-        for result in results:
-            _ = result.items
-        return results
+        results = await self.db.exec(statement)
+        receipts = results.all()
 
-    def update(self, *, db_obj: Receipt, receipt_in: ReceiptUpdate) -> Receipt:
+        # Load relationships
+        receipt_reads = []
+        for receipt in receipts:
+            items = await self.get_receipt_items(receipt_id=receipt.id)
+            receipt_read = ReceiptRead(
+                **receipt.model_dump(),
+                items=[ReceiptItemRead.model_validate(item) for item in items],
+            )
+            receipt_reads.append(receipt_read)
+
+        return receipt_reads
+
+    async def update(
+        self, *, receipt_id: int, receipt_in: ReceiptUpdate
+    ) -> ReceiptRead:
         """Update a receipt."""
+        statement = select(Receipt).filter_by(id=receipt_id)
+        result = await self.db.exec(statement)
+        model_obj = result.first()
+
+        # Update the model
         receipt_data = receipt_in.model_dump(exclude_unset=True)
-        db_obj.sqlmodel_update(receipt_data)
-        self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
-        return db_obj
+        for key, value in receipt_data.items():
+            setattr(model_obj, key, value)
 
-    def delete(self, *, receipt_id: int) -> None:
+        self.db.add(model_obj)
+        await self.db.flush()
+        await self.db.refresh(model_obj)
+
+        # Convert to Pydantic model to detach from session
+        receipt = ReceiptRead(**model_obj.model_dump(), items=[])
+
+        await self.db.commit()
+        return receipt
+
+    async def delete(self, *, receipt_id: int) -> None:
         """Delete a receipt."""
-        db_obj = self.get(receipt_id=receipt_id)
-        if db_obj:
-            self.db.delete(db_obj)
-            self.db.commit()
-
-    def rollback(self) -> None:
-        """Rollback the current transaction."""
-        self.db.rollback()
+        statement = select(Receipt).filter_by(id=receipt_id)
+        result = await self.db.exec(statement)
+        model_obj = result.first()
+        if model_obj:
+            await self.db.delete(model_obj)
+            await self.db.flush()
+            await self.db.commit()

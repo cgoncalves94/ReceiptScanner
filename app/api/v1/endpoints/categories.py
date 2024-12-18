@@ -1,67 +1,82 @@
 from collections.abc import Sequence
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import get_category_service
-from app.models import Category
-from app.schemas import CategoryCreate, CategoryUpdate
-from app.services import CategoryService
+from app.api.deps import CategoryServiceDep
+from app.exceptions import DomainException, ErrorCode
+from app.schemas import (
+    CategoryCreate,
+    CategoryRead,
+    CategoryUpdate,
+)
 
 router = APIRouter()
 
 
-@router.post("/", response_model=Category)
-def create_category(
+@router.post("/", response_model=CategoryRead)
+async def create_category(
     category_in: CategoryCreate,
-    category_service: CategoryService = Depends(get_category_service),
-) -> Category:
+    service: CategoryServiceDep,
+) -> CategoryRead:
     """Create a new category."""
     try:
-        return category_service.create_category(category_in)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return await service.create(category_in)
+    except DomainException as e:
+        if e.code == ErrorCode.ALREADY_EXISTS:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.get("/", response_model=list[Category])
-def list_categories(
+@router.get("/", response_model=list[CategoryRead])
+async def list_categories(
+    service: CategoryServiceDep,
     skip: int = 0,
     limit: int = 100,
-    category_service: CategoryService = Depends(get_category_service),
-) -> Sequence[Category]:
+) -> Sequence[CategoryRead]:
     """List all categories."""
-    return category_service.list_categories(skip=skip, limit=limit)
+    return await service.list(skip=skip, limit=limit)
 
 
-@router.get("/{category_id}", response_model=Category)
-def get_category(
-    category_id: int, category_service: CategoryService = Depends(get_category_service)
-) -> Category:
+@router.get("/{category_id}", response_model=CategoryRead)
+async def get_category(
+    category_id: int,
+    service: CategoryServiceDep,
+) -> CategoryRead:
     """Get a specific category by ID."""
     try:
-        return category_service.get_category(category_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        return await service.get(category_id)
+    except DomainException as e:
+        if e.code == ErrorCode.NOT_FOUND:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.put("/{category_id}", response_model=Category)
-def update_category(
+@router.put("/{category_id}", response_model=CategoryRead)
+async def update_category(
     category_id: int,
     category_in: CategoryUpdate,
-    category_service: CategoryService = Depends(get_category_service),
-) -> Category:
+    service: CategoryServiceDep,
+) -> CategoryRead:
     """Update a category."""
     try:
-        return category_service.update_category(category_id, category_in)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        return await service.update(category_id, category_in)
+    except DomainException as e:
+        if e.code == ErrorCode.NOT_FOUND:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
+        if e.code == ErrorCode.ALREADY_EXISTS:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.delete("/{category_id}")
-def delete_category(
-    category_id: int, category_service: CategoryService = Depends(get_category_service)
+@router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_category(
+    category_id: int,
+    service: CategoryServiceDep,
 ) -> None:
     """Delete a category."""
     try:
-        category_service.delete_category(category_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        await service.delete(category_id)
+    except DomainException as e:
+        if e.code == ErrorCode.NOT_FOUND:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)

@@ -1,26 +1,36 @@
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
+from typing import Annotated
 
 from fastapi import Depends
-from sqlmodel import Session
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.db.session import SessionLocal, engine
+from app.db.session import get_session
 from app.services import CategoryService, ReceiptService
 
 
-def get_db() -> Generator:
-    """Database dependency that creates a new session for each request."""
-    with SessionLocal(engine) as db:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Get database session."""
+    async for session in get_session():
         try:
-            yield db
+            yield session
         finally:
-            db.close()
+            await session.close()
 
 
-def get_receipt_service(db: Session = Depends(get_db)) -> ReceiptService:
-    """Get a ReceiptService instance."""
-    return ReceiptService(db)
+# Type alias for cleaner dependency injection
+DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
-def get_category_service(db: Session = Depends(get_db)) -> CategoryService:
-    """Get a CategoryService instance."""
-    return CategoryService(db)
+async def get_receipt_service(session: DbSession) -> ReceiptService:
+    """Get a ReceiptService instance with database session."""
+    return ReceiptService(session)
+
+
+async def get_category_service(session: DbSession) -> CategoryService:
+    """Get a CategoryService instance with database session."""
+    return CategoryService(session)
+
+
+# Type aliases for service dependencies
+ReceiptServiceDep = Annotated[ReceiptService, Depends(get_receipt_service)]
+CategoryServiceDep = Annotated[CategoryService, Depends(get_category_service)]
