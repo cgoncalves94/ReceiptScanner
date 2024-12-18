@@ -7,7 +7,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .category import Category, CategoryRead
 
 
-# ReceiptItem Models and Schemas
+# Base Models
 class ReceiptItemBase(SQLModel):
     """Base model defining core attributes for a receipt item."""
 
@@ -17,6 +17,17 @@ class ReceiptItemBase(SQLModel):
     currency: str = Field(max_length=10)
 
 
+class ReceiptBase(SQLModel):
+    """Base model containing essential receipt information."""
+
+    store_name: str = Field(min_length=1, max_length=255, index=True)
+    total_amount: float = Field(ge=0)
+    currency: str = Field(max_length=10)
+    image_path: str
+    date: datetime | None
+
+
+# Database Models
 class ReceiptItem(ReceiptItemBase, table=True):
     """Database model for storing individual items within a receipt."""
 
@@ -33,35 +44,6 @@ class ReceiptItem(ReceiptItemBase, table=True):
     category: Category | None = Relationship(back_populates="items")
 
 
-class ReceiptItemCreate(ReceiptItemBase):
-    """Schema for creating new receipt items with optional receipt and category associations."""
-
-    receipt_id: int | None
-    category_id: int | None
-
-
-class ReceiptItemRead(ReceiptItemBase):
-    """Schema for API responses containing receipt item details with category information."""
-
-    id: int
-    receipt_id: int
-    category: CategoryRead | None
-    category_id: int | None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# Receipt Models and Schemas
-class ReceiptBase(SQLModel):
-    """Base model containing essential receipt information."""
-
-    store_name: str = Field(min_length=1, max_length=255, index=True)
-    total_amount: float = Field(ge=0)
-    currency: str = Field(max_length=10)
-    image_path: str
-    date: datetime | None
-
-
 class Receipt(ReceiptBase, table=True):
     """Database model for storing complete receipt records with associated items."""
 
@@ -75,6 +57,14 @@ class Receipt(ReceiptBase, table=True):
         back_populates="receipt",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+
+
+# Request Schemas
+class ReceiptItemCreate(ReceiptItemBase):
+    """Schema for creating new receipt items with optional receipt and category associations."""
+
+    receipt_id: int | None
+    category_id: int | None
 
 
 class ReceiptCreate(SQLModel):
@@ -97,6 +87,18 @@ class ReceiptUpdate(SQLModel):
     processed: bool | None = None
 
 
+# Response Schemas
+class ReceiptItemRead(ReceiptItemBase):
+    """Schema for API responses containing receipt item details with category information."""
+
+    id: int
+    receipt_id: int
+    category: CategoryRead | None
+    category_id: int | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ReceiptRead(ReceiptBase):
     """Schema for API responses containing complete receipt information with items."""
 
@@ -107,7 +109,6 @@ class ReceiptRead(ReceiptBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# Response Schemas
 class ReceiptsRead(SQLModel):
     """Schema for paginated list of receipts with total count."""
 

@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from .receipt import ReceiptItem
 
 
-# Category Models and Schemas
+# Base Models
 class CategoryBase(SQLModel):
     """Base model defining core attributes for a category."""
 
@@ -16,6 +16,7 @@ class CategoryBase(SQLModel):
     description: str | None = Field(default=None, max_length=1000)
 
 
+# Database Models
 class Category(CategoryBase, table=True):
     """Database model for storing categories with associated receipt items."""
 
@@ -29,6 +30,7 @@ class Category(CategoryBase, table=True):
     )
 
 
+# Request Schemas
 class CategoryCreate(CategoryBase):
     """Schema for creating new categories."""
 
@@ -42,6 +44,7 @@ class CategoryUpdate(SQLModel):
     description: str | None = Field(default=None, max_length=1000)
 
 
+# Response Schemas
 class CategoryRead(CategoryBase):
     """Schema for API responses containing category details."""
 
@@ -52,7 +55,6 @@ class CategoryRead(CategoryBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# Response Schemas
 class CategoriesRead(SQLModel):
     """Schema for paginated list of categories with total count."""
 
