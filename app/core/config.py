@@ -77,10 +77,11 @@ class Settings(BaseSettings):
     @staticmethod
     def setup_logging():
         """Set up logging configuration."""
-        logging_format = "[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d - %(funcName)s() ] %(message)s"
+        logging_format = "[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d - %(funcName)s()] %(message)s"
         logging.basicConfig(
             level=logging.INFO,
             format=logging_format,
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
 
     def setup_directories(self):

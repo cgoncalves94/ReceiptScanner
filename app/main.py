@@ -1,8 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.v1.api import api_router
@@ -53,11 +55,24 @@ async def health_check():
     """Health check endpoint."""
     try:
         async with engine.connect() as conn:
-            await conn.execute("SELECT 1")
-        return {"status": "healthy"}
+            await conn.execute(text("SELECT 1"))
+            await conn.commit()
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"status": "healthy", "database": "connected"},
+        )
     except SQLAlchemyError as e:
+        # Log the full error for debugging
         logger.error(f"Database health check failed: {e}")
-        return {"status": "unhealthy", "detail": "Database connection failed"}
+        # Return a simplified response with 207 Multi-Status
+        return JSONResponse(
+            status_code=status.HTTP_207_MULTI_STATUS,
+            content={
+                "status": "unhealthy",
+                "database": "disconnected",
+                "message": "Database connection is currently unavailable",
+            },
+        )
 
 
 @app.get("/")
