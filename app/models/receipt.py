@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from typing import Any
 
 from pydantic import ConfigDict, computed_field
 from sqlmodel import Field, Relationship, SQLModel
@@ -11,6 +10,7 @@ from .category import Category, CategoryRead
 class ReceiptItemBase(SQLModel):
     """Base model defining core attributes for a receipt item."""
 
+    id: int | None = Field(default=None, primary_key=True, nullable=False)
     name: str = Field(min_length=1, max_length=255)
     price: float = Field(ge=0)
     quantity: float = Field(default=1.0, ge=0)
@@ -20,6 +20,7 @@ class ReceiptItemBase(SQLModel):
 class ReceiptBase(SQLModel):
     """Base model containing essential receipt information."""
 
+    id: int | None = Field(default=None, primary_key=True, nullable=False)
     store_name: str = Field(min_length=1, max_length=255, index=True)
     total_amount: float = Field(ge=0)
     currency: str = Field(max_length=10)
@@ -31,7 +32,6 @@ class ReceiptBase(SQLModel):
 class ReceiptItem(ReceiptItemBase, table=True):
     """Database model for storing individual items within a receipt."""
 
-    id: int | None = Field(default=None, primary_key=True)
     receipt_id: int = Field(foreign_key="receipt.id", ondelete="CASCADE")
     category_id: int | None = Field(
         default=None, foreign_key="category.id", ondelete="SET NULL"
@@ -47,7 +47,6 @@ class ReceiptItem(ReceiptItemBase, table=True):
 class Receipt(ReceiptBase, table=True):
     """Database model for storing complete receipt records with associated items."""
 
-    id: int | None = Field(default=None, primary_key=True)
     processed: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -60,11 +59,15 @@ class Receipt(ReceiptBase, table=True):
 
 
 # Request Schemas
-class ReceiptItemCreate(ReceiptItemBase):
+class ReceiptItemCreate(SQLModel):
     """Schema for creating new receipt items with optional receipt and category associations."""
 
-    receipt_id: int | None
-    category_id: int | None
+    name: str = Field(min_length=1, max_length=255)
+    price: float = Field(ge=0)
+    quantity: float = Field(default=1.0, ge=0)
+    currency: str = Field(max_length=10)
+    receipt_id: int | None = None
+    category_id: int | None = None
 
 
 class ReceiptCreate(SQLModel):
@@ -91,7 +94,6 @@ class ReceiptUpdate(SQLModel):
 class ReceiptItemRead(ReceiptItemBase):
     """Schema for API responses containing receipt item details with category information."""
 
-    id: int
     receipt_id: int
     category: CategoryRead | None
     category_id: int | None
@@ -102,7 +104,6 @@ class ReceiptItemRead(ReceiptItemBase):
 class ReceiptRead(ReceiptBase):
     """Schema for API responses containing complete receipt information with items."""
 
-    id: int
     processed: bool = False
     items: list[ReceiptItemRead]
 
@@ -135,13 +136,32 @@ class ReceiptItemsByCategory(SQLModel):
     model_config = ConfigDict(from_attributes=True)
 
     @classmethod
-    def from_aggregation(cls, item: Any, category_id: int) -> "ReceiptItemsByCategory":
-        """Create an instance from database aggregation results."""
-        return cls(
-            id=item.id,
-            name=item.name,
-            price=item.total_price / item.quantity if item.quantity > 0 else 0,
-            quantity=item.quantity,
-            currency=item.currency,
-            category_id=category_id,
-        )
+    def from_items(
+        cls, items: list[ReceiptItem], category_id: int
+    ) -> list["ReceiptItemsByCategory"]:
+        """Create aggregated items from a list of receipt items."""
+        # Group items by name
+        grouped_items: dict[str, list[ReceiptItem]] = {}
+        for item in items:
+            if item.name not in grouped_items:
+                grouped_items[item.name] = []
+            grouped_items[item.name].append(item)
+
+        # Create aggregated items
+        result = []
+        for name, group in grouped_items.items():
+            total_quantity = sum(item.quantity for item in group)
+            total_price = sum(item.price * item.quantity for item in group)
+
+            result.append(
+                cls(
+                    id=group[0].id,  # Use first item's ID
+                    name=name,
+                    price=total_price / total_quantity if total_quantity > 0 else 0,
+                    quantity=total_quantity,
+                    currency=group[0].currency,  # Use first item's currency
+                    category_id=category_id,
+                )
+            )
+
+        return result

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 class CategoryBase(SQLModel):
     """Base model defining core attributes for a category."""
 
+    id: int | None = Field(default=None, primary_key=True, nullable=False)
     name: str = Field(unique=True, index=True, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
 
@@ -20,7 +21,6 @@ class CategoryBase(SQLModel):
 class Category(CategoryBase, table=True):
     """Database model for storing categories with associated receipt items."""
 
-    id: int | None = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -31,10 +31,11 @@ class Category(CategoryBase, table=True):
 
 
 # Request Schemas
-class CategoryCreate(CategoryBase):
+class CategoryCreate(SQLModel):
     """Schema for creating new categories."""
 
-    pass
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
 
 
 class CategoryUpdate(SQLModel):
@@ -48,7 +49,6 @@ class CategoryUpdate(SQLModel):
 class CategoryRead(CategoryBase):
     """Schema for API responses containing category details."""
 
-    id: int
     created_at: datetime
     updated_at: datetime
 

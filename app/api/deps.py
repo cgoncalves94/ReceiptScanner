@@ -5,19 +5,16 @@ from typing import Annotated
 from fastapi import Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.db.session import get_session
-from app.services import CategoryService, ReceiptService
+from app.core.db import get_session
+from app.services import CategoryService, ReceiptScannerService, ReceiptService
 
 logger = logging.getLogger(__name__)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get database session."""
-    async for session in get_session():
-        try:
-            yield session
-        finally:
-            await session.close()
+    async with get_session() as session:
+        yield session
 
 
 # Type alias for cleaner dependency injection
@@ -34,6 +31,14 @@ async def get_category_service(session: DbSession) -> CategoryService:
     return CategoryService(session)
 
 
+def get_receipt_scanner_service() -> ReceiptScannerService:
+    """Get a ReceiptScannerService instance."""
+    return ReceiptScannerService()
+
+
 # Type aliases for service dependencies
 ReceiptServiceDep = Annotated[ReceiptService, Depends(get_receipt_service)]
 CategoryServiceDep = Annotated[CategoryService, Depends(get_category_service)]
+ReceiptScannerDep = Annotated[
+    ReceiptScannerService, Depends(get_receipt_scanner_service)
+]

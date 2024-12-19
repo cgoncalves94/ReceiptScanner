@@ -2,9 +2,8 @@ import logging
 
 from fastapi import APIRouter, File, UploadFile
 
-from app.api.deps import CategoryServiceDep, ReceiptServiceDep
+from app.api.deps import CategoryServiceDep, ReceiptScannerDep, ReceiptServiceDep
 from app.core.config import settings
-from app.integrations.scanner.receipt_scanner import ReceiptScanner
 from app.models import (
     CategoryCreate,
     ReceiptCreate,
@@ -18,13 +17,13 @@ from app.models import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-receipt_scanner = ReceiptScanner()
 
 
 @router.post("/scan/", response_model=ReceiptRead)
 async def create_receipt_from_scan(
     service: ReceiptServiceDep,
     category_service: CategoryServiceDep,
+    receipt_scanner: ReceiptScannerDep,
     file: UploadFile = File(...),
 ) -> ReceiptRead:
     """

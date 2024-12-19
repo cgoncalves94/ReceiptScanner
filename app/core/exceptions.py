@@ -1,45 +1,52 @@
-from enum import Enum
-
-from fastapi import status
+from fastapi import HTTPException, status
 
 
-class ErrorCode(Enum):
-    """Error codes for domain exceptions."""
+class ValidationError(HTTPException):
+    """Raised when data validation fails."""
 
-    # Domain errors
-    NOT_FOUND = "NOT_FOUND"
-    ALREADY_EXISTS = "ALREADY_EXISTS"
-    INVALID_INPUT = "INVALID_INPUT"
-    VALIDATION_ERROR = "VALIDATION_ERROR"
-    INTERNAL_ERROR = "INTERNAL_ERROR"
-
-    # Database errors
-    DATABASE_CONNECTION_ERROR = "DATABASE_CONNECTION_ERROR"
-    DATABASE_CONSTRAINT_ERROR = "DATABASE_CONSTRAINT_ERROR"
-    DATABASE_NOT_AVAILABLE = "DATABASE_NOT_AVAILABLE"
-
-
-class DomainException(Exception):
-    """Base exception for domain errors."""
-
-    def __init__(
-        self,
-        code: ErrorCode,
-        message: str,
-        status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
-    ):
-        self.code = code
-        self.message = message
-        self.status_code = status_code
-        super().__init__(message)
-
-
-class DatabaseConnectionError(DomainException):
-    """Raised when database connection fails."""
-
-    def __init__(self, message: str = "Database connection failed"):
+    def __init__(self, errors: list[dict[str, str]] | dict[str, str]):
         super().__init__(
-            code=ErrorCode.DATABASE_CONNECTION_ERROR,
-            message=message,
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"validation_errors": errors},
         )
+
+
+class ImageProcessingError(HTTPException):
+    """Raised when image processing fails."""
+
+    def __init__(self, detail: str):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
+class ExternalAPIError(HTTPException):
+    """Raised when external API calls fail."""
+
+    def __init__(self, detail: str):
+        super().__init__(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+
+
+class ResourceNotFoundError(HTTPException):
+    """Raised when a requested resource is not found."""
+
+    def __init__(self, resource: str, resource_id: int):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{resource} with ID {resource_id} not found",
+        )
+
+
+class ResourceAlreadyExistsError(HTTPException):
+    """Raised when attempting to create a resource that already exists."""
+
+    def __init__(self, resource: str, identifier: str):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{resource} with {identifier} already exists",
+        )
+
+
+class DatabaseError(HTTPException):
+    """Raised when a database operation fails."""
+
+    def __init__(self, detail: str = "Database operation failed"):
+        super().__init__(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)

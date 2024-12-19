@@ -4,6 +4,8 @@ from pathlib import Path
 import cv2
 from PIL import Image
 
+from app.core.exceptions import ImageProcessingError
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,12 +15,12 @@ class ImageProcessor:
         """Validate image format and dimensions."""
         # Validate image format
         if not isinstance(image, Image.Image):
-            raise ValueError("Invalid image format")
+            raise ImageProcessingError("Invalid image format")
 
         # Validate minimum dimensions
         min_width, min_height = 100, 100
         if image.width < min_width or image.height < min_height:
-            raise ValueError(
+            raise ImageProcessingError(
                 f"Image dimensions too small: {image.width}x{image.height}"
             )
 
@@ -34,25 +36,36 @@ class ImageProcessor:
         logger.info(f"Reading image from {image_path}")
         image = cv2.imread(image_path)
         if image is None:
-            raise ValueError(f"Failed to read image from {image_path}")
+            raise ImageProcessingError(
+                f"Failed to read image from {image_path}. File might be corrupted or in an unsupported format."
+            )
 
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        try:
+            # Convert to grayscale
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Very gentle contrast enhancement
-        clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(4, 4))
-        enhanced = clahe.apply(gray)
+            # Very gentle contrast enhancement
+            clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(4, 4))
+            enhanced = clahe.apply(gray)
 
-        # Convert back to PIL Image
-        pil_image = Image.fromarray(enhanced)
+            # Convert back to PIL Image
+            pil_image = Image.fromarray(enhanced)
 
-        # Validate the processed image
-        ImageProcessor.validate_image(pil_image)
-        return pil_image
+            # Validate the processed image
+            ImageProcessor.validate_image(pil_image)
+            return pil_image
+
+        except Exception as e:
+            logger.error(f"Error processing image: {str(e)}")
+            raise ImageProcessingError(f"Failed to process image: {str(e)}")
 
     @staticmethod
     def save_processed_image(processed_image: Image.Image, output_path: str) -> str:
         """Save the processed image for record keeping."""
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        processed_image.save(output_path)
-        return output_path
+        try:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            processed_image.save(output_path)
+            return output_path
+        except Exception as e:
+            logger.error(f"Error saving processed image: {str(e)}")
+            raise ImageProcessingError(f"Failed to save processed image: {str(e)}")

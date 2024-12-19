@@ -1,4 +1,10 @@
-"""Models package initialization."""
+"""Models package initialization.
+
+This package contains:
+1. SQLModel database models
+2. Pydantic schemas for request/response
+3. Domain models for business logic
+"""
 
 from .category import (
     CategoriesRead,
@@ -21,6 +27,7 @@ from .receipt import (
     ReceiptsRead,
     ReceiptUpdate,
 )
+from .receipt_analysis import AnalysisResult, ItemData, ReceiptData
 
 __all__ = [
     # Category Models & Schemas
@@ -42,4 +49,8 @@ __all__ = [
     "ReceiptItemRead",
     "ReceiptsRead",
     "ReceiptItemsByCategory",
+    # Analysis Models
+    "AnalysisResult",
+    "ItemData",
+    "ReceiptData",
 ]
