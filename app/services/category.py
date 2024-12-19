@@ -14,8 +14,8 @@ class CategoryService:
 
     async def create(self, category_in: CategoryCreate) -> CategoryRead:
         """Create a new category."""
-        # Check if category exists
-        existing = await self.repository.get_by_name(name=category_in.name)
+        # Check if category exists using service method
+        existing = await self.get_by_name(name=category_in.name)
         if existing:
             raise ResourceAlreadyExistsError("Category", f"name '{category_in.name}'")
 
