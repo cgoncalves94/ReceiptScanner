@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Sequence
 
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -6,8 +5,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.exceptions import ResourceAlreadyExistsError, ResourceNotFoundError
 from app.models import Category, CategoryCreate, CategoryRead, CategoryUpdate
 from app.repositories import CategoryRepository
-
-logger = logging.getLogger(__name__)
 
 
 class CategoryService:
@@ -51,9 +48,18 @@ class CategoryService:
     ) -> CategoryRead:
         """Update a category."""
         # Get existing category
+        await self.get(category_id=category_id)
+
+        # If name is being updated, check for uniqueness
+        if category_in.name is not None:
+            existing = await self.get_by_name(name=category_in.name)
+            if existing and existing.id != category_id:
+                raise ResourceAlreadyExistsError(
+                    "Category", f"name '{category_in.name}'"
+                )
+
+        # Get the DB object to update
         db_obj = await self.repository.get(category_id=category_id)
-        if not db_obj:
-            raise ResourceNotFoundError("Category", category_id)
 
         # Update through repository
         updated = await self.repository.update(
@@ -63,6 +69,7 @@ class CategoryService:
 
     async def delete(self, category_id: int) -> None:
         """Delete a category."""
-        was_deleted = await self.repository.delete(category_id=category_id)
-        if not was_deleted:
-            raise ResourceNotFoundError("Category", category_id)
+        # Check if exists using service's get method
+        await self.get(category_id=category_id)
+
+        await self.repository.delete(category_id=category_id)

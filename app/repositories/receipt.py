@@ -1,14 +1,11 @@
-import logging
 from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import col, delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import Receipt, ReceiptItem
-
-logger = logging.getLogger(__name__)
 
 
 class ReceiptRepository:
@@ -49,21 +46,16 @@ class ReceiptRepository:
 
     async def update(self, *, db_obj: Receipt, obj_in: dict[str, Any]) -> Receipt:
         """Update a receipt using existing DB object and update data."""
-        for field, value in obj_in.items():
-            setattr(db_obj, field, value)
-
+        db_obj.sqlmodel_update(obj_in)
         self.session.add(db_obj)
         await self.session.flush()
         await self.session.refresh(db_obj)
         return db_obj
 
-    async def delete(self, *, receipt_id: int) -> bool:
-        """Delete a receipt. Returns True if deleted, False if not found."""
-        db_obj = await self.get(receipt_id=receipt_id)
-        if not db_obj:
-            return False
-        await self.session.delete(db_obj)
-        return True
+    async def delete(self, *, receipt_id: int) -> None:
+        """Delete a receipt."""
+        statement = delete(Receipt).where(col(Receipt.id) == receipt_id)
+        await self.session.exec(statement)
 
     # Receipt Item Operations
     async def create_items(

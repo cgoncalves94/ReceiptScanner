@@ -102,18 +102,25 @@ class ReceiptItemRead(ReceiptItemBase):
 
 
 class ReceiptRead(ReceiptBase):
-    """Schema for API responses containing complete receipt information with items."""
+    """Schema for API responses containing receipt details."""
 
     processed: bool = False
-    items: list[ReceiptItemRead]
+    created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ReceiptWithItemsRead(ReceiptRead):
+    """Schema for API responses containing complete receipt information with items."""
+
+    items: list[ReceiptItemRead]
 
 
 class ReceiptsRead(SQLModel):
     """Schema for paginated list of receipts with total count."""
 
-    data: list[ReceiptRead]
+    data: list[ReceiptWithItemsRead]
     count: int
 
 

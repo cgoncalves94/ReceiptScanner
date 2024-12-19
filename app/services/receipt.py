@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Sequence
 
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -13,10 +12,9 @@ from app.models import (
     ReceiptItemsByCategory,
     ReceiptRead,
     ReceiptUpdate,
+    ReceiptWithItemsRead,
 )
 from app.repositories import ReceiptRepository
-
-logger = logging.getLogger(__name__)
 
 
 class ReceiptService:
@@ -32,10 +30,17 @@ class ReceiptService:
         # Create through repository
         created = await self.repository.create(obj_in=db_obj)
 
-        # Initialize with empty items list since it's a new receipt
-        return ReceiptRead(**created.model_dump(), items=[])
+        # Convert to read model
+        return ReceiptRead.model_validate(created)
 
-    async def get(self, receipt_id: int) -> ReceiptRead:
+    async def get(self, receipt_id: int) -> Receipt:
+        """Get a receipt by ID."""
+        db_obj = await self.repository.get(receipt_id=receipt_id)
+        if not db_obj:
+            raise ResourceNotFoundError("Receipt", receipt_id)
+        return db_obj
+
+    async def get_with_items(self, receipt_id: int) -> ReceiptWithItemsRead:
         """Get a receipt by ID with its items."""
         # Get receipt with items in a single query
         db_obj = await self.repository.get_with_items(receipt_id=receipt_id)
@@ -43,18 +48,20 @@ class ReceiptService:
             raise ResourceNotFoundError("Receipt", receipt_id)
 
         # Convert to read models
-        return ReceiptRead(
+        return ReceiptWithItemsRead(
             **db_obj.model_dump(exclude={"items"}),
             items=[
                 ReceiptItemRead.model_validate(item) for item in (db_obj.items or [])
             ],
         )
 
-    async def list(self, skip: int = 0, limit: int = 100) -> Sequence[ReceiptRead]:
+    async def list(
+        self, skip: int = 0, limit: int = 100
+    ) -> Sequence[ReceiptWithItemsRead]:
         """List all receipts with their items and categories."""
         receipts = await self.repository.list(skip=skip, limit=limit)
         return [
-            ReceiptRead(
+            ReceiptWithItemsRead(
                 **receipt.model_dump(exclude={"items"}),
                 items=[
                     ReceiptItemRead.model_validate(item)
@@ -66,28 +73,23 @@ class ReceiptService:
 
     async def update(self, receipt_id: int, receipt_in: ReceiptUpdate) -> ReceiptRead:
         """Update a receipt."""
-        # Get existing receipt
-        db_obj = await self.repository.get_with_items(receipt_id=receipt_id)
-        if not db_obj:
-            raise ResourceNotFoundError("Receipt", receipt_id)
+        # Get existing receipt and validate it exists
+        db_obj = await self.get(receipt_id=receipt_id)
 
         # Update through repository
         updated = await self.repository.update(
             db_obj=db_obj, obj_in=receipt_in.model_dump(exclude_unset=True)
         )
 
-        return ReceiptRead(
-            **updated.model_dump(exclude={"items"}),
-            items=[
-                ReceiptItemRead.model_validate(item) for item in (updated.items or [])
-            ],
-        )
+        # Convert to read model
+        return ReceiptRead.model_validate(updated)
 
     async def delete(self, receipt_id: int) -> None:
         """Delete a receipt."""
-        was_deleted = await self.repository.delete(receipt_id=receipt_id)
-        if not was_deleted:
-            raise ResourceNotFoundError("Receipt", receipt_id)
+        # Check if exists using service's get method
+        await self.get(receipt_id=receipt_id)
+
+        await self.repository.delete(receipt_id=receipt_id)
 
     # Receipt Item Operations
     async def create_items(

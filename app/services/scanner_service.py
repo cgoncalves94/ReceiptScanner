@@ -19,8 +19,8 @@ from app.models import (
     CategoryCreate,
     ReceiptCreate,
     ReceiptItemCreate,
-    ReceiptRead,
     ReceiptUpdate,
+    ReceiptWithItemsRead,
 )
 from app.services.category import CategoryService
 from app.services.receipt import ReceiptService
@@ -60,7 +60,7 @@ class ScannerService:
         file: UploadFile,
         receipt_service: ReceiptService,
         category_service: CategoryService,
-    ) -> ReceiptRead:
+    ) -> ReceiptWithItemsRead:
         """Process a receipt image and create all necessary database records.
 
         Args:
@@ -186,7 +186,7 @@ class ScannerService:
         items_and_categories: list[tuple[ReceiptItemCreate, CategoryCreate]],
         receipt_service: ReceiptService,
         category_service: CategoryService,
-    ) -> ReceiptRead:
+    ) -> ReceiptWithItemsRead:
         """Create all necessary database records in a single transaction."""
         # Create or get categories and build mapping
         category_map = await self._create_categories(
@@ -206,8 +206,8 @@ class ScannerService:
         # Mark receipt as processed
         await receipt_service.update(receipt.id, ReceiptUpdate(processed=True))
 
-        # Return complete receipt
-        return await receipt_service.get(receipt.id)
+        # Return complete receipt with items
+        return await receipt_service.get_with_items(receipt.id)
 
     # Data processing helpers
     def _create_receipt_data(

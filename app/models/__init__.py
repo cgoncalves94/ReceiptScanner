@@ -26,6 +26,7 @@ from .receipt import (
     ReceiptRead,
     ReceiptsRead,
     ReceiptUpdate,
+    ReceiptWithItemsRead,
 )
 
 __all__ = [
@@ -48,4 +49,5 @@ __all__ = [
     "ReceiptItemRead",
     "ReceiptsRead",
     "ReceiptItemsByCategory",
+    "ReceiptWithItemsRead",
 ]

@@ -1,13 +1,10 @@
-import logging
 from collections.abc import Sequence
 from typing import Any
 
-from sqlmodel import select
+from sqlmodel import col, delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import Category
-
-logger = logging.getLogger(__name__)
 
 
 class CategoryRepository:
@@ -39,18 +36,13 @@ class CategoryRepository:
 
     async def update(self, *, db_obj: Category, obj_in: dict[str, Any]) -> Category:
         """Update a category using existing DB object and update data."""
-        for field, value in obj_in.items():
-            setattr(db_obj, field, value)
-
+        db_obj.sqlmodel_update(obj_in)
         self.session.add(db_obj)
         await self.session.flush()
         await self.session.refresh(db_obj)
         return db_obj
 
-    async def delete(self, *, category_id: int) -> bool:
-        """Delete a category. Returns True if deleted, False if not found."""
-        db_obj = await self.get(category_id=category_id)
-        if not db_obj:
-            return False
-        await self.session.delete(db_obj)
-        return True
+    async def delete(self, *, category_id: int) -> None:
+        """Delete a category."""
+        statement = delete(Category).where(col(Category.id) == category_id)
+        await self.session.exec(statement)

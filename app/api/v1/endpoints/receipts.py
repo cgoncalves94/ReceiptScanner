@@ -5,8 +5,8 @@ from fastapi import APIRouter, File, UploadFile
 from app.api.deps import CategoryServiceDep, ReceiptScannerDep, ReceiptServiceDep
 from app.models import (
     ReceiptItemsByCategory,
-    ReceiptRead,
     ReceiptsRead,
+    ReceiptWithItemsRead,
 )
 
 logger = logging.getLogger(__name__)
@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/scan/", response_model=ReceiptRead)
+@router.post("/scan/", response_model=ReceiptWithItemsRead)
 async def create_receipt_from_scan(
     service: ReceiptServiceDep,
     category_service: CategoryServiceDep,
     receipt_scanner: ReceiptScannerDep,
     file: UploadFile = File(...),
-) -> ReceiptRead:
+) -> ReceiptWithItemsRead:
     """
     Upload and scan a receipt image.
     The image will be processed and analyzed using AI to extract information.
@@ -45,13 +45,13 @@ async def list_receipts(
     return ReceiptsRead(data=receipts, count=len(receipts))
 
 
-@router.get("/{receipt_id}", response_model=ReceiptRead)
+@router.get("/{receipt_id}", response_model=ReceiptWithItemsRead)
 async def get_receipt(
     receipt_id: int,
     service: ReceiptServiceDep,
-) -> ReceiptRead:
+) -> ReceiptWithItemsRead:
     """Get a specific receipt by ID."""
-    return await service.get(receipt_id=receipt_id)
+    return await service.get_with_items(receipt_id=receipt_id)
 
 
 @router.get(
