@@ -6,10 +6,10 @@ between repositories and external integrations.
 
 from .category import CategoryService
 from .receipt import ReceiptService
-from .receipt_scanner_service import ReceiptScannerService
+from .scanner_service import ScannerService
 
 __all__ = [
     "CategoryService",
     "ReceiptService",
-    "ReceiptScannerService",
+    "ScannerService",
 ]

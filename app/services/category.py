@@ -3,7 +3,6 @@ from collections.abc import Sequence
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.db import transactional
 from app.core.exceptions import ResourceAlreadyExistsError, ResourceNotFoundError
 from app.models import Category, CategoryCreate, CategoryRead, CategoryUpdate
 from app.repositories import CategoryRepository
@@ -16,7 +15,6 @@ class CategoryService:
         self.session = session
         self.repository = CategoryRepository(session)
 
-    @transactional
     async def create(self, category_in: CategoryCreate) -> CategoryRead:
         """Create a new category."""
         # Check if category exists
@@ -48,7 +46,6 @@ class CategoryService:
         categories = await self.repository.list(skip=skip, limit=limit)
         return [CategoryRead.model_validate(cat) for cat in categories]
 
-    @transactional
     async def update(
         self, category_id: int, category_in: CategoryUpdate
     ) -> CategoryRead:
@@ -64,7 +61,6 @@ class CategoryService:
         )
         return CategoryRead.model_validate(updated)
 
-    @transactional
     async def delete(self, category_id: int) -> None:
         """Delete a category."""
         was_deleted = await self.repository.delete(category_id=category_id)

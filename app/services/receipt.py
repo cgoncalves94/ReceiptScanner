@@ -3,7 +3,6 @@ from collections.abc import Sequence
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.db import transactional
 from app.core.exceptions import ResourceNotFoundError
 from app.models import (
     Receipt,
@@ -25,7 +24,6 @@ class ReceiptService:
         self.session = session
         self.repository = ReceiptRepository(session)
 
-    @transactional
     async def create(self, receipt_in: ReceiptCreate) -> ReceiptRead:
         """Create a new receipt."""
         # Convert input model to DB model
@@ -66,7 +64,6 @@ class ReceiptService:
             for receipt in receipts
         ]
 
-    @transactional
     async def update(self, receipt_id: int, receipt_in: ReceiptUpdate) -> ReceiptRead:
         """Update a receipt."""
         # Get existing receipt
@@ -86,7 +83,6 @@ class ReceiptService:
             ],
         )
 
-    @transactional
     async def delete(self, receipt_id: int) -> None:
         """Delete a receipt."""
         was_deleted = await self.repository.delete(receipt_id=receipt_id)
@@ -94,7 +90,6 @@ class ReceiptService:
             raise ResourceNotFoundError("Receipt", receipt_id)
 
     # Receipt Item Operations
-    @transactional
     async def create_items(
         self, items_in: Sequence[ReceiptItemCreate]
     ) -> Sequence[ReceiptItemRead]:

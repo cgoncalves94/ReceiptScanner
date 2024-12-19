@@ -4,8 +4,10 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import UploadFile
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
+from app.core.decorators import transactional
 from app.core.exceptions import (
     ExternalAPIError,
     ImageProcessingError,
@@ -26,7 +28,7 @@ from app.services.receipt import ReceiptService
 logger = logging.getLogger(__name__)
 
 
-class ReceiptScannerService:
+class ScannerService:
     """Service that orchestrates the receipt scanning process.
 
     This service is responsible for:
@@ -46,8 +48,9 @@ class ReceiptScannerService:
         "USD": "$",
     }
 
-    def __init__(self) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         """Initialize the service with required integrations."""
+        self.session = session
         self.image_processor = ImageProcessor()
         self.receipt_analyzer = GeminiReceiptAnalyzer()
 
@@ -176,6 +179,7 @@ class ReceiptScannerService:
         except (KeyError, TypeError, AttributeError) as e:
             raise ValidationError({"data": f"Invalid analysis result format: {str(e)}"})
 
+    @transactional
     async def _create_database_records(
         self,
         receipt_create: ReceiptCreate,
@@ -183,7 +187,7 @@ class ReceiptScannerService:
         receipt_service: ReceiptService,
         category_service: CategoryService,
     ) -> ReceiptRead:
-        """Create all necessary database records."""
+        """Create all necessary database records in a single transaction."""
         # Create or get categories and build mapping
         category_map = await self._create_categories(
             items_and_categories, category_service
