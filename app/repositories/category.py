@@ -27,7 +27,7 @@ class CategoryRepository:
 
     async def get_by_name(self, *, name: str) -> Category | None:
         """Get a category by name."""
-        statement = select(Category).filter_by(name=name)
+        statement = select(Category).where(Category.name == name)
         result = await self.session.exec(statement)
         return result.first()
 
