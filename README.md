@@ -66,7 +66,13 @@ app/
 
 ## Quick Start
 
-### Install Dependencies
+### 1. Start Database
+```bash
+# Start PostgreSQL database
+docker compose up db -d
+```
+
+### 2. Install Dependencies
 ```bash
 # Create and activate virtual environment
 uv venv
@@ -77,13 +83,13 @@ uv venv
 uv pip install -r requirements.txt
 ```
 
-### Setup Environment
+### 3. Setup Environment
 ```bash
 cp .env.example .env
 ```
 Then edit `.env` with your settings.
 
-## Running the App
+### 4. Run Application
 
 Start the development server (recommended):
 ```bash
@@ -93,6 +99,12 @@ bash scripts/start-dev.sh
 Or manually with uvicorn:
 ```bash
 uv run -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Alternatively, run everything with Docker Compose:
+```bash
+# Run both database and application
+docker compose up -d
 ```
 
 ## Development
