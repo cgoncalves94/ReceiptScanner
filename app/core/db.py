@@ -32,14 +32,12 @@ async def init_db() -> None:
     try:
         async with engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
-    except SQLAlchemyError as e:
-        # Check if it's a connection error
-        if "connection refused" in str(e).lower():
-            error_msg = "Could not connect to the database. Please ensure PostgreSQL is running on port 5432."
-        else:
-            error_msg = f"Database initialization failed: {str(e).split('\n')[0]}"
-        logger.error(error_msg)
-        raise DatabaseError(error_msg)
+            logger.info("Database initialized successfully")
+    except SQLAlchemyError:
+        # Direct error without status code
+        raise DatabaseError(
+            "Database connection failed. Please ensure PostgreSQL is running on port 5432"
+        ) from None
 
 
 # -------------------------------------------
@@ -84,9 +82,8 @@ def transactional(func: Callable[..., T]) -> Callable[..., T]:
         try:
             async with args[0].session.begin_nested():
                 return await func(*args, **kwargs)
-        except SQLAlchemyError as e:
-            error_msg = str(e).split("\n")[0]  # Get only the first line of the error
-            logger.error(f"Transaction error in {func.__name__}: {error_msg}")
-            raise DatabaseError(f"Database operation failed: {error_msg}")
+        except SQLAlchemyError:
+            # Let SQLAlchemy errors propagate for consistent handling
+            raise
 
     return wrapper

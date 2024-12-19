@@ -29,22 +29,18 @@ async def lifespan(_app: FastAPI):
         logger.info(
             f"Starting {settings.PROJECT_NAME} v{settings.VERSION} by {__author__}"
         )
-        logger.info("Initializing database...")
         try:
             await init_db()
-            logger.info("Database initialized successfully")
-        except (SQLAlchemyError, DatabaseError):
-            # Suppress traceback
+        except DatabaseError as e:
+            # Suppress traceback for startup errors
             sys.tracebacklimit = 0
-            error_msg = "Could not connect to the database. Please ensure PostgreSQL is running on port 5432."
-            logger.error(error_msg)
-            # Exit cleanly with just the error message
-            raise HTTPException(status_code=503, detail=error_msg) from None
+            # Pass through the original error without wrapping
+            raise e
         yield
     finally:
-        logger.info("Shutting down database connections...")
+        # Clean shutdown
         await engine.dispose()
-        logger.info("Database connections closed")
+        logger.info("Application shutdown complete")
 
 
 app = FastAPI(

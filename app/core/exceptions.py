@@ -49,4 +49,14 @@ class DatabaseError(HTTPException):
     """Raised when a database operation fails."""
 
     def __init__(self, detail: str = "Database operation failed"):
-        super().__init__(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)
+        # Clean up any existing status code prefix
+        if ": " in detail:
+            detail = detail.split(": ", 1)[1]
+        super().__init__(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=detail,
+        )
+
+    def __str__(self) -> str:
+        """Override string representation to avoid status code prefix."""
+        return str(self.detail)

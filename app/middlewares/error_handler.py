@@ -20,16 +20,22 @@ async def http_exception_handler(_: Request, exc: Exception) -> JSONResponse:
             content={"detail": "Internal server error"},
         )
 
-    # Suppress traceback for startup errors
-    if exc.status_code == 503 and "Database" in str(exc.detail):
+    # For startup errors, suppress the traceback
+    if isinstance(exc, DatabaseError):
         sys.tracebacklimit = 0
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.detail},
         )
+
+    # Clean up any status code prefix from the message
+    detail = str(exc.detail)
+    if str(exc.status_code) in detail:
+        detail = detail.split(":", 1)[-1].strip()
+
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail},
+        content={"detail": detail},
     )
 
 
@@ -41,18 +47,18 @@ async def sqlalchemy_exception_handler(_: Request, exc: Exception) -> JSONRespon
             content={"detail": "Internal server error"},
         )
 
-    # Get the root cause of the error
+    # Get the root cause of the error and log it for debugging
     root_error = getattr(exc, "orig", exc)
-    error_msg = str(root_error).split("\n")[0]  # Get only the first line of the error
+    logger.error(f"Database error: {str(root_error)}")
 
-    # Handle specific PostgreSQL errors
+    # Handle specific PostgreSQL errors with clean user messages
     if isinstance(root_error, errors.OperationalError):
         if "Connection refused" in str(root_error):
-            error_msg = "Database connection failed. Please ensure PostgreSQL is running on port 5432."
-            logger.error(error_msg)
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={"detail": error_msg},
+                content={
+                    "detail": "Database connection failed. Please ensure PostgreSQL is running on port 5432"
+                },
             )
         raise DatabaseError("Database unavailable")
     elif isinstance(root_error, errors.NumericValueOutOfRange):
@@ -74,7 +80,6 @@ async def sqlalchemy_exception_handler(_: Request, exc: Exception) -> JSONRespon
         )
 
     # Default internal error
-    logger.error(f"Database error: {error_msg}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Database error occurred"},

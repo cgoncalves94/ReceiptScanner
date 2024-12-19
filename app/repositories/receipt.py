@@ -1,4 +1,3 @@
-import builtins
 import logging
 from collections.abc import Sequence
 from typing import Any
@@ -68,7 +67,7 @@ class ReceiptRepository:
 
     # Receipt Item Operations
     async def create_items(
-        self, *, items_in: builtins.list[ReceiptItem]
+        self, *, items_in: Sequence[ReceiptItem]
     ) -> Sequence[ReceiptItem]:
         """Create multiple receipt items using DB models."""
         self.session.add_all(items_in)
