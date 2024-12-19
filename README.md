@@ -67,10 +67,12 @@ pre-commit run --all-files
 ## Project Structure
 ```
 app/
-├── api/         # API routes
-├── core/        # Core business logic
-├── models/      # Database models and schemas
-├── services/    # Business services
-├── repositories/# Data access layer
+├── api/          # API routes and endpoints
+├── core/         # Core business logic and utilities
+├── integrations/ # Third-party service integrations
+├── middlewares/  # Application middleware components
+├── models/       # Database models and schemas
+├── repositories/ # Data access layer
+├── services/     # Business services
 └── main.py      # App entry point
 ```
