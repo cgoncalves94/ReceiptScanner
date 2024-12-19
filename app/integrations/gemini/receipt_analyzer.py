@@ -56,6 +56,34 @@ class GeminiReceiptAnalyzer:
             text = text[:-3]
         return text.strip()
 
+    @staticmethod
+    def _build_analysis_prompt(existing_categories: list[dict] | None = None) -> str:
+        """Build the analysis prompt with optional existing categories.
+
+        Args:
+            existing_categories: Optional list of existing categories to guide analysis
+
+        Returns:
+            str: Complete analysis prompt with category guidance if provided
+        """
+        prompt = RECEIPT_ANALYSIS_PROMPT
+
+        if existing_categories:
+            categories_info = "\n".join(
+                [
+                    f"- {cat['name']}: {cat['description']}"
+                    for cat in existing_categories
+                ]
+            )
+            prompt += f"""
+
+Current Existing Categories:
+{categories_info}
+
+Note: Always try to use these existing categories first. Only create a new category if an item absolutely cannot fit into any of the categories above."""
+
+        return prompt
+
     async def analyze_receipt(
         self,
         image: Image.Image,
@@ -74,23 +102,8 @@ class GeminiReceiptAnalyzer:
             ExternalAPIError: If API call or response parsing fails
         """
         try:
-            # Build prompt with existing categories if provided
-            prompt = RECEIPT_ANALYSIS_PROMPT
-            if existing_categories:
-                categories_info = "\n".join(
-                    [
-                        f"- {cat['name']}: {cat['description']}"
-                        for cat in existing_categories
-                    ]
-                )
-                prompt += f"""
-
-Current Existing Categories:
-{categories_info}
-
-Note: Always try to use these existing categories first. Only create a new category if an item absolutely cannot fit into any of the categories above."""
-
-            # Call Gemini API with retry logic
+            # Build prompt and call Gemini API
+            prompt = self._build_analysis_prompt(existing_categories)
             response_text = await self._call_gemini_api(prompt, image)
 
             # Parse and validate response
