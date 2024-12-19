@@ -47,8 +47,10 @@ class CategoryService:
         self, category_id: int, category_in: CategoryUpdate
     ) -> CategoryRead:
         """Update a category."""
-        # Get existing category
-        await self.get(category_id=category_id)
+        # Get the DB model instance and validate existence
+        db_obj = await self.repository.get(category_id=category_id)
+        if not db_obj:
+            raise ResourceNotFoundError("Category", category_id)
 
         # If name is being updated, check for uniqueness
         if category_in.name is not None:
@@ -58,12 +60,10 @@ class CategoryService:
                     "Category", f"name '{category_in.name}'"
                 )
 
-        # Get the DB object to update
-        db_obj = await self.repository.get(category_id=category_id)
-
         # Update through repository
         updated = await self.repository.update(
-            db_obj=db_obj, obj_in=category_in.model_dump(exclude_unset=True)
+            db_obj=db_obj,
+            obj_in=category_in.model_dump(exclude_unset=True),
         )
         return CategoryRead.model_validate(updated)
 
