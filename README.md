@@ -1,6 +1,6 @@
 # Receipt Scanner API
 
-A modern FastAPI application for scanning and analyzing receipts using computer vision, built with enterprise-grade architecture patterns.
+A modern FastAPI application for scanning and analyzing receipts using Google's Gemini Vision API, built with clean architecture and robust production patterns.
 
 ## Architecture Overview
 
@@ -31,6 +31,18 @@ This project implements a clean, layered architecture with several modern design
 - **Database Error Mapping**: Clean SQL error translation
 - **Transaction Rollback**: Automatic on failure
 - **Type Safety**: Comprehensive type hints
+
+#### 5. Async Architecture
+- **Non-blocking Operations**: Fully async from API to database
+- **Concurrent Processing**: Efficient handling of parallel requests
+- **Resource Management**: Proper async context handling
+- **Event-driven Design**: Async service communication
+
+#### 6. Computer Vision & AI Pipeline
+- **Image Processing**: Advanced cleaning and perspective correction
+- **Gemini Vision API**: Intelligent text extraction and analysis
+- **Multi-stage Pipeline**: Combined CV preprocessing and AI analysis
+- **Prompt Engineering**: Structured data extraction from raw text
 
 ### Project Structure
 ```
