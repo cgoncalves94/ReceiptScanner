@@ -6,7 +6,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from starlette.exceptions import HTTPException
 
 from app import __author__
 from app.api.v1.api import api_router
@@ -14,7 +13,6 @@ from app.core.config import settings
 from app.core.db import engine, init_db
 from app.core.exceptions import DatabaseError
 from app.middlewares.error_handler import (
-    general_exception_handler,
     http_exception_handler,
     sqlalchemy_exception_handler,
 )
@@ -53,9 +51,8 @@ app = FastAPI(
 )
 
 # Add exception handlers
-app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, http_exception_handler)
 app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
-app.add_exception_handler(Exception, general_exception_handler)
 
 # Set up CORS middleware
 app.add_middleware(

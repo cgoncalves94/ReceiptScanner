@@ -13,39 +13,36 @@ logger = logging.getLogger(__name__)
 
 
 async def http_exception_handler(_: Request, exc: Exception) -> JSONResponse:
-    """Handle FastAPI's HTTPException with clean error messages."""
-    if not isinstance(exc, HTTPException):
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": "Internal server error"},
-        )
+    """Handle FastAPI's HTTPException and general exceptions with clean error messages."""
+    # Handle HTTPExceptions (including our custom exceptions)
+    if isinstance(exc, HTTPException):
+        # For startup errors, suppress the traceback
+        if isinstance(exc, DatabaseError):
+            sys.tracebacklimit = 0
 
-    # For startup errors, suppress the traceback
-    if isinstance(exc, DatabaseError):
-        sys.tracebacklimit = 0
+        # Clean up any status code prefix from the message
+        detail = str(exc.detail)
+        if str(exc.status_code) in detail:
+            detail = detail.split(":", 1)[-1].strip()
+
         return JSONResponse(
             status_code=exc.status_code,
-            content={"detail": exc.detail},
+            content={"detail": detail},
         )
 
-    # Clean up any status code prefix from the message
-    detail = str(exc.detail)
-    if str(exc.status_code) in detail:
-        detail = detail.split(":", 1)[-1].strip()
-
+    # Handle any unhandled exceptions
+    error_msg = f"{exc.__class__.__name__}: {str(exc)}"
+    logger.error(f"Unhandled error: {error_msg}", exc_info=True)
     return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": detail},
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error"},
     )
 
 
 async def sqlalchemy_exception_handler(_: Request, exc: Exception) -> JSONResponse:
     """Handle SQLAlchemy errors with appropriate status codes."""
     if not isinstance(exc, SQLAlchemyError):
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": "Internal server error"},
-        )
+        return await http_exception_handler(_, exc)
 
     # Get the root cause of the error and log it for debugging
     root_error = getattr(exc, "orig", exc)
@@ -83,14 +80,4 @@ async def sqlalchemy_exception_handler(_: Request, exc: Exception) -> JSONRespon
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Database error occurred"},
-    )
-
-
-async def general_exception_handler(_: Request, exc: Exception) -> JSONResponse:
-    """Handle any unhandled exceptions."""
-    error_msg = f"{exc.__class__.__name__}: {str(exc)}"
-    logger.error(f"Unhandled error: {error_msg}", exc_info=True)
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal server error"},
     )
