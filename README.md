@@ -74,5 +74,5 @@ app/
 ├── models/       # Database models and schemas
 ├── repositories/ # Data access layer
 ├── services/     # Business services
-└── main.py      # App entry point
+└── main.py       # App entry point
 ```
