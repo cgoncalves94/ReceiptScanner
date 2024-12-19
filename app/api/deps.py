@@ -31,7 +31,7 @@ async def get_category_service(session: DbSession) -> CategoryService:
     return CategoryService(session)
 
 
-def get_receipt_scanner_service() -> ReceiptScannerService:
+async def get_receipt_scanner_service() -> ReceiptScannerService:
     """Get a ReceiptScannerService instance."""
     return ReceiptScannerService()
 
