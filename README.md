@@ -107,6 +107,20 @@ Alternatively, run everything with Docker Compose:
 docker compose up -d
 ```
 
+## API Documentation
+
+FastAPI provides two interactive documentation interfaces:
+
+- **Swagger UI**: http://localhost:8000/docs
+  - Interactive endpoint testing
+  - Request/response schemas
+  - Real-time API exploration
+
+- **ReDoc**: http://localhost:8000/redoc
+  - Clean, organized documentation
+  - Searchable interface
+  - Better for reading
+
 ## Development
 
 ### Dependency Management
