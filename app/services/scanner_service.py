@@ -109,34 +109,33 @@ class ScannerService:
             Tuple of receipt data and list of items with their categories
 
         Raises:
-            ImageProcessingError: If image processing fails
+            ImageProcessingError: If image processing or reading fails
             ExternalAPIError: If AI analysis fails
+            ValidationError: If the analysis result is invalid
         """
-        # Validate and process image
-        processed_path, processed_image = await self._process_image(image_path)
-
         try:
-            # Analyze receipt with AI
+            # Process image
+            processed_path, processed_image = await self._process_image(image_path)
+
+            # Analyze with AI
             raw_result = await self.receipt_analyzer.analyze_receipt(
                 processed_image,
                 existing_categories=existing_categories,
             )
             return self._process_raw_result(raw_result, str(processed_path))
-        except Exception as e:
-            if "Failed to read image" in str(e):
-                raise ImageProcessingError(str(e))
-            raise ExternalAPIError(f"Failed to analyze receipt: {str(e)}")
+        except (ImageProcessingError, ExternalAPIError, ValidationError):
+            # Let known domain errors propagate up
+            raise
+        except Exception:
+            # Handle truly unexpected errors
+            logger.error("Unexpected error during receipt analysis", exc_info=True)
+            raise ExternalAPIError(
+                "An unexpected error occurred during receipt analysis"
+            )
 
     # Core processing methods
     async def _process_image(self, image_path: str) -> tuple[Path, Any]:
-        """Process the image and return the processed image path and data.
-
-        Returns:
-            Tuple of (processed image path, processed image data)
-
-        Raises:
-            ImageProcessingError: If image processing fails
-        """
+        """Process the image and return the processed image path and data."""
         # Validate image path
         original_path = Path(image_path)
         if not str(original_path).startswith(str(settings.UPLOADS_ORIGINAL_DIR)):
@@ -146,14 +145,19 @@ class ScannerService:
         if not original_path.exists():
             raise ImageProcessingError(f"Image file not found: {image_path}")
 
-        # Generate processed image path
-        processed_filename = f"processed_{original_path.name}"
-        processed_path = settings.UPLOADS_PROCESSED_DIR / processed_filename
+        try:
+            # Generate processed image path
+            processed_filename = f"processed_{original_path.name}"
+            processed_path = settings.UPLOADS_PROCESSED_DIR / processed_filename
 
-        # Process image - let ImageProcessingError propagate up
-        processed_image = self.image_processor.preprocess_image(str(original_path))
-        self.image_processor.save_processed_image(processed_image, str(processed_path))
-        return processed_path, processed_image
+            # Process image
+            processed_image = self.image_processor.preprocess_image(str(original_path))
+            self.image_processor.save_processed_image(
+                processed_image, str(processed_path)
+            )
+            return processed_path, processed_image
+        except OSError as e:
+            raise ImageProcessingError(f"Failed to save or process image: {str(e)}")
 
     def _process_raw_result(
         self,
@@ -308,7 +312,7 @@ class ScannerService:
                 content = await file.read()
                 buffer.write(content)
                 await file.seek(0)
-        except Exception as e:
+        except OSError as e:
             raise ImageProcessingError(f"Failed to save uploaded file: {str(e)}")
 
     def _normalize_currency(self, currency: str) -> str:

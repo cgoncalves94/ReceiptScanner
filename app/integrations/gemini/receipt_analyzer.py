@@ -2,6 +2,7 @@ import json
 import logging
 
 import google.generativeai as genai
+import httpx
 from PIL import Image
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -42,9 +43,14 @@ class GeminiReceiptAnalyzer:
                 raise ExternalAPIError("Empty response from Gemini API")
 
             return response.text
+        except httpx.RequestError as e:
+            raise ExternalAPIError(f"Network error while calling Gemini API: {str(e)}")
+        except httpx.HTTPStatusError as e:
+            raise ExternalAPIError(
+                f"Gemini API error (status {e.response.status_code}): {str(e)}"
+            )
         except Exception as e:
-            logger.error(f"Gemini API call failed: {str(e)}")
-            raise ExternalAPIError(f"Failed to analyze receipt: {str(e)}")
+            raise ExternalAPIError(f"Unexpected API error: {str(e)}")
 
     @staticmethod
     def _clean_response_text(text: str) -> str:
@@ -97,23 +103,13 @@ Note: Always try to use these existing categories first. Only create a new categ
 
         Returns:
             dict: Raw JSON response from Gemini API
-
-        Raises:
-            ExternalAPIError: If API call or response parsing fails
         """
+        # Build prompt and call Gemini API
+        prompt = self._build_analysis_prompt(existing_categories)
+        response_text = await self._call_gemini_api(prompt, image)
+
         try:
-            # Build prompt and call Gemini API
-            prompt = self._build_analysis_prompt(existing_categories)
-            response_text = await self._call_gemini_api(prompt, image)
-
             # Parse and validate response
-            try:
-                return json.loads(self._clean_response_text(response_text))
-            except json.JSONDecodeError as e:
-                raise ExternalAPIError(f"Failed to parse Gemini API response: {str(e)}")
-
-        except ExternalAPIError:
-            raise
-        except Exception as e:
-            logger.error(f"Error during receipt analysis: {str(e)}", exc_info=True)
-            raise ExternalAPIError(f"Failed to analyze receipt: {str(e)}")
+            return json.loads(self._clean_response_text(response_text))
+        except json.JSONDecodeError as e:
+            raise ExternalAPIError(f"Invalid JSON response from API: {str(e)}")
