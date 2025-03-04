@@ -1,48 +1,31 @@
 # Receipt Scanner API
 
-A modern FastAPI application for scanning and analyzing receipts using Google's Gemini Vision API, built with clean architecture and robust production patterns.
+A modern FastAPI application for scanning and analyzing receipts using Google's Gemini Vision API.
 
-## Architecture Overview
+## Technical Overview
 
-This project implements a clean, layered architecture with several modern design patterns working in harmony:
+This project demonstrates several modern architectural patterns and technologies:
 
-### Key Architectural Patterns
+### Clean Architecture & AI Pipeline
 
-#### 1. Clean Architecture
-- **API Layer**: FastAPI routes and endpoints
-- **Service Layer**: Business logic and orchestration
-- **Repository Layer**: Data access abstraction
-- **Domain Layer**: SQLModel/Pydantic models
+- **Computer Vision Processing**: OpenCV-based preprocessing for image enhancement
+- **Gemini Vision AI**: Advanced receipt text extraction and analysis
+- **Structured Data Extraction**: Intelligent parsing of receipt information
+- **Automatic Categorization**: Smart classification of receipt items
 
-#### 2. Database Patterns
-- **Repository Pattern**: Clean data access abstraction
-- **Unit of Work**: Transaction management via session handling
-- **Nested Transactions**: SAVEPOINT support for complex operations
-- **SQLModel Integration**: Unified ORM and API schemas
+### Modern Backend Architecture
 
-#### 3. Dependency Management
-- **Dependency Injection**: FastAPI's dependency system
-- **Service Factory Pattern**: Dynamic service instantiation
-- **Session Management**: Automated lifecycle handling
-- **Resource Cleanup**: Proper connection and session handling
+- **API Layer**: FastAPI routes with dependency injection and validation
+- **Service Layer**: Business logic orchestration with transaction management
+- **Repository Layer**: Clean data access abstraction with SQLModel
+- **Domain Layer**: Unified Pydantic/SQLModel schemas
 
-#### 4. Error Handling
-- **Global Exception Handlers**: Consistent error responses
-- **Database Error Mapping**: Clean SQL error translation
-- **Transaction Rollback**: Automatic on failure
-- **Type Safety**: Comprehensive type hints
+### Advanced Patterns
 
-#### 5. Async Architecture
-- **Non-blocking Operations**: Fully async from API to database
-- **Concurrent Processing**: Efficient handling of parallel requests
-- **Resource Management**: Proper async context handling
-- **Event-driven Design**: Async service communication
-
-#### 6. Computer Vision & AI Pipeline
-- **Image Processing**: Advanced cleaning and perspective correction
-- **Gemini Vision API**: Intelligent text extraction and analysis
-- **Multi-stage Pipeline**: Combined CV preprocessing and AI analysis
-- **Prompt Engineering**: Structured data extraction from raw text
+- **Repository Pattern**: Decoupled data access with clean abstractions
+- **Unit of Work**: Transaction management with SAVEPOINT support
+- **Async Architecture**: Non-blocking operations from API to database
+- **Error Handling**: Global exception handlers with proper mapping
 
 ### Project Structure
 ```
@@ -57,97 +40,31 @@ app/
 └── main.py       # Application bootstrap and configuration
 ```
 
-### Development Environment
+## How It Works
 
-- **Docker**: Containerized development environment
-- **Pre-commit**: Code quality hooks and formatting
-- **UV**: Modern Python package management
-- **Ruff**: Fast Python linting
+1. **Upload**: User submits a receipt image via the API
+2. **Process**: Image is enhanced using computer vision techniques
+3. **Analyze**: Gemini Vision AI extracts text and understands receipt structure
+4. **Extract**: Structured data is parsed from the AI response
+5. **Categorize**: Items are intelligently categorized
+6. **Store**: Data is saved to PostgreSQL with proper relationships
 
-## Quick Start
+## Key Endpoints
 
-### 1. Start Database
-```bash
-# Start PostgreSQL database
-docker compose up db -d
-```
-
-### 2. Install Dependencies
-```bash
-# Create and activate virtual environment
-uv venv
-```
-
-```bash
-# Install all dependencies (including dev tools)
-uv pip install -r requirements.txt
-```
-
-### 3. Setup Environment
-```bash
-cp .env.example .env
-```
-Then edit `.env` with your settings.
-
-### 4. Run Application
-
-Start the development server (recommended):
-```bash
-bash scripts/start-dev.sh
-```
-
-Or manually with uvicorn:
-```bash
-uv run -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Alternatively, run everything with Docker Compose:
-```bash
-# Run both database and application
-docker compose up -d
-```
-
-## API Documentation
-
-FastAPI provides two interactive documentation interfaces:
-
-- **Swagger UI**: http://localhost:8000/docs
-  - Interactive endpoint testing
-  - Request/response schemas
-  - Real-time API exploration
-
-- **ReDoc**: http://localhost:8000/redoc
-  - Clean, organized documentation
-  - Searchable interface
-  - Better for reading
+- `POST /api/v1/receipts/scan/` - Upload and analyze a receipt image
+- `GET /api/v1/receipts/` - List all processed receipts
+- `GET /api/v1/receipts/{receipt_id}` - Get a specific receipt with items
+- `GET /api/v1/categories/` - List all item categories
 
 ## Development
 
-### Dependency Management
+For detailed development setup and instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
-Add new dependencies (updates pyproject.toml):
-```bash
-uv pip install package_name
-```
+## API Documentation
 
-After adding dependencies, update requirements.txt:
-```bash
-pip-compile pyproject.toml
-```
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
 
-View installed packages:
-```bash
-uv pip list
-```
+## License
 
-### Pre-commit hooks
-
-Install hooks:
-```bash
-pre-commit install
-```
-
-Run hooks manually:
-```bash
-pre-commit run --all-files
-```
+See [LICENSE](LICENSE) file.

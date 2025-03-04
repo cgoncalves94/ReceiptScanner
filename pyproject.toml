@@ -4,44 +4,44 @@ version = "0.1.0"
 description = ""
 requires-python = ">=3.10,<4.0"
 dependencies = [
-    "fastapi[standard]<1.0.0,>=0.115.6",
-    "python-multipart<1.0.0,>=0.0.19",
-    "email-validator<3.0.0.0,>=2.1.0.post1",
-    "passlib[bcrypt]<2.0.0,>=1.7.4",
-    "tenacity<9.0.0,>=8.2.3",
-    "pydantic>=2.10.3",
-    "emails<1.0,>=0.6",
-    "jinja2<4.0.0,>=3.1.4",
-    "alembic<2.0.0,>=1.12.1",
-    "httpx<1.0.0,>=0.25.1",
-    "psycopg[binary]<4.0.0,>=3.1.13",
-    "sqlmodel<1.0.0,>=0.0.22",
-    "bcrypt==4.0.1",
-    "pydantic-settings<3.0.0,>=2.2.1",
-    "sentry-sdk[fastapi]<2.0.0,>=1.40.6",
-    "pyjwt<3.0.0,>=2.8.0",
-    "uvicorn<1.0.0,>=0.33.0",
-    "pydantic-ai<1.0.0,>=0.0.12",
-    "pillow<11.0.0,>=10.0.0",
-    "opencv-python<5.0.0,>=4.10.0.84",
-    "python-dotenv<2.0.0,>=1.0.1",
-    "google-cloud-vision<4.0.0,>=3.4.4",
-    "google-generativeai<1.0.0,>=0.3.1",
-    "python-jose<4.0.0,>=3.3.0",
-    "asyncpg<1.0.0,>=0.29.0"
+    "fastapi[standard]>=0.115.11",
+    "python-multipart>=0.0.20",
+    "email-validator>=2.1.0.post1",
+    "passlib[bcrypt]>=1.7.4",
+    "tenacity>=9.0.0",
+    "pydantic>=2.10.6",
+    "emails>=0.6",
+    "jinja2>=3.1.5",
+    "alembic>=1.14.1",
+    "httpx>=0.25.1",
+    "psycopg[binary]>=3.2.5",
+    "sqlmodel>=0.0.23",
+    "bcrypt>=4.3.0",
+    "pydantic-settings>=2.8.1",
+    "sentry-sdk[fastapi]>=2.22.0",
+    "pyjwt>=2.8.0",
+    "uvicorn>=0.33.0",
+    "pydantic-ai>=0.0.31",
+    "pillow>=11.1.0",
+    "opencv-python>=4.11.0.86",
+    "python-dotenv>=1.0.1",
+    "google-cloud-vision>=3.10.0",
+    "google-generativeai>=0.8.4",
+    "python-jose>=3.4.0",
+    "asyncpg>=0.29.0"
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
-[tool.uv]
+[project.optional-dependencies]
 dev-dependencies = [
-    "pytest<8.0.0,>=7.4.3",
-    "mypy<2.0.0,>=1.8.0",
-    "ruff<1.0.0,>=0.2.2",
-    "pre-commit<4.0.0,>=3.6.2",
-    "types-passlib<2.0.0.0,>=1.7.7.20240106",
-    "coverage<8.0.0,>=7.4.3",
+    "pytest>=8.3.5",
+    "mypy>=1.15.0",
+    "ruff>=0.9.9",
+    "pre-commit>=4.1.0",
+    "types-passlib>=1.7.7.20241221",
+    "coverage>=7.6.12",
 ]
 
 [build-system]

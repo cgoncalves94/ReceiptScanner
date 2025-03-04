@@ -168,3 +168,6 @@ postgres_data/
 .env
 .ruff_cache/
 uploads/
+
+.cursor/
+.logfire/
