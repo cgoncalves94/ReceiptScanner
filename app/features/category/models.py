@@ -17,10 +17,12 @@ class CategoryBase(SQLModel):
         index=True,
         min_length=1,
         max_length=255,
+        description="Name of the category",
     )
     description: str | None = Field(
         default=None,
         max_length=1000,
+        description="Description of the category",
     )
 
 
@@ -31,9 +33,16 @@ class Category(CategoryBase, table=True):
         default=None,
         primary_key=True,
         nullable=False,
+        description="Unique identifier for the category",
     )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Date and time the category was created",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Date and time the category was last updated",
+    )
 
     # Relationships
     items: list["ReceiptItem"] = Relationship(
@@ -46,7 +55,7 @@ class Category(CategoryBase, table=True):
 class CategoryCreate(CategoryBase):
     """Schema for creating a category."""
 
-    model_config = ConfigDict(from_attributes=True)
+    pass
 
 
 class CategoryUpdate(SQLModel):
@@ -56,13 +65,13 @@ class CategoryUpdate(SQLModel):
         default=None,
         min_length=1,
         max_length=255,
+        description="Name of the category",
     )
     description: str | None = Field(
         default=None,
         max_length=1000,
+        description="Description of the category",
     )
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # Response Schemas

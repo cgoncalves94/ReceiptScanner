@@ -33,7 +33,6 @@ class Settings(BaseSettings):
 
     # File upload settings
     UPLOAD_DIR: Path = Path("uploads")
-    UPLOADS_ORIGINAL_DIR: Path = UPLOAD_DIR / "original"
 
     # CORS Settings
     ALLOWED_ORIGINS: list[AnyHttpUrl] = []
@@ -80,7 +79,6 @@ class Settings(BaseSettings):
     def setup_directories(self) -> None:
         """Create necessary directories."""
         self.UPLOAD_DIR.mkdir(exist_ok=True)
-        self.UPLOADS_ORIGINAL_DIR.mkdir(exist_ok=True, parents=True)
 
 
 # Create global settings instance

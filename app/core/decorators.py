@@ -33,11 +33,6 @@ def transactional(func: Callable[..., T]) -> Callable[..., T]:
 
         # Get instance from args (typically 'self')
         instance = args[0]
-
-        # Debug information
-        logger.info(f"Executing transactional method: {func.__name__}")
-        logger.info(f"Instance type: {type(instance)}")
-
         # Try to get session from instance
         session = getattr(instance, "session", None)
 
@@ -50,10 +45,8 @@ def transactional(func: Callable[..., T]) -> Callable[..., T]:
 
         # Execute with transaction
         try:
-            logger.info(f"Starting nested transaction for {func.__name__}")
             async with session.begin_nested():
                 result = await func(*args, **kwargs)
-                logger.info(f"Nested transaction completed for {func.__name__}")
                 return result
         except SQLAlchemyError as e:
             logger.error(f"Database error in {func.__name__}: {str(e)}")

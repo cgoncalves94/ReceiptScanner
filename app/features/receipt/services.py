@@ -1,19 +1,17 @@
 import os
 import uuid
 from collections.abc import Sequence
-from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import UploadFile
 from PIL import Image
-from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.decorators import transactional
 from app.core.exceptions import NotFoundError, ServiceUnavailableError
 from app.features.category.models import CategoryCreate
-from app.features.category.service import CategoryService
+from app.features.category.services import CategoryService
 from app.integrations.pydantic_ai.receipt_agent import analyze_receipt
 
 from .models import (
@@ -23,21 +21,26 @@ from .models import (
     ReceiptItemCreate,
     ReceiptUpdate,
 )
+from .repositories import ReceiptRepository
 
 
 class ReceiptService:
     """Service for managing receipts and receipt items."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        receipt_repository: ReceiptRepository,
+        category_service: CategoryService,
+    ) -> None:
         self.session = session
-        self.category_service = CategoryService(session)
+        self.repository = receipt_repository
+        self.category_service = category_service
 
     async def create(self, receipt_in: ReceiptCreate) -> Receipt:
         """Create a new receipt."""
         receipt = Receipt(**receipt_in.model_dump())
-        self.session.add(receipt)
-        await self.session.flush()
-        return receipt
+        return await self.repository.create(receipt)
 
     @transactional
     async def create_from_scan(self, image_file: UploadFile) -> Receipt:
@@ -58,7 +61,7 @@ class ReceiptService:
         # Generate unique filename for the image
         file_ext = os.path.splitext(image_file.filename or "receipt.jpg")[1]
         unique_filename = f"{uuid.uuid4()}{file_ext}"
-        image_path = settings.UPLOADS_ORIGINAL_DIR / unique_filename
+        image_path = settings.UPLOAD_DIR / unique_filename
 
         # Save the uploaded file
         with open(image_path, "wb") as f:
@@ -91,6 +94,7 @@ class ReceiptService:
             receipt = await self.create(receipt_create)
 
             # Process each item
+            receipt_items: list[ReceiptItem] = []
             for item_data in receipt_data.items:
                 # Get or create category
                 category = await self.category_service.get_by_name(
@@ -113,7 +117,7 @@ class ReceiptService:
                 total_price = round(item_data.price, 2)
 
                 # Create receipt item
-                item_create = ReceiptItemCreate(
+                receipt_item = ReceiptItem(
                     name=item_data.name,
                     quantity=quantity,
                     unit_price=Decimal(str(unit_price)),
@@ -122,17 +126,13 @@ class ReceiptService:
                     category_id=category.id,
                     receipt_id=receipt.id,
                 )
+                receipt_items.append(receipt_item)
 
-                # Add item to database
-                receipt_item = ReceiptItem(**item_create.model_dump())
-                self.session.add(receipt_item)
+            # Add items to database
+            await self.repository.create_items(receipt_items)
 
-            await self.session.flush()
-
-            # Explicitly refresh the receipt to load all relationships
-            await self.session.refresh(receipt, ["items"])
-
-            return receipt
+            # Get the updated receipt with items
+            return await self.get(receipt.id)
 
         except Exception as e:
             # Error will be caught by the transactional decorator
@@ -140,59 +140,30 @@ class ReceiptService:
 
     async def get(self, receipt_id: int) -> Receipt:
         """Get a receipt by ID."""
-        stmt = select(Receipt).where(Receipt.id == receipt_id)
-        receipt = await self.session.scalar(stmt)
+        receipt = await self.repository.get(receipt_id)
         if not receipt:
             raise NotFoundError(f"Receipt with id {receipt_id} not found")
-
-        # Ensure items are loaded
-        await self.session.refresh(receipt, ["items"])
-
         return receipt
 
     async def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
         """List all receipts with pagination."""
-
-        # Get paginated results
-        stmt = select(Receipt).offset(skip).limit(limit)
-        results = await self.session.scalars(stmt)
-        receipts = results.all()
-
-        # Ensure items are loaded for each receipt
-        for receipt in receipts:
-            await self.session.refresh(receipt, ["items"])
-
-        return receipts
+        return await self.repository.list(skip=skip, limit=limit)
 
     async def update(self, receipt_id: int, receipt_in: ReceiptUpdate) -> Receipt:
         """Update a receipt."""
         # Get the receipt from the database
-        stmt = select(Receipt).where(Receipt.id == receipt_id)
-        receipt = await self.session.scalar(stmt)
-        if not receipt:
-            raise NotFoundError(f"Receipt with id {receipt_id} not found")
+        receipt = await self.get(receipt_id)
 
-        # Update fields using sqlmodel_update
+        # Prepare update data
         update_data = receipt_in.model_dump(exclude_unset=True, exclude={"id"})
-        receipt.sqlmodel_update(update_data)
 
-        receipt.updated_at = datetime.now(UTC)
-        await self.session.flush()
-
-        # Ensure items are loaded
-        await self.session.refresh(receipt, ["items"])
-
-        return receipt
+        # Pass to repository for update
+        return await self.repository.update(receipt, update_data)
 
     async def delete(self, receipt_id: int) -> None:
         """Delete a receipt."""
-        # Get the receipt from the database
-        stmt = select(Receipt).where(Receipt.id == receipt_id)
-        receipt = await self.session.scalar(stmt)
-        if not receipt:
-            raise NotFoundError(f"Receipt with id {receipt_id} not found")
-
-        await self.session.delete(receipt)
+        receipt = await self.get(receipt_id)
+        await self.repository.delete(receipt)
 
     # Receipt Item Operations
     async def create_items(
@@ -200,18 +171,13 @@ class ReceiptService:
     ) -> Sequence[ReceiptItem]:
         """Create multiple receipt items."""
         # Get the receipt from the database
-        stmt = select(Receipt).where(Receipt.id == receipt_id)
-        receipt = await self.session.scalar(stmt)
-        if not receipt:
-            raise NotFoundError(f"Receipt with id {receipt_id} not found")
+        receipt = await self.get(receipt_id)
 
         items = [ReceiptItem(**item.model_dump()) for item in items_in]
         for item in items:
             item.receipt_id = receipt.id
-            self.session.add(item)
 
-        await self.session.flush()
-        return items
+        return await self.repository.create_items(items)
 
     async def list_items_by_category(
         self, category_id: int, skip: int = 0, limit: int = 100
@@ -222,11 +188,6 @@ class ReceiptService:
         if not category:
             raise NotFoundError(f"Category with id {category_id} not found")
 
-        stmt = (
-            select(ReceiptItem)
-            .where(ReceiptItem.category_id == category_id)
-            .offset(skip)
-            .limit(limit)
+        return await self.repository.list_items_by_category(
+            category_id=category_id, skip=skip, limit=limit
         )
-        results = await self.session.scalars(stmt)
-        return results.all()

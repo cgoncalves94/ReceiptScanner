@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from pydantic import computed_field
+from pydantic import ConfigDict, computed_field
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -13,22 +13,40 @@ if TYPE_CHECKING:
 class ReceiptBase(SQLModel):
     """Base model for receipt data."""
 
-    store_name: str = Field(index=True)
-    total_amount: Decimal = Field(max_digits=10, decimal_places=2)
+    store_name: str = Field(
+        index=True,
+        max_length=255,
+        description="Name of the store where the purchase was made",
+    )
+    total_amount: Decimal = Field(
+        max_digits=10, decimal_places=2, description="Total amount of the purchase"
+    )
     currency: str = Field(
         description="Currency symbol for total amount (e.g., $, £, €)"
     )
-    purchase_date: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    purchase_date: datetime = Field(
+        default_factory=lambda: datetime.now(UTC), description="Date of purchase"
+    )
+    image_path: str = Field(
+        unique=True, description="Path to the image file of the receipt"
+    )
 
 
 # Receipt model for database
 class Receipt(ReceiptBase, table=True):
     """Receipt model for database."""
 
-    id: int | None = Field(default=None, primary_key=True)
-    image_path: str = Field(unique=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    id: int | None = Field(
+        default=None, primary_key=True, description="Unique identifier for the receipt"
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Date and time the receipt was created",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Date and time the receipt was last updated",
+    )
 
     # Relationships
     items: list["ReceiptItem"] = Relationship(
@@ -41,12 +59,23 @@ class Receipt(ReceiptBase, table=True):
 class ReceiptItemBase(SQLModel):
     """Base model for receipt item data."""
 
-    name: str = Field(index=True)
-    quantity: int = Field(ge=1)
-    unit_price: Decimal = Field(max_digits=10, decimal_places=2)
-    total_price: Decimal = Field(max_digits=10, decimal_places=2)
+    name: str = Field(index=True, max_length=255, description="Name of the item")
+    quantity: int = Field(ge=1, description="Quantity of the item")
+    unit_price: Decimal = Field(
+        max_digits=10, decimal_places=2, description="Unit price of the item"
+    )
+    total_price: Decimal = Field(
+        max_digits=10, decimal_places=2, description="Total price of the item"
+    )
     currency: str = Field(description="Currency symbol (e.g., $, £, €)")
-    category_id: int | None = Field(default=None, foreign_key="category.id")
+    category_id: int | None = Field(
+        default=None,
+        foreign_key="category.id",
+        description="ID of the category the item belongs to",
+    )
+    receipt_id: int = Field(
+        foreign_key="receipt.id", description="ID of the receipt the item belongs to"
+    )
 
     @computed_field
     @property
@@ -60,9 +89,14 @@ class ReceiptItem(ReceiptItemBase, table=True):
     """Receipt item model for database."""
 
     id: int | None = Field(default=None, primary_key=True)
-    receipt_id: int = Field(foreign_key="receipt.id")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Date and time the item was created",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Date and time the item was last updated",
+    )
 
     # Relationships
     receipt: Receipt = Relationship(back_populates="items")
@@ -76,34 +110,68 @@ class ReceiptItem(ReceiptItemBase, table=True):
 class ReceiptCreate(ReceiptBase):
     """Schema for creating a receipt."""
 
-    image_path: str
+    pass
 
 
 class ReceiptUpdate(SQLModel):
-    """Schema for updating a receipt."""
+    """Schema for updating a receipt.
 
-    store_name: str | None = Field(default=None)
-    total_amount: Decimal | None = Field(default=None)
-    purchase_date: datetime | None = Field(default=None)
-    notes: str | None = Field(default=None)
-    currency: str | None = Field(default=None)
+    All fields are optional to allow partial updates.
+    """
+
+    store_name: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Name of the store where the purchase was made",
+    )
+    total_amount: Decimal | None = Field(
+        default=None,
+        max_digits=10,
+        decimal_places=2,
+        description="Total amount of the purchase",
+    )
+    currency: str | None = Field(
+        default=None, description="Currency symbol (e.g., $, £, €)"
+    )
+    purchase_date: datetime | None = Field(default=None, description="Date of purchase")
 
 
 class ReceiptItemCreate(ReceiptItemBase):
     """Schema for creating a receipt item."""
 
-    receipt_id: int
+    pass
 
 
 class ReceiptItemUpdate(SQLModel):
-    """Schema for updating a receipt item."""
+    """Schema for updating a receipt item.
 
-    name: str | None = Field(default=None)
-    quantity: int | None = Field(default=None, ge=1)
-    unit_price: Decimal | None = Field(default=None)
-    total_price: Decimal | None = Field(default=None)
-    currency: str | None = Field(default=None)
-    category_id: int | None = Field(default=None)
+    All fields are optional to allow partial updates.
+    """
+
+    name: str | None = Field(
+        default=None, max_length=255, description="Name of the item"
+    )
+    quantity: int | None = Field(default=None, ge=1, description="Quantity of the item")
+    unit_price: Decimal | None = Field(
+        default=None,
+        max_digits=10,
+        decimal_places=2,
+        description="Unit price of the item",
+    )
+    total_price: Decimal | None = Field(
+        default=None,
+        max_digits=10,
+        decimal_places=2,
+        description="Total price of the item",
+    )
+    currency: str | None = Field(
+        default=None, description="Currency symbol (e.g., $, £, €)"
+    )
+    category_id: int | None = Field(
+        default=None,
+        foreign_key="category.id",
+        description="ID of the category the item belongs to",
+    )
 
 
 # Response Schemas
@@ -111,16 +179,18 @@ class ReceiptItemRead(ReceiptItemBase):
     """Schema for reading a receipt item."""
 
     id: int
-    receipt_id: int
     created_at: datetime
     updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReceiptRead(ReceiptBase):
     """Schema for reading a receipt."""
 
     id: int
-    image_path: str
     created_at: datetime
     updated_at: datetime
     items: list[ReceiptItemRead]
+
+    model_config = ConfigDict(from_attributes=True)
