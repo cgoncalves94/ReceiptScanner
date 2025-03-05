@@ -4,31 +4,41 @@ version = "0.1.0"
 description = ""
 requires-python = ">=3.10,<4.0"
 dependencies = [
+    # Web framework and related
     "fastapi[standard]>=0.115.11",
+    "uvicorn>=0.33.0",
     "python-multipart>=0.0.20",
     "email-validator>=2.1.0.post1",
-    "passlib[bcrypt]>=1.7.4",
-    "tenacity>=9.0.0",
-    "pydantic>=2.10.6",
-    "emails>=0.6",
     "jinja2>=3.1.5",
-    "alembic>=1.14.1",
     "httpx>=0.25.1",
-    "psycopg[binary]>=3.2.5",
+
+    # Database
     "sqlmodel>=0.0.23",
+    "alembic>=1.14.1",
+    "asyncpg>=0.29.0",
+    "psycopg[binary]>=3.2.5",
+
+    # Authentication and security
+    "passlib[bcrypt]>=1.7.4",
     "bcrypt>=4.3.0",
-    "pydantic-settings>=2.8.1",
-    "sentry-sdk[fastapi]>=2.22.0",
     "pyjwt>=2.8.0",
-    "uvicorn>=0.33.0",
+    "python-jose>=3.4.0",
+
+    # Data validation and settings
+    "pydantic>=2.10.6",
+    "pydantic-settings>=2.8.1",
+
+    # AI and image processing
     "pydantic-ai>=0.0.31",
     "pillow>=11.1.0",
-    "opencv-python>=4.11.0.86",
-    "python-dotenv>=1.0.1",
-    "google-cloud-vision>=3.10.0",
     "google-generativeai>=0.8.4",
-    "python-jose>=3.4.0",
-    "asyncpg>=0.29.0"
+
+    # Utilities
+    "tenacity>=9.0.0",
+    "python-dotenv>=1.0.1",
+
+    # Monitoring and logging
+    "logfire>=2.7.1"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -77,3 +87,6 @@ ignore = [
 [tool.ruff.lint.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.
 keep-runtime-typing = true
+
+[tool.logfire]
+ignore_no_config = true

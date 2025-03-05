@@ -1,23 +1,35 @@
 import logging
 import sys
 from contextlib import asynccontextmanager
+from typing import Any, cast
 
-from fastapi import FastAPI
+import logfire
+from fastapi import FastAPI, HTTPException, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import __author__
-from app.api.v1.api import api_router
+from app.api.v1.router import APIRouter
 from app.core.config import settings
 from app.core.db import engine, init_db
-from app.core.exceptions import DatabaseError
-from app.middlewares.error_handler import (
+from app.core.error_handlers import (
+    database_exception_handler,
     http_exception_handler,
-    sqlalchemy_exception_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
 )
+from app.core.exceptions import InternalServerError
 
 logger = logging.getLogger(__name__)
+
+logfire.configure(
+    token=settings.LOGFIRE_TOKEN,
+    send_to_logfire="if-token-present",
+    scrubbing=False,
+    service_name="warestack",
+)
 
 
 @asynccontextmanager
@@ -29,7 +41,7 @@ async def lifespan(_app: FastAPI):
         )
         try:
             await init_db()
-        except DatabaseError as e:
+        except InternalServerError as e:
             # Suppress traceback for startup errors
             sys.tracebacklimit = 0
             # Pass through the original error without wrapping
@@ -50,13 +62,15 @@ app = FastAPI(
     contact={"name": __author__},
 )
 
-# Add exception handlers
-app.add_exception_handler(Exception, http_exception_handler)
-app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
+# Register exception handlers - order matters (most specific first)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(SQLAlchemyError, database_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
-# Set up CORS middleware
+# Add CORS middleware
 app.add_middleware(
-    CORSMiddleware,
+    cast(Any, CORSMiddleware),
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
@@ -64,29 +78,21 @@ app.add_middleware(
 )
 
 # Include API router
-app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(APIRouter, prefix=settings.API_V1_STR)
 
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    async with engine.connect() as conn:
-        await conn.execute(text("SELECT 1"))
-        await conn.commit()
-    return {"status": "healthy", "database": "connected"}
-
-
-@app.get("/")
+# Define the root endpoint
+@app.get("/", include_in_schema=False)
 async def root():
-    """Root endpoint with API information."""
-    return {
-        "name": settings.PROJECT_NAME,
-        "status": "ok",
-        "version": settings.VERSION,
-        "environment": settings.ENVIRONMENT,
-        "docs_url": "/docs",
-        "openapi_url": f"{settings.API_V1_STR}/openapi.json",
-        "health_check": "/health",
-        "description": "Receipt Scanner API for analyzing receipts using computer vision",
-        "author": __author__,
-    }
+    """
+    Root endpoint of the FastAPI application.
+    Returns a welcome message.
+    """
+    return {"message": "Welcome to the Warestack Core API!"}
+
+
+# Define the healthcheck endpoint
+@app.get("/healthcheck", include_in_schema=False)
+async def healthcheck():
+    """Basic health check endpoint"""
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"status": "healthy"})

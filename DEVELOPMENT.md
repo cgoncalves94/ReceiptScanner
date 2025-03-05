@@ -14,6 +14,7 @@ This guide provides practical instructions for setting up, running, and contribu
 ### 1. Clone the Repository
 
 ```bash
+# Clone the repository
 git clone https://github.com/yourusername/receipt-scanner.git
 cd receipt-scanner
 ```
@@ -28,14 +29,26 @@ docker compose up db -d
 ### 3. Install Dependencies
 
 ```bash
-# Create and activate virtual environment
+# Create virtual environment
 uv venv
-source .venv/bin/activate  # Unix/macOS
-.venv\Scripts\activate     # Windows
+```
 
+```bash
+# Activate virtual environment (Unix/macOS)
+source .venv/bin/activate
+```
+
+```bash
+# Activate virtual environment (Windows)
+.venv\Scripts\activate
+```
+
+```bash
 # Install all dependencies
 uv pip install -e .
+```
 
+```bash
 # Or install with development dependencies
 uv pip install -e ".[dev]"
 ```
@@ -50,7 +63,7 @@ cp .env.example .env
 ### 5. Run Application
 
 ```bash
-uvicorn src.main:app --reload
+uvicorn app.main:app --reload
 ```
 
 The API will be available at http://localhost:8000
@@ -64,10 +77,14 @@ UV is our recommended package manager for its speed and reliability.
 ```bash
 # Add a new package
 uv pip install package_name
+```
 
+```bash
 # Install the package and add it to pyproject.toml
 uv add package_name
+```
 
+```bash
 # Add a development dependency
 uv add --dev package_name
 ```
@@ -77,7 +94,9 @@ uv add --dev package_name
 ```bash
 # View installed packages
 uv pip list
+```
 
+```bash
 # Check for outdated packages
 uv pip list --outdated
 ```
@@ -89,10 +108,14 @@ uv pip list --outdated
 ```bash
 # Build and start all services
 docker compose up --build
+```
 
+```bash
 # Run in background
 docker compose up -d
+```
 
+```bash
 # View logs
 docker compose logs -f
 ```
@@ -106,7 +129,9 @@ To ensure code quality and consistency:
 ```bash
 # Install pre-commit hooks
 pre-commit install
+```
 
+```bash
 # Run hooks manually
 pre-commit run --all-files
 ```
@@ -118,7 +143,9 @@ The project uses Ruff for linting and formatting:
 ```bash
 # Run linter
 ruff check .
+```
 
+```bash
 # Run formatter
 ruff format .
 ```
@@ -135,7 +162,6 @@ ruff format .
 3. Run tests and pre-commit hooks
    ```bash
    pre-commit run --all-files
-   pytest
    ```
 
 4. Submit a pull request
