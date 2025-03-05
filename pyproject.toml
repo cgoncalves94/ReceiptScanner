@@ -11,6 +11,7 @@ dependencies = [
     "email-validator>=2.1.0.post1",
     "jinja2>=3.1.5",
     "httpx>=0.25.1",
+    "aiofiles>=24.1.0",
 
     # Database
     "sqlmodel>=0.0.23",
@@ -36,6 +37,7 @@ dependencies = [
     # Utilities
     "tenacity>=9.0.0",
     "python-dotenv>=1.0.1",
+    "rich>=13.9.0",
 
     # Monitoring and logging
     "logfire>=2.7.1"
@@ -45,12 +47,15 @@ dependencies = [
 packages = ["app"]
 
 [project.optional-dependencies]
-dev-dependencies = [
+dev = [
     "pytest>=8.3.5",
+    "pytest-asyncio>=0.25.3",
+    "pytest-cov>=6.0.0",
     "mypy>=1.15.0",
     "ruff>=0.9.9",
     "pre-commit>=4.1.0",
     "types-passlib>=1.7.7.20241221",
+    "types-requests>=2.32.0",
     "coverage>=7.6.12",
 ]
 
@@ -90,3 +95,7 @@ keep-runtime-typing = true
 
 [tool.logfire]
 ignore_no_config = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "session"

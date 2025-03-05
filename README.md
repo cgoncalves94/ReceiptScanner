@@ -1,37 +1,55 @@
 # Receipt Scanner
 
-A modern Python API template showcasing the integration of FastAPI, SQLModel, async database operations, Pydantic, and Pydantic AI. While implemented as a receipt scanner, this project serves as a reference architecture for building robust APIs with these technologies.
+A modern Python API template demonstrating clean architecture and domain-driven design principles, with advanced AI capabilities for receipt analysis. While implemented as a receipt scanner, this project serves as a reference architecture for building robust, type-safe APIs.
 
-## Technical Overview
+## Core Technologies
 
-This project demonstrates the powerful combination of:
+### API Framework
+- **FastAPI**: Modern web framework with automatic OpenAPI documentation
+- **SQLModel**: Type-safe ORM combining SQLAlchemy and Pydantic
+- **Pydantic**: Data validation and settings management
 
-- **FastAPI**: High-performance async web framework with automatic OpenAPI documentation
-- **SQLModel**: Unified model system combining SQLAlchemy and Pydantic for type-safe ORM
-- **Async Database Operations**: Full async/await pattern for database interactions
-- **Pydantic**: Type validation and settings management
-- **Pydantic AI**: Structured AI response handling with Gemini Vision integration
+### AI Integration
+- **Pydantic AI**: Structured AI response handling and validation
+- **Gemini Vision**: Advanced image analysis and text extraction
 
-The project also implements:
+## Architecture & Design
 
-- Domain-driven design organization
-- Clean architecture with proper separation of concerns:
-  - **Data/Model Layer**: Defines data structures and validation rules using SQLModel and Pydantic
-  - **Repository Layer**: Manages data access and persistence operations
-  - **Service Layer**: Handles business logic, validation, and orchestration
-- Dependency injection pattern with efficient resource management
-- Comprehensive error handling with FastAPI's exception handler system
-- Docker containerization
-- CI workflow with pre-commit hooks for code quality
+### Patterns
+- **Domain-Driven Design**: Feature-specific modules with clear boundaries
+- **Clean Architecture**: Separation of concerns across layers
+  - Data Models
+  - Repositories
+  - Services
+  - API Endpoints
+- **Asynchronous Design**: Non-blocking operations throughout
+- **Dependency Injection**: Modular and testable components
 
-## Development
+### Infrastructure
+- **Database**: PostgreSQL with async drivers
+- **Containerization**: Docker-based development and deployment
+- **CI Pipeline**: Automated testing and quality checks
 
-For detailed development setup and instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
+## Quality & Development
 
-## API Documentation
+### Code Quality
+- **Type Safety**: Comprehensive type hints and validation
+- **Linting**: Automated code formatting with Ruff
+- **Testing**: Pytest suite with async support and coverage
+- **Documentation**: Auto-generated OpenAPI specs
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+### Developer Tools
+- **Migration System**: Version-controlled schema changes
+- **Development Scripts**: Streamlined workflow commands
+- **Environment Management**: Containerized development
+- **Hot Reload**: Automatic server restart on changes
+
+## Documentation
+
+- [Development Guide](DEVELOPMENT.md)
+- API Reference:
+  - Interactive (Swagger) - http://localhost:8000/docs
+  - Reference (ReDoc) - http://localhost:8000/redoc
 
 ## License
 

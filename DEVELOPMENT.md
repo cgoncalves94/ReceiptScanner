@@ -2,166 +2,155 @@
 
 This guide provides practical instructions for setting up, running, and contributing to the Receipt Scanner API project.
 
-## Prerequisites
+## Initial Setup
+
+### Prerequisites
 
 - Python 3.10 or higher
 - Docker and Docker Compose
 - UV package manager
 - Google Gemini API key
 
-## Quick Start
+### Environment Setup
 
-### 1. Clone the Repository
+1. Clone the Repository
+   ```bash
+   git clone https://github.com/yourusername/receipt-scanner.git
+   cd receipt-scanner
+   ```
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/receipt-scanner.git
-cd receipt-scanner
-```
+2. Start Docker Services
+   ```bash
+   # Build and start all services
+   docker compose up --build -d
 
-### 2. Start Database
+   # View logs if needed
+   docker compose logs -f
+   ```
 
-```bash
-# Start PostgreSQL database
-docker compose up db -d
-```
+3. Setup Python Environment
+   ```bash
+   # Create and activate virtual environment
+   uv venv
+   source .venv/bin/activate  # Unix/macOS
+   # or
+   .venv\Scripts\activate     # Windows
 
-### 3. Install Dependencies
+   # Install dependencies
+   uv pip install -e ".[dev]"
+   ```
 
-```bash
-# Create virtual environment
-uv venv
-```
+4. Configure Environment
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configurations, especially the Gemini API key
+   ```
 
-```bash
-# Activate virtual environment (Unix/macOS)
-source .venv/bin/activate
-```
+## Development Workflow
 
-```bash
-# Activate virtual environment (Windows)
-.venv\Scripts\activate
-```
+### Running the Application
 
-```bash
-# Install all dependencies
-uv pip install -e .
-```
-
-```bash
-# Or install with development dependencies
-uv pip install -e ".[dev]"
-```
-
-### 4. Setup Environment
+You can run the application using either the native command or our script:
 
 ```bash
-cp .env.example .env
-# Edit .env with your configurations, especially the Gemini API key
-```
-
-### 5. Run Application
-
-```bash
+# Using native command
 uvicorn app.main:app --reload
-```
 
+# Or using our script
+./scripts/start-dev.sh
+```
 The API will be available at http://localhost:8000
 
-## Package Management with UV
+### Database Migrations
+
+When modifying models (add/remove fields, create new models):
+
+```bash
+# Generate a new migration
+alembic revision --autogenerate -m "describe your changes"
+
+# Apply migrations
+alembic upgrade head
+# Or using our script
+./scripts/db.sh
+
+# View current state and history
+alembic current
+alembic history
+
+# Rollback if needed
+alembic downgrade -1
+alembic downgrade <revision_id>
+```
+
+### Package Management
 
 UV is our recommended package manager for its speed and reliability.
 
-### Installing Packages
-
 ```bash
-# Add a new package
+# Add new packages
 uv pip install package_name
+uv add package_name          # Also updates pyproject.toml
+uv add --dev package_name    # Add dev dependency
+
+# Manage dependencies
+uv pip list                  # View installed packages
+uv pip list --outdated      # Check for updates
+uv pip install --upgrade package_name  # Update specific package
 ```
+
+## Quality Assurance
+
+### Code Quality Tools
+
+1. Install Pre-commit Hooks
+   ```bash
+   pre-commit install
+   ```
+
+2. Run Linting and Formatting
+   ```bash
+   # Manual pre-commit check
+   pre-commit run --all-files
+
+   # Direct tool usage
+   ruff check .    # Linting
+   ruff format .   # Formatting
+   ```
+
+### Testing
 
 ```bash
-# Install the package and add it to pyproject.toml
-uv add package_name
+# Run tests with coverage (either way works)
+pytest tests/ -v --cov=app --cov-report=term-missing
+# Or using our script
+./scripts/test.sh
+
+# View coverage report in browser
+open htmlcov/index.html  # macOS
+# or
+xdg-open htmlcov/index.html  # Linux
+# or
+start htmlcov/index.html     # Windows
 ```
 
-```bash
-# Add a development dependency
-uv add --dev package_name
-```
-
-### Managing Dependencies
-
-```bash
-# View installed packages
-uv pip list
-```
-
-```bash
-# Check for outdated packages
-uv pip list --outdated
-```
-
-## Docker Development
-
-### Building and Running
-
-```bash
-# Build and start all services
-docker compose up --build
-```
-
-```bash
-# Run in background
-docker compose up -d
-```
-
-```bash
-# View logs
-docker compose logs -f
-```
-
-## Code Quality Tools
-
-### Pre-commit Hooks
-
-To ensure code quality and consistency:
-
-```bash
-# Install pre-commit hooks
-pre-commit install
-```
-
-```bash
-# Run hooks manually
-pre-commit run --all-files
-```
-
-### Linting and Formatting
-
-The project uses Ruff for linting and formatting:
-
-```bash
-# Run linter
-ruff check .
-```
-
-```bash
-# Run formatter
-ruff format .
-```
+Test Categories:
+- **Unit Tests** (`tests/unit/`): Test components in isolation
+- **Integration Tests** (`tests/integration/`): Test API endpoints with test database
 
 ## Contributing
 
-1. Create a feature branch from `main`
+1. Create Feature Branch
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
-2. Make your changes
+2. Development Cycle
+   - Make your changes
+   - Run tests: `./scripts/test.sh`
+   - Run quality checks: `pre-commit run --all-files`
 
-3. Run tests and pre-commit hooks
-   ```bash
-   pre-commit run --all-files
-   ```
-
-4. Submit a pull request
+3. Submit Pull Request
+   - Ensure all tests pass
+   - Update documentation if needed
+   - Follow existing code style
