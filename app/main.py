@@ -26,7 +26,7 @@ logfire.configure(
     token=settings.LOGFIRE_TOKEN,
     send_to_logfire="if-token-present",
     scrubbing=False,
-    service_name="warestack",
+    service_name="receipt-scanner",
 )
 
 
