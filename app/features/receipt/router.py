@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, UploadFile, status
 
 from .deps import ReceiptDeps
 from .models import (
-    ReceiptItem,
+    ReceiptItemRead,
     ReceiptRead,
     ReceiptUpdate,
 )
@@ -33,7 +33,7 @@ async def create_receipt_from_scan(
     return receipt
 
 
-@router.get("", response_model=list[ReceiptRead])
+@router.get("", response_model=list[ReceiptRead], status_code=status.HTTP_200_OK)
 async def list_receipts(
     service: ReceiptDeps,
     skip: int = 0,
@@ -44,7 +44,7 @@ async def list_receipts(
     return receipts
 
 
-@router.get("/{receipt_id}", response_model=ReceiptRead)
+@router.get("/{receipt_id}", response_model=ReceiptRead, status_code=status.HTTP_200_OK)
 async def get_receipt(
     receipt_id: int,
     service: ReceiptDeps,
@@ -53,13 +53,17 @@ async def get_receipt(
     return await service.get(receipt_id)
 
 
-@router.get("/category/{category_id}/items", response_model=list[ReceiptItem])
+@router.get(
+    "/category/{category_id}/items",
+    response_model=list[ReceiptItemRead],
+    status_code=status.HTTP_200_OK,
+)
 async def list_items_by_category(
     category_id: int,
     service: ReceiptDeps,
     skip: int = 0,
     limit: int = 100,
-) -> Sequence[ReceiptItem]:
+) -> Sequence[ReceiptItemRead]:
     """List all receipt items in a category."""
     return await service.list_items_by_category(
         category_id=category_id,
@@ -68,7 +72,11 @@ async def list_items_by_category(
     )
 
 
-@router.patch("/{receipt_id}", response_model=ReceiptRead)
+@router.patch(
+    "/{receipt_id}",
+    response_model=ReceiptRead,
+    status_code=status.HTTP_200_OK,
+)
 async def update_receipt(
     receipt_id: int,
     receipt_in: ReceiptUpdate,

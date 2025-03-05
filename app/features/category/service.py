@@ -5,7 +5,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
 
-from .models import Category, CategoryCreate, CategoryRead, CategoryUpdate
+from .models import Category, CategoryCreate, CategoryUpdate
 
 
 class CategoryService:
@@ -49,15 +49,7 @@ class CategoryService:
         result = await self.session.scalars(stmt)
         return result.all()
 
-    async def count(self) -> int:
-        """Get total number of categories."""
-        stmt = select(Category)
-        result = await self.session.scalars(stmt)
-        return len(result.all())
-
-    async def update(
-        self, category_id: int, category_in: CategoryUpdate
-    ) -> CategoryRead:
+    async def update(self, category_id: int, category_in: CategoryUpdate) -> Category:
         """Update a category."""
         # Get the category
         category = await self.get(category_id)
@@ -76,7 +68,7 @@ class CategoryService:
         category.sqlmodel_update(update_data)
 
         await self.session.flush()
-        return CategoryRead.model_validate(category)
+        return category
 
     async def delete(self, category_id: int) -> None:
         """Delete a category."""

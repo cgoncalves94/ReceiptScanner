@@ -14,10 +14,10 @@ from app.core.decorators import transactional
 from app.core.exceptions import NotFoundError, ServiceUnavailableError
 from app.features.category.models import CategoryCreate
 from app.features.category.service import CategoryService
-from app.features.receipt.models import Receipt, ReceiptRead
 from app.integrations.pydantic_ai.receipt_agent import analyze_receipt
 
 from .models import (
+    Receipt,
     ReceiptCreate,
     ReceiptItem,
     ReceiptItemCreate,
@@ -138,16 +138,17 @@ class ReceiptService:
             # Error will be caught by the transactional decorator
             raise ServiceUnavailableError(f"Failed to analyze receipt: {str(e)}")
 
-    async def get(self, receipt_id: int) -> ReceiptRead:
+    async def get(self, receipt_id: int) -> Receipt:
         """Get a receipt by ID."""
-        receipt = await self.session.get(Receipt, receipt_id)
+        stmt = select(Receipt).where(Receipt.id == receipt_id)
+        receipt = await self.session.scalar(stmt)
         if not receipt:
             raise NotFoundError(f"Receipt with id {receipt_id} not found")
 
         # Ensure items are loaded
         await self.session.refresh(receipt, ["items"])
 
-        return ReceiptRead.model_validate(receipt)
+        return receipt
 
     async def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
         """List all receipts with pagination."""
@@ -163,16 +164,17 @@ class ReceiptService:
 
         return receipts
 
-    async def update(self, receipt_id: int, receipt_in: ReceiptUpdate) -> ReceiptRead:
+    async def update(self, receipt_id: int, receipt_in: ReceiptUpdate) -> Receipt:
         """Update a receipt."""
-        # Get the receipt directly from the database
-        receipt = await self.session.get(Receipt, receipt_id)
+        # Get the receipt from the database
+        stmt = select(Receipt).where(Receipt.id == receipt_id)
+        receipt = await self.session.scalar(stmt)
         if not receipt:
             raise NotFoundError(f"Receipt with id {receipt_id} not found")
 
         # Update fields using sqlmodel_update
         update_data = receipt_in.model_dump(exclude_unset=True, exclude={"id"})
-        receipt.sqlmodel_update(update_data)  # type: ignore
+        receipt.sqlmodel_update(update_data)
 
         receipt.updated_at = datetime.now(UTC)
         await self.session.flush()
@@ -180,12 +182,13 @@ class ReceiptService:
         # Ensure items are loaded
         await self.session.refresh(receipt, ["items"])
 
-        return ReceiptRead.model_validate(receipt)
+        return receipt
 
     async def delete(self, receipt_id: int) -> None:
         """Delete a receipt."""
-        # Get the receipt directly from the database
-        receipt = await self.session.get(Receipt, receipt_id)
+        # Get the receipt from the database
+        stmt = select(Receipt).where(Receipt.id == receipt_id)
+        receipt = await self.session.scalar(stmt)
         if not receipt:
             raise NotFoundError(f"Receipt with id {receipt_id} not found")
 
@@ -196,8 +199,9 @@ class ReceiptService:
         self, receipt_id: int, items_in: Sequence[ReceiptItemCreate]
     ) -> Sequence[ReceiptItem]:
         """Create multiple receipt items."""
-        # Get the receipt directly from the database
-        receipt = await self.session.get(Receipt, receipt_id)
+        # Get the receipt from the database
+        stmt = select(Receipt).where(Receipt.id == receipt_id)
+        receipt = await self.session.scalar(stmt)
         if not receipt:
             raise NotFoundError(f"Receipt with id {receipt_id} not found")
 

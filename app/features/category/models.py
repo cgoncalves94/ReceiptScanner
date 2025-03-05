@@ -74,11 +74,3 @@ class CategoryRead(CategoryBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class CategoriesRead(SQLModel):
-    """Schema for paginated list of categories."""
-
-    data: list[CategoryRead]
-
-    model_config = ConfigDict(from_attributes=True)
