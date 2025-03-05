@@ -20,9 +20,7 @@ async def get_category_service(
     category_repo: CategoryRepository = Depends(get_category_repository),
 ) -> CategoryService:
     """Get an instance of the category service."""
-    return CategoryService(
-        session=category_repo.session, category_repository=category_repo
-    )
+    return CategoryService(category_repository=category_repo)
 
 
 CategoryDeps = Annotated[CategoryService, Depends(get_category_service)]

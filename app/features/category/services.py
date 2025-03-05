@@ -1,7 +1,5 @@
 from collections.abc import Sequence
 
-from sqlmodel.ext.asyncio.session import AsyncSession
-
 from app.core.exceptions import ConflictError, NotFoundError
 
 from .models import Category, CategoryCreate, CategoryUpdate
@@ -11,10 +9,7 @@ from .repositories import CategoryRepository
 class CategoryService:
     """Service for managing categories."""
 
-    def __init__(
-        self, session: AsyncSession, category_repository: CategoryRepository
-    ) -> None:
-        self.session = session
+    def __init__(self, category_repository: CategoryRepository) -> None:
         self.repository = category_repository
 
     async def create(self, category_in: CategoryCreate) -> Category:

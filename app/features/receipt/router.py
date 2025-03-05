@@ -24,10 +24,6 @@ async def create_receipt_from_scan(
     The image will be analyzed using AI to extract information.
     The receipt and items will be created in the database.
     """
-    # Check if service has a session
-    if not hasattr(service, "session"):
-        raise ValueError("Service has no session attribute")
-
     # Process receipt and create in database
     receipt = await service.create_from_scan(image)
     return receipt

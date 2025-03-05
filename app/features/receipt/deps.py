@@ -23,7 +23,6 @@ async def get_receipt_service(
 ) -> ReceiptService:
     """Get an instance of the receipt service."""
     return ReceiptService(
-        session=receipt_repo.session,
         receipt_repository=receipt_repo,
         category_service=category_service,
     )

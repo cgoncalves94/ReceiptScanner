@@ -5,7 +5,6 @@ from decimal import Decimal
 
 from fastapi import UploadFile
 from PIL import Image
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.decorators import transactional
@@ -29,11 +28,9 @@ class ReceiptService:
 
     def __init__(
         self,
-        session: AsyncSession,
         receipt_repository: ReceiptRepository,
         category_service: CategoryService,
     ) -> None:
-        self.session = session
         self.repository = receipt_repository
         self.category_service = category_service
 
