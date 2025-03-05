@@ -3,13 +3,16 @@
 # Exit on error
 set -e
 
-# Get the project root directory
-PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+cd "$(dirname "$0")/.."
+export ENVIRONMENT="test"
+export POSTGRES_HOST=${POSTGRES_HOST:-"localhost"}
+export POSTGRES_USER=${POSTGRES_USER:-"postgres"}
+export POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-"postgres"}
 
-# Change to project root directory
-cd "$PROJECT_ROOT"
-
-# Run tests with coverage and generate reports
+echo "🚀 Setting up test environment..."
+PGPASSWORD=$POSTGRES_PASSWORD psql -q --no-psqlrc -h $POSTGRES_HOST -U $POSTGRES_USER postgres -c "CREATE DATABASE test_db;"
 coverage run -m pytest tests/ -v
 coverage report --show-missing
 coverage html --title "Receipt Scanner Coverage"
+PGPASSWORD=$POSTGRES_PASSWORD psql -q --no-psqlrc -h $POSTGRES_HOST -U $POSTGRES_USER postgres -c "DROP DATABASE IF EXISTS test_db;"
+echo "🧹 Cleaning up..."

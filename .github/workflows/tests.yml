@@ -27,7 +27,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test_db
         ports:
-          - 5433:5432
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -47,6 +47,12 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
+      - name: Install dockerize
+        run: |
+          wget https://github.com/jwilder/dockerize/releases/download/v0.6.1/dockerize-linux-amd64-v0.6.1.tar.gz
+          sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-v0.6.1.tar.gz
+          rm dockerize-linux-amd64-v0.6.1.tar.gz
+
       - name: Install dependencies
         run: |
           python -m venv .venv
@@ -54,17 +60,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install ".[dev]"
 
-      - name: Run migrations
-        env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/test_db
+      - name: Wait for PostgreSQL
         run: |
-          source .venv/bin/activate
-          echo "Running database migrations..."
-          alembic upgrade head
+          dockerize -wait tcp://localhost:5432 -timeout 1m
 
       - name: Run tests
         env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/test_db
+          ENVIRONMENT: test
         run: |
           source .venv/bin/activate
           echo "Running tests..."

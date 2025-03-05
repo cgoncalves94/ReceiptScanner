@@ -17,14 +17,14 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Receipt Scanner API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
-    ENVIRONMENT: str = "development"
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
     # Database settings
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
-    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "receipt_analyzer")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB")
     DB_ECHO_LOG: bool = False
 
     # API Keys
@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         """Constructs database URL from config values."""
+        db_name = "test_db" if self.ENVIRONMENT.lower() == "test" else self.POSTGRES_DB
         return str(
             PostgresDsn.build(
                 scheme="postgresql+psycopg",
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
                 password=self.POSTGRES_PASSWORD,
                 host=self.POSTGRES_HOST,
                 port=int(self.POSTGRES_PORT),
-                path=self.POSTGRES_DB,
+                path=db_name,
             )
         )
 

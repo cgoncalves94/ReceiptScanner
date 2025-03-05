@@ -23,28 +23,23 @@ from app.core.config import settings
 from app.core.deps import get_session
 from app.main import app
 
-# Test database URL
-TEST_DATABASE_URL = settings.database_url.replace(
-    settings.POSTGRES_DB, f"{settings.POSTGRES_DB}_test"
-)
-
 
 @pytest_asyncio.fixture(scope="session")
 async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     """Create a test database engine."""
     engine = create_async_engine(
-        TEST_DATABASE_URL,
+        settings.database_url,
         echo=False,
         future=True,
     )
 
-    # Create test database tables
+    # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
 
     yield engine
 
-    # Drop test database tables
+    # Drop tables
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
 
@@ -63,18 +58,18 @@ async def test_session(test_engine: AsyncEngine) -> AsyncGenerator[AsyncSession,
 
     async with session_factory() as session:
         # Clean up all tables before each test
-        for table in reversed(SQLModel.metadata.sorted_tables):
-            await session.execute(text(f"TRUNCATE TABLE {table.name} CASCADE"))
-        await session.commit()
+        async with session.begin():
+            for table in reversed(SQLModel.metadata.sorted_tables):
+                await session.execute(text(f"TRUNCATE TABLE {table.name} CASCADE"))
 
         yield session
 
         # Rollback any pending transactions
         await session.rollback()
         # Clean up all tables after each test
-        for table in reversed(SQLModel.metadata.sorted_tables):
-            await session.execute(text(f"TRUNCATE TABLE {table.name} CASCADE"))
-        await session.commit()
+        async with session.begin():
+            for table in reversed(SQLModel.metadata.sorted_tables):
+                await session.execute(text(f"TRUNCATE TABLE {table.name} CASCADE"))
 
 
 @pytest.fixture

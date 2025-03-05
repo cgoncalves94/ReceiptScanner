@@ -120,23 +120,32 @@ uv pip install --upgrade package_name  # Update specific package
 
 ### Testing
 
+Run the test suite:
 ```bash
-# Run tests with coverage (either way works)
-pytest tests/ -v --cov=app --cov-report=term-missing
-# Or using our script
 ./scripts/test.sh
-
-# View coverage report in browser
-open htmlcov/index.html  # macOS
-# or
-xdg-open htmlcov/index.html  # Linux
-# or
-start htmlcov/index.html     # Windows
 ```
 
-Test Categories:
+The script handles:
+- Test environment setup
+- Test database creation
+- Test execution with coverage
+- Database cleanup
+
+View coverage report:
+```bash
+open htmlcov/index.html     # macOS
+xdg-open htmlcov/index.html # Linux
+start htmlcov/index.html    # Windows
+```
+
+#### Test Categories
 - **Unit Tests** (`tests/unit/`): Test components in isolation
-- **Integration Tests** (`tests/integration/`): Test API endpoints with test database
+- **Integration Tests** (`tests/integration/`): Test API endpoints with dedicated test database
+
+#### Environment
+- Separate `test_db` database is used automatically
+- Database is created/dropped for each test run
+- CI pipeline uses the same configuration
 
 ## Contributing
 

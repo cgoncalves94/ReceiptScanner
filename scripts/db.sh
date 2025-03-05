@@ -8,5 +8,6 @@ SCRIPT_DIR=$(dirname "$0")
 PROJECT_ROOT="$SCRIPT_DIR/.."
 cd "$PROJECT_ROOT"
 
-# Run migrations
+echo "🔄 Running database migrations..."
 alembic upgrade head
+echo "✅ Migrations complete"
