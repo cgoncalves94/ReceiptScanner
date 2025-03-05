@@ -67,6 +67,11 @@ jobs:
       - name: Run tests
         env:
           ENVIRONMENT: test
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
         run: |
           source .venv/bin/activate
           echo "Running tests..."
