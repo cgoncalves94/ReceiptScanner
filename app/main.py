@@ -37,11 +37,11 @@ async def lifespan(_app: FastAPI):
         logger.info(
             f"Starting {settings.PROJECT_NAME} v{settings.VERSION} by {__author__}"
         )
-        try:
-            await init_db()
-        except SQLAlchemyError as e:
-            logger.error(f"Database initialization failed: {e}")
+        await init_db()
         yield
+    except SQLAlchemyError as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
     finally:
         # Clean shutdown
         await engine.dispose()

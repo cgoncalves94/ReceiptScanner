@@ -19,5 +19,9 @@
     PORT=${PORT:-8000}
     LOG_LEVEL=${LOG_LEVEL:-debug}
 
+    echo "Running database migrations..."
+    alembic upgrade head
+
+    echo "Starting application server..."
     # Start Uvicorn with live reload
     exec uvicorn --reload --proxy-headers --host $HOST --port $PORT --log-level $LOG_LEVEL "$APP_MODULE"

@@ -8,6 +8,7 @@ RUN apt-get update && \
     libglib2.0-0 \
     libpq-dev \
     libssl-dev \
+    postgresql-client \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,6 +27,7 @@ ENV PYTHONUNBUFFERED=1 \
 COPY pyproject.toml alembic.ini ./
 COPY app ./app
 COPY scripts ./scripts
+COPY migrations ./migrations
 RUN uv pip install --system .[all] && \
     useradd -m -d /app -s /bin/bash app && \
     chown -R app:app /app && \
