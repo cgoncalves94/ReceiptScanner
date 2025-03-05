@@ -9,8 +9,8 @@ from PIL import Image
 from app.core.config import settings
 from app.core.decorators import transactional
 from app.core.exceptions import NotFoundError, ServiceUnavailableError
-from app.features.category.models import CategoryCreate
-from app.features.category.services import CategoryService
+from app.domains.category.models import CategoryCreate
+from app.domains.category.services import CategoryService
 from app.integrations.pydantic_ai.receipt_agent import analyze_receipt
 
 from .models import (

@@ -4,7 +4,7 @@ from fastapi import Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.deps import get_session
-from app.features.category.deps import get_category_service
+from app.domains.category.deps import get_category_service
 
 from .repositories import ReceiptRepository
 from .services import ReceiptService
