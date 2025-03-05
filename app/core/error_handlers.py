@@ -84,17 +84,12 @@ async def database_exception_handler(request: Request, exc: Exception) -> JSONRe
     if not isinstance(exc, SQLAlchemyError):
         return await unhandled_exception_handler(request, exc)
 
-    # Get request ID from header or generate one
-    request_id = request.headers.get("x-request-id", "unknown")
-
     # Log with request context
-    logger.error(
-        f"Database error on {request.url.path} (request_id: {request_id}): {str(exc)}"
-    )
+    logger.error(f"Database error on {request.url.path}: {str(exc)}")
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Database error occurred", "request_id": request_id},
+        content={"detail": "Database error occurred"},
     )
 
 

@@ -1,6 +1,8 @@
 import logging
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.sql import text
 from sqlmodel import SQLModel
 
 from app.core.config import settings
@@ -32,3 +34,23 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
         logger.info("Database initialized successfully")
+
+
+# -------------------------------------------
+# 3. Database Health Check
+# -------------------------------------------
+async def check_db_connection() -> bool:
+    """
+    Check if the database connection is healthy.
+    Returns True if connected, False otherwise.
+    """
+    try:
+        # Try to create a connection and execute a simple query
+
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+
+        return True
+    except SQLAlchemyError as e:
+        logger.error(f"Database health check failed: {e}")
+        return False

@@ -1,5 +1,4 @@
 import logging
-import sys
 from contextlib import asynccontextmanager
 from typing import Any, cast
 
@@ -13,14 +12,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from app import __author__
 from app.api.v1.router import APIRouter
 from app.core.config import settings
-from app.core.db import engine, init_db
+from app.core.db import check_db_connection, engine, init_db
 from app.core.error_handlers import (
     database_exception_handler,
     http_exception_handler,
     unhandled_exception_handler,
     validation_exception_handler,
 )
-from app.core.exceptions import InternalServerError
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +39,8 @@ async def lifespan(_app: FastAPI):
         )
         try:
             await init_db()
-        except InternalServerError as e:
-            # Suppress traceback for startup errors
-            sys.tracebacklimit = 0
-            # Pass through the original error without wrapping
-            raise e
+        except SQLAlchemyError as e:
+            logger.error(f"Database initialization failed: {e}")
         yield
     finally:
         # Clean shutdown
@@ -94,5 +89,13 @@ async def root():
 # Define the healthcheck endpoint
 @app.get("/healthcheck", include_in_schema=False)
 async def healthcheck():
-    """Basic health check endpoint"""
-    return JSONResponse(status_code=status.HTTP_200_OK, content={"status": "healthy"})
+    """Health check endpoint that includes database status"""
+    is_db_connected = await check_db_connection()
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": "healthy",
+            "database": "connected" if is_db_connected else "disconnected",
+        },
+    )
