@@ -47,18 +47,15 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: Install dockerize
+      - name: Install uv
         run: |
-          wget https://github.com/jwilder/dockerize/releases/download/v0.6.1/dockerize-linux-amd64-v0.6.1.tar.gz
-          sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-v0.6.1.tar.gz
-          rm dockerize-linux-amd64-v0.6.1.tar.gz
+          curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Install dependencies
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          python -m pip install --upgrade pip
-          pip install ".[dev]"
+          uv pip install --system ".[dev]"
 
       - name: Wait for PostgreSQL
         run: |

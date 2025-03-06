@@ -51,7 +51,6 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         """Constructs database URL from config values."""
-        db_name = "test_db" if self.ENVIRONMENT.lower() == "test" else self.POSTGRES_DB
         return str(
             PostgresDsn.build(
                 scheme="postgresql+psycopg",
@@ -59,7 +58,7 @@ class Settings(BaseSettings):
                 password=self.POSTGRES_PASSWORD,
                 host=self.POSTGRES_HOST,
                 port=int(self.POSTGRES_PORT),
-                path=db_name,
+                path=self.POSTGRES_DB,
             )
         )
 

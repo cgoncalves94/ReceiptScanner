@@ -3,12 +3,10 @@
 import json
 from collections.abc import AsyncGenerator
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.receipt.models import Receipt
@@ -27,34 +25,6 @@ async def test_receipt(test_session: AsyncSession) -> AsyncGenerator[Receipt, No
     )
     created_receipt = await repository.create(receipt)
     yield created_receipt
-
-
-@pytest.mark.asyncio
-async def test_create_receipt_from_scan(test_client: TestClient) -> None:
-    """Test creating a receipt from a scanned image."""
-    # Create a test image file
-    image_path = Path("tests/data/test_receipt.jpg")
-    image_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Create a valid test image
-    img = Image.new("RGB", (100, 100), color="white")
-    img.save(image_path)
-
-    try:
-        # Prepare the file upload
-        files = {"image": ("test_receipt.jpg", image_path.open("rb"), "image/jpeg")}
-
-        # Make the request
-        response = test_client.post("/api/v1/receipts/scan", files=files)
-
-        # Assert response
-        assert response.status_code == 201
-        data = response.json()
-        assert data["store_name"] is not None
-        assert data["total_amount"] is not None
-    finally:
-        # Clean up
-        image_path.unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio

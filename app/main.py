@@ -22,12 +22,14 @@ from app.core.error_handlers import (
 
 logger = logging.getLogger(__name__)
 
-logfire.configure(
-    token=settings.LOGFIRE_TOKEN,
-    send_to_logfire="if-token-present",
-    scrubbing=False,
-    service_name="receipt-scanner",
-)
+# Only configure Logfire if not in test environment or if token is set
+if settings.ENVIRONMENT.lower() != "test" or settings.LOGFIRE_TOKEN:
+    logfire.configure(
+        token=settings.LOGFIRE_TOKEN,
+        send_to_logfire="if-token-present",
+        scrubbing=False,
+        service_name="receipt-scanner",
+    )
 
 
 @asynccontextmanager
