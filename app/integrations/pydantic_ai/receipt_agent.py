@@ -30,6 +30,7 @@ receipt_agent = Agent(
     result_type=ReceiptAnalysis,
     system_prompt=RECEIPT_SYSTEM_PROMPT,
     retries=3,
+    instrument=True,
 )
 
 

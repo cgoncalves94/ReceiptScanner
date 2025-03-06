@@ -9,13 +9,13 @@ dependencies = [
     "uvicorn>=0.33.0",
     "python-multipart>=0.0.20",
     "email-validator>=2.1.0.post1",
-    "jinja2>=3.1.5",
+    "jinja2>=3.1.6",
     "httpx>=0.25.1",
     "aiofiles>=24.1.0",
 
     # Database
     "sqlmodel>=0.0.23",
-    "alembic>=1.14.1",
+    "alembic>=1.15.1",
     "asyncpg>=0.29.0",
     "psycopg[binary]>=3.2.5",
 
@@ -30,7 +30,7 @@ dependencies = [
     "pydantic-settings>=2.8.1",
 
     # AI and image processing
-    "pydantic-ai>=0.0.31",
+    "pydantic-ai>=0.0.35",
     "pillow>=11.1.0",
     "google-generativeai>=0.8.4",
 
@@ -40,7 +40,7 @@ dependencies = [
     "rich>=13.9.0",
 
     # Monitoring and logging
-    "logfire>=2.7.1"
+    "logfire[fastapi,httpx,sqlalchemy]>=3.7.1"
 ]
 
 [tool.hatch.build.targets.wheel]

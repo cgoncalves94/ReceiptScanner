@@ -22,15 +22,6 @@ from app.core.error_handlers import (
 
 logger = logging.getLogger(__name__)
 
-# Only configure Logfire if not in test environment or if token is set
-if settings.ENVIRONMENT.lower() != "test" or settings.LOGFIRE_TOKEN:
-    logfire.configure(
-        token=settings.LOGFIRE_TOKEN,
-        send_to_logfire="if-token-present",
-        scrubbing=False,
-        service_name="receipt-scanner",
-    )
-
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -58,6 +49,17 @@ app = FastAPI(
     description="Receipt Scanner API for analyzing receipts using computer vision",
     contact={"name": __author__},
 )
+
+# Only configure Logfire if not in test environment or if token is set
+if settings.ENVIRONMENT.lower() != "test":
+    logfire.configure(
+        token=settings.LOGFIRE_TOKEN,
+        send_to_logfire=True,
+        scrubbing=False,
+        service_name="receipt-scanner",
+    )
+    logfire.instrument_fastapi(app)
+
 
 # Register exception handlers - order matters (most specific first)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
