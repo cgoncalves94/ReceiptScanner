@@ -6,7 +6,7 @@ This guide provides practical instructions for setting up, running, and contribu
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.12 or higher
 - Docker and Docker Compose
 - UV package manager
 - Google Gemini API key
@@ -15,7 +15,7 @@ This guide provides practical instructions for setting up, running, and contribu
 
 1. Clone the Repository
    ```bash
-   git clone https://github.com/yourusername/receipt-scanner.git
+   git clone https://github.com/cgoncalves94/receipt-scanner.git
    cd receipt-scanner
    ```
 
