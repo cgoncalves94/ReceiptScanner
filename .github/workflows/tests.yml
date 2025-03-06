@@ -41,15 +41,11 @@ jobs:
           fetch-depth: 0
           token: ${{ github.token }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
+          enable-cache: true
+          python-version: "3.12"
 
       - name: Install dockerize
         run: |
