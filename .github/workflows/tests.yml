@@ -46,6 +46,7 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.12"
+          cache-dependency-glob: "pyproject.toml"
 
       - name: Install dockerize
         run: |
@@ -55,9 +56,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m venv .venv
+          uv venv .venv
           source .venv/bin/activate
-          uv pip install --system ".[dev]"
+          uv pip install ".[dev]"
 
       - name: Wait for PostgreSQL
         run: |
