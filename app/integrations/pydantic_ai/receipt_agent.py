@@ -127,4 +127,4 @@ async def analyze_receipt(
         return result.data
 
     except Exception as e:
-        raise ServiceUnavailableError(f"Error analyzing receipt: {str(e)}")
+        raise ServiceUnavailableError(f"Error analyzing receipt: {str(e)}") from e

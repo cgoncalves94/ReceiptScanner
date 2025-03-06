@@ -132,8 +132,7 @@ class ReceiptService:
             return await self.get(receipt.id)
 
         except Exception as e:
-            # Error will be caught by the transactional decorator
-            raise ServiceUnavailableError(f"Failed to analyze receipt: {str(e)}")
+            raise ServiceUnavailableError(f"Failed to analyze receipt: {str(e)}") from e
 
     async def get(self, receipt_id: int) -> Receipt:
         """Get a receipt by ID."""

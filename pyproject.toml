@@ -1,3 +1,58 @@
+[tool.ruff]
+# Target Python version
+target-version = "py311"
+# Line length - standard for modern Python
+line-length = 88
+
+# Exclude common directories
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+# Select a comprehensive set of rules
+# Based on recommended practices from Ruff documentation
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "S",  # flake8-bandit (security checks)
+    "A",  # flake8-builtins (prevents shadowing builtins)
+]
+
+# Common ignores for web development
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults (common in FastAPI)
+]
+
+# Allow fixing all enabled rules
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore assert statements in tests
+"tests/**/*.py" = ["S101"]
+
+[tool.ruff.format]
+# Modern formatting options
+quote-style = "double"
+indent-style = "space"
+# Format docstring code blocks
+docstring-code-format = true
+# Like Black, respect magic trailing commas
+skip-magic-trailing-comma = false
+# Like Black, automatically detect the appropriate line ending
+line-ending = "auto"
+
 [project]
 name = "app"
 version = "0.1.0"
@@ -67,32 +122,6 @@ build-backend = "hatchling.build"
 [tool.mypy]
 strict = true
 exclude = ["venv", ".venv", "alembic"]
-
-[tool.ruff]
-target-version = "py310"
-exclude = ["alembic"]
-
-[tool.ruff.lint]
-select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-    "ARG001", # unused arguments in functions
-]
-ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
-    "W191",  # indentation contains tabs
-    "B904",  # Allow raising exceptions without from e, for HTTPException
-]
-
-[tool.ruff.lint.pyupgrade]
-# Preserve types, even if a file imports `from __future__ import annotations`.
-keep-runtime-typing = true
 
 [tool.logfire]
 ignore_no_config = true
