@@ -67,7 +67,6 @@ jobs:
       - name: Run tests with coverage
         run: |
           source .venv/bin/activate
-          pip install -e .
           coverage run -m pytest tests/ -v
           coverage report --show-missing
           coverage html --title "Receipt Scanner Coverage"
