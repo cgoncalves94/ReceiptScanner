@@ -1,46 +1,70 @@
-from typing import Any
+# Base application exception
+class AppError(Exception):
+    """Base exception for all application errors."""
 
-from fastapi import HTTPException, status
-
-
-class UnprocessableEntityError(HTTPException):
-    """Raised when validation fails."""
-
-    def __init__(self, detail: str | dict[str, Any]) -> None:
-        super().__init__(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail
-        )
+    def __init__(self, detail: str = "An error occurred", code: str = "APP_ERROR"):
+        super().__init__(detail)
+        self.detail = detail
+        self.code = code
 
 
-class ServiceUnavailableError(HTTPException):
+# Business domain exceptions
+class ValidationError(AppError):
+    """Raised when data validation fails."""
+
+    def __init__(
+        self, detail: str = "Invalid data provided", code: str = "VALIDATION_ERROR"
+    ):
+        super().__init__(detail=detail, code=code)
+
+
+class ServiceUnavailableError(AppError):
     """Raised when an external API request fails."""
 
-    def __init__(self, detail: str | dict[str, Any]) -> None:
-        super().__init__(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)
+    def __init__(
+        self,
+        detail: str = "Service is currently unavailable",
+        code: str = "SERVICE_UNAVAILABLE",
+    ):
+        super().__init__(detail=detail, code=code)
 
 
-class NotFoundError(HTTPException):
+class NotFoundError(AppError):
     """Raised when a requested resource is not found."""
 
-    def __init__(self, detail: str | dict[str, Any]) -> None:
-        super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    def __init__(self, detail: str = "Resource not found", code: str = "NOT_FOUND"):
+        super().__init__(detail=detail, code=code)
 
 
-class ConflictError(HTTPException):
+class ConflictError(AppError):
     """Raised when attempting to create a resource that already exists."""
 
-    def __init__(self, detail: str | dict[str, Any]) -> None:
-        super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
+    def __init__(self, detail: str = "Resource already exists", code: str = "CONFLICT"):
+        super().__init__(detail=detail, code=code)
 
 
-class InternalServerError(HTTPException):
-    """Raised when a database operation fails or other server-side errors occur."""
+class BadRequestError(AppError):
+    """Raised when a request is invalid."""
 
-    def __init__(self, detail: str | dict[str, Any]) -> None:
-        super().__init__(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail
-        )
+    def __init__(self, detail: str = "Invalid request", code: str = "BAD_REQUEST"):
+        super().__init__(detail=detail, code=code)
 
-    def __str__(self) -> str:
-        """Override string representation to avoid status code prefix."""
-        return str(self.detail)
+
+class DatabaseError(AppError):
+    """Raised when a database operation fails."""
+
+    def __init__(
+        self, detail: str = "Database operation failed", code: str = "DATABASE_ERROR"
+    ):
+        super().__init__(detail=detail, code=code)
+
+
+class InternalServerError(AppError):
+    """Raised for unexpected internal errors."""
+
+    def __init__(
+        self,
+        detail: str = "An unexpected internal error occurred",
+        code: str = "INTERNAL_ERROR",
+    ):
+        super().__init__(detail=detail, code=code)

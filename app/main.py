@@ -3,8 +3,7 @@ from contextlib import asynccontextmanager
 from typing import Any, cast
 
 import logfire
-from fastapi import FastAPI, HTTPException, status
-from fastapi.exceptions import RequestValidationError
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
@@ -14,10 +13,7 @@ from app.api.v1.router import APIRouter
 from app.core.config import settings
 from app.core.db import check_db_connection, engine, init_db
 from app.core.error_handlers import (
-    database_exception_handler,
-    http_exception_handler,
-    unhandled_exception_handler,
-    validation_exception_handler,
+    register_exception_handlers,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,11 +57,8 @@ if settings.ENVIRONMENT.lower() != "test":
     logfire.instrument_fastapi(app)
 
 
-# Register exception handlers - order matters (most specific first)
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
-app.add_exception_handler(SQLAlchemyError, database_exception_handler)
-app.add_exception_handler(HTTPException, http_exception_handler)
-app.add_exception_handler(Exception, unhandled_exception_handler)
+# Register exception handlers
+register_exception_handlers(app)
 
 # Add CORS middleware
 app.add_middleware(
