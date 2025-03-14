@@ -14,7 +14,7 @@ def transactional(func: Callable[..., T]) -> Callable[..., T]:
     """
     Decorator to handle database transactions.
     This decorator is specifically designed for methods of a service class
-    that have a repository with a session.
+    that have a session attribute.
 
     Usage:
         @transactional
@@ -33,10 +33,8 @@ def transactional(func: Callable[..., T]) -> Callable[..., T]:
 
         # Get instance from args (typically 'self')
         instance = args[0]
-        # Try to get repository from instance
-        repository = getattr(instance, "repository", None)
-        # Try to get session from repository
-        session = getattr(repository, "session", None) if repository else None
+        # Try to get session directly from instance
+        session = getattr(instance, "session", None)
 
         if session is None or not hasattr(session, "begin_nested"):
             # Execute the function without transaction

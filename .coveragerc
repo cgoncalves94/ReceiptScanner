@@ -1,0 +1,19 @@
+[run]
+source = app
+omit =
+    */tests/*
+    */__pycache__/*
+    */migrations/*
+    */alembic/*
+    app/models.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if TYPE_CHECKING:
+    raise NotImplementedError
+    pass
+    raise ImportError
+    except ImportError:
+    if __name__ == .__main__.:

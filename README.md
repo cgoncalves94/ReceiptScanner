@@ -19,7 +19,6 @@ A modern Python API template demonstrating clean architecture and domain-driven 
 - **Domain-Driven Design**: Feature-specific modules with clear boundaries
 - **Clean Architecture**: Separation of concerns across layers
   - Data Models
-  - Repositories
   - Services
   - API Endpoints
 - **Asynchronous Design**: Non-blocking operations throughout

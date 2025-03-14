@@ -1,6 +1,5 @@
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, cast
 
 import logfire
 from fastapi import FastAPI, status
@@ -47,7 +46,7 @@ app = FastAPI(
 )
 
 # Only configure Logfire if not in test environment or if token is set
-if settings.ENVIRONMENT.lower() != "test":
+if settings.ENVIRONMENT.lower() != "test":  # pragma: no cover
     logfire.configure(
         token=settings.LOGFIRE_TOKEN,
         send_to_logfire=True,
@@ -62,7 +61,7 @@ register_exception_handlers(app)
 
 # Add CORS middleware
 app.add_middleware(
-    cast(Any, CORSMiddleware),
+    CORSMiddleware,  # type: ignore
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
