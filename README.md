@@ -1,6 +1,6 @@
 # Receipt Scanner
 
-A modern Python API template demonstrating clean architecture and domain-driven design principles, with advanced AI capabilities for receipt analysis. While implemented as a receipt scanner, this project serves as a reference architecture for building robust, type-safe APIs.
+A modern Python API template demonstrating **Vertical Slice Architecture** complemented by **Domain-Driven Design (DDD)** and clean architecture principles, with advanced AI capabilities for receipt analysis. While implemented as a receipt scanner, this project serves as a robust reference architecture for building scalable, type-safe APIs.
 
 ## Core Technologies
 
@@ -16,7 +16,8 @@ A modern Python API template demonstrating clean architecture and domain-driven 
 ## Architecture & Design
 
 ### Patterns
-- **Domain-Driven Design**: Feature-specific modules with clear boundaries
+- **Vertical Slice Architecture**: Organizing codebase into self-contained, feature-specific modules
+- **Domain-Driven Design**: Explicit modeling of business logic and domain boundaries within each vertical slice
 - **Clean Architecture**: Separation of concerns across layers
   - Data Models
   - Services
