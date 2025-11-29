@@ -10,7 +10,7 @@ async def get_session() -> AsyncGenerator[AsyncSession, Any]:
     """Get a database session."""
     async with async_session_factory() as session:
         try:
-            yield session  # type: ignore[misc]
+            yield session
             await session.commit()
         except Exception:
             await session.rollback()
