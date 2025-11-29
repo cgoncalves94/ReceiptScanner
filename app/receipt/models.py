@@ -2,8 +2,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from pydantic import ConfigDict, computed_field
+from pydantic import computed_field
 from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel._compat import SQLModelConfig
 
 if TYPE_CHECKING:
     from ..category.models import Category
@@ -182,7 +183,7 @@ class ReceiptItemRead(ReceiptItemBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
+    model_config = SQLModelConfig(from_attributes=True)
 
 
 class ReceiptRead(ReceiptBase):
@@ -193,4 +194,4 @@ class ReceiptRead(ReceiptBase):
     updated_at: datetime
     items: list[ReceiptItemRead]
 
-    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
+    model_config = SQLModelConfig(from_attributes=True)
