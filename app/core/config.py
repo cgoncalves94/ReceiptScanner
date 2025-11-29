@@ -2,12 +2,8 @@ import logging.config
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 from pydantic import AnyHttpUrl, PostgresDsn, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-# Load environment variables from .env file at module level
-load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -20,11 +16,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
     # Database settings
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST")
-    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT")
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "receipt_scanner")
     DB_ECHO_LOG: bool = False
 
     # API Keys
@@ -43,7 +39,7 @@ class Settings(BaseSettings):
     )
 
     @model_validator(mode="after")
-    def set_default_origins(self) -> "Settings":
+    def set_default_origins(self) -> Settings:
         if not self.ALLOWED_ORIGINS:
             self.ALLOWED_ORIGINS = [AnyHttpUrl("http://localhost:3000")]
         return self

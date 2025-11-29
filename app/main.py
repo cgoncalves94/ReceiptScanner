@@ -1,4 +1,5 @@
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import logfire
@@ -8,18 +9,19 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import __author__
-from app.api.v1.router import APIRouter
+from app.category.router import router as category_router
 from app.core.config import settings
 from app.core.db import check_db_connection, engine, init_db
 from app.core.error_handlers import (
     register_exception_handlers,
 )
+from app.receipt.router import router as receipt_router
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifecycle manager."""
     try:
         logger.info(
@@ -61,30 +63,31 @@ register_exception_handlers(app)
 
 # Add CORS middleware
 app.add_middleware(
-    CORSMiddleware,  # type: ignore
-    allow_origins=settings.ALLOWED_ORIGINS,
+    CORSMiddleware,
+    allow_origins=[str(origin) for origin in settings.ALLOWED_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API router
-app.include_router(APIRouter, prefix=settings.API_V1_STR)
+# Include domain routers
+app.include_router(receipt_router)
+app.include_router(category_router)
 
 
 # Define the root endpoint
 @app.get("/", include_in_schema=False)
-async def root():
+async def root() -> dict[str, str]:
     """
     Root endpoint of the FastAPI application.
     Returns a welcome message.
     """
-    return {"message": "Welcome to the Warestack Core API!"}
+    return {"message": f"Welcome to the {settings.PROJECT_NAME}!"}
 
 
 # Define the healthcheck endpoint
 @app.get("/healthcheck", include_in_schema=False)
-async def healthcheck():
+async def healthcheck() -> JSONResponse:
     """Health check endpoint that includes database status"""
     is_db_connected = await check_db_connection()
 

@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.category.models import Category, CategoryCreate, CategoryUpdate
+from app.category.services import CategoryService
 from app.core.exceptions import ConflictError, NotFoundError
-from app.domains.category.models import Category, CategoryCreate, CategoryUpdate
-from app.domains.category.services import CategoryService
 
 
 @pytest.fixture

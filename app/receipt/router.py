@@ -5,12 +5,14 @@ from fastapi import APIRouter, File, UploadFile, status
 
 from .deps import ReceiptDeps
 from .models import (
+    Receipt,
+    ReceiptItem,
     ReceiptItemRead,
     ReceiptRead,
     ReceiptUpdate,
 )
 
-router = APIRouter(prefix="/receipts", tags=["receipts"])
+router = APIRouter(prefix="/api/v1/receipts", tags=["receipts"])
 
 
 @router.post("/scan", response_model=ReceiptRead, status_code=status.HTTP_201_CREATED)
@@ -18,7 +20,7 @@ async def create_receipt_from_scan(
     *,
     service: ReceiptDeps,
     image: Annotated[UploadFile, File()],
-) -> ReceiptRead:
+) -> Receipt:
     """
     Upload and scan a receipt image.
     The image will be analyzed using AI to extract information.
@@ -34,7 +36,7 @@ async def list_receipts(
     service: ReceiptDeps,
     skip: int = 0,
     limit: int = 100,
-) -> list[ReceiptRead]:
+) -> Sequence[Receipt]:
     """List all receipts with their items."""
     receipts = await service.list(skip=skip, limit=limit)
     return receipts  # pragma: no cover
@@ -44,7 +46,7 @@ async def list_receipts(
 async def get_receipt(
     receipt_id: int,
     service: ReceiptDeps,
-) -> ReceiptRead:
+) -> Receipt:
     """Get a receipt by ID with all its items."""
     return await service.get(receipt_id)
 
@@ -59,7 +61,7 @@ async def list_items_by_category(
     service: ReceiptDeps,
     skip: int = 0,
     limit: int = 100,
-) -> Sequence[ReceiptItemRead]:
+) -> Sequence[ReceiptItem]:
     """List all receipt items in a category."""
     return await service.list_items_by_category(
         category_id=category_id,
@@ -77,6 +79,6 @@ async def update_receipt(
     receipt_id: int,
     receipt_in: ReceiptUpdate,
     service: ReceiptDeps,
-) -> ReceiptRead:
+) -> Receipt:
     """Update a receipt."""
     return await service.update(receipt_id, receipt_in)

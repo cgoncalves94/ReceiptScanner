@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from pydantic import ConfigDict
 from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel._compat import SQLModelConfig
 
 if TYPE_CHECKING:
     from ..receipt.models import ReceiptItem
@@ -45,7 +45,7 @@ class Category(CategoryBase, table=True):
     )
 
     # Relationships
-    items: list["ReceiptItem"] = Relationship(
+    items: list[ReceiptItem] = Relationship(
         back_populates="category",
         sa_relationship_kwargs={"lazy": "selectin"},
     )
@@ -82,4 +82,4 @@ class CategoryRead(CategoryBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = SQLModelConfig(from_attributes=True)

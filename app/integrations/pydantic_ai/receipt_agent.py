@@ -1,18 +1,20 @@
 from dataclasses import dataclass
 from io import BytesIO
 
-import google.generativeai as genai
 from PIL import Image
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import BinaryContent
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.providers.google import GoogleProvider
 
 from app.core.config import settings
 from app.core.exceptions import ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_prompt import RECEIPT_SYSTEM_PROMPT
 from app.integrations.pydantic_ai.receipt_schema import CurrencySymbol, ReceiptAnalysis
 
-# Configure Gemini
-genai.configure(api_key=settings.GEMINI_API_KEY)
+# Configure Google provider with API key
+_google_provider = GoogleProvider(api_key=settings.GEMINI_API_KEY)
+_google_model = GoogleModel("gemini-2.5-flash", provider=_google_provider)
 
 
 @dataclass
@@ -23,11 +25,11 @@ class ReceiptDependencies:
     existing_categories: list[dict[str, str]] | None = None
 
 
-# Create receipt analyzer agent
-receipt_agent = Agent(
-    model="google-gla:gemini-2.0-flash",
+# Create receipt analyzer agent with Gemini 2.5 Flash
+receipt_agent: Agent[ReceiptDependencies, ReceiptAnalysis] = Agent(
+    model=_google_model,
     deps_type=ReceiptDependencies,
-    result_type=ReceiptAnalysis,
+    output_type=ReceiptAnalysis,
     system_prompt=RECEIPT_SYSTEM_PROMPT,
     retries=3,
     instrument=True,
@@ -66,7 +68,7 @@ Note:
 """
 
 
-@receipt_agent.result_validator
+@receipt_agent.output_validator
 def validate_currencies(result: ReceiptAnalysis) -> ReceiptAnalysis:
     """Validate and standardize currencies in the receipt analysis.
 
@@ -117,14 +119,14 @@ async def analyze_receipt(
         )
 
         # Create message with image
-        messages = [
+        messages: list[str | BinaryContent] = [
             "Please analyze this receipt image and extract the required information.",
             BinaryContent(data=img_bytes, media_type="image/png"),
         ]
 
         # Run the agent with dependencies
         result = await receipt_agent.run(messages, deps=deps)
-        return result.data
+        return result.output
 
     except Exception as e:
         raise ServiceUnavailableError(f"Error analyzing receipt: {str(e)}") from e

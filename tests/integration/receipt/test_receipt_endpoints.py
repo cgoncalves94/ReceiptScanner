@@ -9,14 +9,14 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.category.models import Category
-from app.domains.category.services import CategoryService
-from app.domains.receipt.models import Receipt, ReceiptCreate, ReceiptItem
-from app.domains.receipt.services import ReceiptService
+from app.category.models import Category
+from app.category.services import CategoryService
+from app.receipt.models import Receipt, ReceiptCreate, ReceiptItem
+from app.receipt.services import ReceiptService
 
 
 @pytest_asyncio.fixture
-async def test_receipt(test_session: AsyncSession) -> AsyncGenerator[Receipt, None]:
+async def test_receipt(test_session: AsyncSession) -> AsyncGenerator[Receipt]:
     """Create a test receipt."""
     category_service = CategoryService(test_session)
     receipt_service = ReceiptService(test_session, category_service)
@@ -31,7 +31,7 @@ async def test_receipt(test_session: AsyncSession) -> AsyncGenerator[Receipt, No
 
 
 @pytest_asyncio.fixture
-async def test_category(test_session: AsyncSession) -> AsyncGenerator[Category, None]:
+async def test_category(test_session: AsyncSession) -> AsyncGenerator[Category]:
     """Create a test category."""
     category = Category(name="Test Category", description="Test Description")
     test_session.add(category)
@@ -42,7 +42,7 @@ async def test_category(test_session: AsyncSession) -> AsyncGenerator[Category, 
 @pytest_asyncio.fixture
 async def test_receipt_item(
     test_session: AsyncSession, test_receipt: Receipt, test_category: Category
-) -> AsyncGenerator[ReceiptItem, None]:
+) -> AsyncGenerator[ReceiptItem]:
     """Create a test receipt item in a category."""
     item = ReceiptItem(
         name="Test Item",
