@@ -78,7 +78,7 @@ class ReceiptItemBase(SQLModel):
         foreign_key="receipt.id", description="ID of the receipt the item belongs to"
     )
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def total_cost(self) -> Decimal:
         """Calculate the total cost as unit_price multiplied by quantity."""

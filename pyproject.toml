@@ -118,6 +118,7 @@ build-backend = "hatchling.build"
 [tool.mypy]
 strict = true
 exclude = ["venv", ".venv", "alembic"]
+disable_error_code = ["prop-decorator"]
 
 [tool.logfire]
 ignore_no_config = true
