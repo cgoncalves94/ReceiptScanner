@@ -1,17 +1,13 @@
 import functools
 import logging
 from collections.abc import Awaitable, Callable
-from typing import ParamSpec, TypeVar
 
 from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")
-T = TypeVar("T")
 
-
-def transactional(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
+def transactional[**P, T](func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
     """
     Decorator to handle database transactions.
     This decorator is specifically designed for methods of a service class

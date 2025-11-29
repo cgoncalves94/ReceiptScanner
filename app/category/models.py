@@ -45,7 +45,7 @@ class Category(CategoryBase, table=True):
     )
 
     # Relationships
-    items: list["ReceiptItem"] = Relationship(
+    items: list[ReceiptItem] = Relationship(
         back_populates="category",
         sa_relationship_kwargs={"lazy": "selectin"},
     )

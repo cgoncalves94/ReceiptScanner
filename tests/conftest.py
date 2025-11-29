@@ -40,7 +40,7 @@ def get_test_database_url() -> str:
 
 
 @pytest_asyncio.fixture(scope="session")
-async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
+async def test_engine() -> AsyncGenerator[AsyncEngine]:
     """Create a test database engine."""
     engine = create_async_engine(
         get_test_database_url(),
@@ -62,7 +62,7 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
 
 
 @pytest_asyncio.fixture
-async def test_session(test_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
+async def test_session(test_engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
     """Get a test database session."""
     session_factory = async_sessionmaker(
         test_engine,
@@ -90,7 +90,7 @@ async def test_session(test_engine: AsyncEngine) -> AsyncGenerator[AsyncSession,
 @pytest.fixture
 def test_client(
     test_session: AsyncSession, test_engine: AsyncEngine
-) -> Generator[TestClient, None, None]:
+) -> Generator[TestClient]:
     """Create a test client with the test database session.
 
     Patches lifespan to use test engine and session instead of the app's
@@ -98,7 +98,7 @@ def test_client(
     """
 
     # Override the get_session dependency
-    async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+    async def override_get_session() -> AsyncGenerator[AsyncSession]:
         yield test_session
 
     app.dependency_overrides[get_session] = override_get_session

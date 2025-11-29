@@ -1,18 +1,20 @@
 from dataclasses import dataclass
 from io import BytesIO
 
-import google.generativeai as genai
 from PIL import Image
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import BinaryContent
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.providers.google import GoogleProvider
 
 from app.core.config import settings
 from app.core.exceptions import ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_prompt import RECEIPT_SYSTEM_PROMPT
 from app.integrations.pydantic_ai.receipt_schema import CurrencySymbol, ReceiptAnalysis
 
-# Configure Gemini
-genai.configure(api_key=settings.GEMINI_API_KEY)  # type: ignore[attr-defined]
+# Configure Google provider with API key
+_google_provider = GoogleProvider(api_key=settings.GEMINI_API_KEY)
+_google_model = GoogleModel("gemini-2.5-flash", provider=_google_provider)
 
 
 @dataclass
@@ -23,9 +25,9 @@ class ReceiptDependencies:
     existing_categories: list[dict[str, str]] | None = None
 
 
-# Create receipt analyzer agent
+# Create receipt analyzer agent with Gemini 2.5 Flash
 receipt_agent: Agent[ReceiptDependencies, ReceiptAnalysis] = Agent(
-    model="google-gla:gemini-2.0-flash",
+    model=_google_model,
     deps_type=ReceiptDependencies,
     output_type=ReceiptAnalysis,
     system_prompt=RECEIPT_SYSTEM_PROMPT,

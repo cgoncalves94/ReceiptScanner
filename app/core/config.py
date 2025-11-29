@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     )
 
     @model_validator(mode="after")
-    def set_default_origins(self) -> "Settings":
+    def set_default_origins(self) -> Settings:
         if not self.ALLOWED_ORIGINS:
             self.ALLOWED_ORIGINS = [AnyHttpUrl("http://localhost:3000")]
         return self

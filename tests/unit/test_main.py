@@ -31,7 +31,7 @@ def test_root_endpoint(test_client):
     """Test the root endpoint."""
     response = test_client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Welcome to the Warestack Core API!"}
+    assert response.json() == {"message": "Welcome to the Receipt Scanner API!"}
 
 
 def test_healthcheck_endpoint(mock_lifespan_deps):

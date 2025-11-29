@@ -82,7 +82,7 @@ async def root() -> dict[str, str]:
     Root endpoint of the FastAPI application.
     Returns a welcome message.
     """
-    return {"message": "Welcome to the Warestack Core API!"}
+    return {"message": f"Welcome to the {settings.PROJECT_NAME}!"}
 
 
 # Define the healthcheck endpoint
