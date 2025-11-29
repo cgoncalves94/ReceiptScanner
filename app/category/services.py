@@ -41,7 +41,8 @@ class CategoryService:
     async def get_by_name(self, name: str) -> Category | None:
         """Get a category by name."""
         stmt = select(Category).where(Category.name == name)
-        return await self.session.scalar(stmt)  # type: ignore[no-any-return]
+        result: Category | None = await self.session.scalar(stmt)
+        return result
 
     async def list(self, skip: int = 0, limit: int = 100) -> Sequence[Category]:
         """List all categories."""
