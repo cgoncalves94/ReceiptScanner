@@ -12,7 +12,7 @@ from app.integrations.pydantic_ai.receipt_prompt import RECEIPT_SYSTEM_PROMPT
 from app.integrations.pydantic_ai.receipt_schema import CurrencySymbol, ReceiptAnalysis
 
 # Configure Gemini
-genai.configure(api_key=settings.GEMINI_API_KEY)
+genai.configure(api_key=settings.GEMINI_API_KEY)  # type: ignore[attr-defined]
 
 
 @dataclass
@@ -24,7 +24,7 @@ class ReceiptDependencies:
 
 
 # Create receipt analyzer agent
-receipt_agent = Agent(
+receipt_agent: Agent[ReceiptDependencies, ReceiptAnalysis] = Agent(
     model="google-gla:gemini-2.0-flash",
     deps_type=ReceiptDependencies,
     output_type=ReceiptAnalysis,
@@ -117,14 +117,14 @@ async def analyze_receipt(
         )
 
         # Create message with image
-        messages = [
+        messages: list[str | BinaryContent] = [
             "Please analyze this receipt image and extract the required information.",
             BinaryContent(data=img_bytes, media_type="image/png"),
         ]
 
         # Run the agent with dependencies
         result = await receipt_agent.run(messages, deps=deps)
-        return result.data
+        return result.output
 
     except Exception as e:
         raise ServiceUnavailableError(f"Error analyzing receipt: {str(e)}") from e

@@ -67,33 +67,29 @@ dependencies = [
     "jinja2>=3.1.6",
     "httpx>=0.25.1",
     "aiofiles>=24.1.0",
-
+    "greenlet>=3.2.4",
+    
     # Database
     "sqlmodel>=0.0.23",
     "alembic>=1.15.1",
     "asyncpg>=0.29.0",
     "psycopg[binary]>=3.2.5",
-
     # Authentication and security
     "passlib[bcrypt]>=1.7.4",
     "bcrypt>=4.3.0",
     "pyjwt>=2.8.0",
     "python-jose>=3.4.0",
-
     # Data validation and settings
     "pydantic>=2.10.6",
     "pydantic-settings>=2.8.1",
-
     # AI and image processing
     "pydantic-ai>=0.0.35",
     "pillow>=11.1.0",
     "google-generativeai>=0.8.4",
-
     # Utilities
     "tenacity>=9.0.0",
     "python-dotenv>=1.0.1",
     "rich>=13.9.0",
-
     # Monitoring and logging
     "logfire[fastapi,httpx,sqlalchemy]>=3.7.1"
 ]
@@ -130,3 +126,4 @@ ignore_no_config = true
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "session"
 env_files = [".env.test"]
+env_override_existing_values = true

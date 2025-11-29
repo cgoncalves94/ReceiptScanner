@@ -1,16 +1,17 @@
 import functools
 import logging
-from collections.abc import Callable
-from typing import Any, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import ParamSpec, TypeVar
 
 from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
+P = ParamSpec("P")
 T = TypeVar("T")
 
 
-def transactional(func: Callable[..., T]) -> Callable[..., T]:
+def transactional(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
     """
     Decorator to handle database transactions.
     This decorator is specifically designed for methods of a service class
@@ -24,7 +25,7 @@ def transactional(func: Callable[..., T]) -> Callable[..., T]:
     """
 
     @functools.wraps(func)
-    async def wrapper(*args: Any, **kwargs: Any) -> T:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         if not args:
             logger.error(f"No instance provided to {func.__name__}")
             raise ValueError(

@@ -1,4 +1,4 @@
-.PHONY: help install dev run test lint format migrate clean docker-up docker-down
+.PHONY: help install dev run test test-unit test-integration test-all test-cov db-test-setup db-test-teardown lint format migrate clean docker-up docker-down
 
 # Default target
 help:
@@ -11,9 +11,20 @@ help:
 	@echo "Development:"
 	@echo "  make dev         Run migrations + start server (hot reload)"
 	@echo "  make run         Start server without migrations"
-	@echo "  make test        Run test suite with coverage"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test            Run unit tests (no database required)"
+	@echo "  make test-unit       Run unit tests only"
+	@echo "  make test-integration Run integration tests (auto-creates test_db)"
+	@echo "  make test-all        Run all tests (auto-creates test_db)"
+	@echo "  make test-cov        Run tests with coverage report"
+	@echo "  make db-test-setup   Create test database"
+	@echo "  make db-test-teardown Drop test database"
+	@echo ""
+	@echo "Code Quality:"
 	@echo "  make lint        Check code with ruff"
 	@echo "  make format      Format code with ruff"
+	@echo "  make typecheck   Run mypy type checking"
 	@echo ""
 	@echo "Database:"
 	@echo "  make migrate     Apply database migrations"
@@ -48,12 +59,34 @@ dev: migrate
 run:
 	uv run uvicorn app.main:app --reload
 
-test:
-	uv run pytest tests/ -v --tb=short
+test: test-unit
 
-test-cov:
+test-unit:
+	uv run pytest tests/unit/ -v --tb=short
+
+test-integration: db-test-setup
+	uv run pytest tests/integration/ -v --tb=short
+	@$(MAKE) db-test-teardown
+
+test-all: db-test-setup
+	uv run pytest tests/ -v --tb=short
+	@$(MAKE) db-test-teardown
+
+test-cov: db-test-setup
 	uv run pytest tests/ -v --cov=app --cov-report=html --cov-report=term
+	@$(MAKE) db-test-teardown
 	@echo "Coverage report: open htmlcov/index.html"
+
+db-test-setup:
+	@echo "🔧 Setting up test database..."
+	@docker exec receipt-postgres psql -U postgres -c "DROP DATABASE IF EXISTS test_db;" -q
+	@docker exec receipt-postgres psql -U postgres -c "CREATE DATABASE test_db;" -q
+	@echo "✅ Test database ready"
+
+db-test-teardown:
+	@echo "🧹 Cleaning up test database..."
+	@docker exec receipt-postgres psql -U postgres -c "DROP DATABASE IF EXISTS test_db;" -q
+	@echo "✅ Test database removed"
 
 lint:
 	uv run ruff check .

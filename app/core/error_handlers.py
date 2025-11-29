@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Map business exceptions to HTTP status codes
 STATUS_CODE_MAPPING: dict[type[AppError], int] = {
-    ValidationError: status.HTTP_422_UNPROCESSABLE_ENTITY,
+    ValidationError: status.HTTP_422_UNPROCESSABLE_CONTENT,
     ServiceUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,
     NotFoundError: status.HTTP_404_NOT_FOUND,
     ConflictError: status.HTTP_409_CONFLICT,
@@ -90,6 +90,7 @@ async def database_exception_handler(
     logger.error(f"Database error: {exc_type} - {error_msg}", exc_info=True)
 
     # Create appropriate business exception based on the error
+    error: AppError
     if isinstance(exc, IntegrityError) or "unique" in error_msg.lower():
         error = ConflictError(detail="Resource already exists")
     elif "foreign key" in error_msg.lower():

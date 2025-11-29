@@ -135,6 +135,8 @@ class ReceiptService:
             await self.session.flush()
 
             # Get the updated receipt with items
+            if receipt.id is None:
+                raise ServiceUnavailableError("Failed to create receipt")
             return await self.get(receipt.id)
 
         except Exception as e:
@@ -197,7 +199,8 @@ class ReceiptService:
 
         items = [ReceiptItem(**item.model_dump()) for item in items_in]
         for item in items:
-            item.receipt_id = receipt.id
+            if receipt.id is not None:
+                item.receipt_id = receipt.id
             self.session.add(item)
 
         await self.session.flush()

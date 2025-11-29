@@ -9,9 +9,22 @@ from app.main import app
 
 
 @pytest.fixture
-def test_client():
-    """Create a test client for the FastAPI app."""
-    return TestClient(app)
+def mock_lifespan_deps():
+    """Mock all lifespan dependencies to avoid database connections."""
+    with (
+        patch("app.main.init_db", AsyncMock()) as mock_init,
+        patch("app.main.engine") as mock_engine,
+    ):
+        # Configure engine.dispose() as an async mock
+        mock_engine.dispose = AsyncMock()
+        yield {"init_db": mock_init, "engine": mock_engine}
+
+
+@pytest.fixture
+def test_client(mock_lifespan_deps):
+    """Create a test client for the FastAPI app with mocked lifespan."""
+    with TestClient(app) as client:
+        yield client
 
 
 def test_root_endpoint(test_client):
@@ -21,12 +34,10 @@ def test_root_endpoint(test_client):
     assert response.json() == {"message": "Welcome to the Warestack Core API!"}
 
 
-@pytest.mark.asyncio
-async def test_healthcheck_endpoint():
+def test_healthcheck_endpoint(mock_lifespan_deps):
     """Test the healthcheck endpoint."""
     # Mock the check_db_connection function to return True
     with patch("app.main.check_db_connection", AsyncMock(return_value=True)):
-        # Use TestClient in a context manager to ensure proper cleanup
         with TestClient(app) as client:
             response = client.get("/healthcheck")
             assert response.status_code == 200
@@ -36,12 +47,10 @@ async def test_healthcheck_endpoint():
             }
 
 
-@pytest.mark.asyncio
-async def test_healthcheck_endpoint_db_disconnected():
+def test_healthcheck_endpoint_db_disconnected(mock_lifespan_deps):
     """Test the healthcheck endpoint when the database is disconnected."""
     # Mock the check_db_connection function to return False
     with patch("app.main.check_db_connection", AsyncMock(return_value=False)):
-        # Use TestClient in a context manager to ensure proper cleanup
         with TestClient(app) as client:
             response = client.get("/healthcheck")
             assert response.status_code == 200

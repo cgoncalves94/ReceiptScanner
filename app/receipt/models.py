@@ -77,7 +77,7 @@ class ReceiptItemBase(SQLModel):
         foreign_key="receipt.id", description="ID of the receipt the item belongs to"
     )
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_cost(self) -> Decimal:
         """Calculate the total cost as unit_price multiplied by quantity."""
@@ -182,7 +182,7 @@ class ReceiptItemRead(ReceiptItemBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
 
 
 class ReceiptRead(ReceiptBase):
@@ -193,4 +193,4 @@ class ReceiptRead(ReceiptBase):
     updated_at: datetime
     items: list[ReceiptItemRead]
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]

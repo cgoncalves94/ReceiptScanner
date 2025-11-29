@@ -1,4 +1,5 @@
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import logfire
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifecycle manager."""
     try:
         logger.info(
@@ -62,8 +63,8 @@ register_exception_handlers(app)
 
 # Add CORS middleware
 app.add_middleware(
-    CORSMiddleware,  # type: ignore
-    allow_origins=settings.ALLOWED_ORIGINS,
+    CORSMiddleware,
+    allow_origins=[str(origin) for origin in settings.ALLOWED_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,7 +77,7 @@ app.include_router(category_router)
 
 # Define the root endpoint
 @app.get("/", include_in_schema=False)
-async def root():
+async def root() -> dict[str, str]:
     """
     Root endpoint of the FastAPI application.
     Returns a welcome message.
@@ -86,7 +87,7 @@ async def root():
 
 # Define the healthcheck endpoint
 @app.get("/healthcheck", include_in_schema=False)
-async def healthcheck():
+async def healthcheck() -> JSONResponse:
     """Health check endpoint that includes database status"""
     is_db_connected = await check_db_connection()
 
