@@ -3,8 +3,8 @@ from typing import Annotated
 from fastapi import Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.category.deps import get_category_service
 from app.core.deps import get_session
-from app.domains.category.deps import get_category_service
 
 from .services import ReceiptService
 

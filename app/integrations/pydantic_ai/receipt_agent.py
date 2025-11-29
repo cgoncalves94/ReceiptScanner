@@ -27,7 +27,7 @@ class ReceiptDependencies:
 receipt_agent = Agent(
     model="google-gla:gemini-2.0-flash",
     deps_type=ReceiptDependencies,
-    result_type=ReceiptAnalysis,
+    output_type=ReceiptAnalysis,
     system_prompt=RECEIPT_SYSTEM_PROMPT,
     retries=3,
     instrument=True,
@@ -66,7 +66,7 @@ Note:
 """
 
 
-@receipt_agent.result_validator
+@receipt_agent.output_validator
 def validate_currencies(result: ReceiptAnalysis) -> ReceiptAnalysis:
     """Validate and standardize currencies in the receipt analysis.
 

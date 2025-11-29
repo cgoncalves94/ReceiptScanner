@@ -5,15 +5,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.category.services import CategoryService
 from app.core.exceptions import NotFoundError
-from app.domains.category.services import CategoryService
-from app.domains.receipt.models import (
+from app.receipt.models import (
     Receipt,
     ReceiptCreate,
     ReceiptItem,
     ReceiptUpdate,
 )
-from app.domains.receipt.services import ReceiptService
+from app.receipt.services import ReceiptService
 
 
 def test_receipt_item_total_cost():

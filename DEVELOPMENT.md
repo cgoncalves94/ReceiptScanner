@@ -1,165 +1,249 @@
-# Development Guide for Receipt Scanner API
+# Development Guide
 
-This guide provides practical instructions for setting up, running, and contributing to the Receipt Scanner API project.
+Detailed guide for developing the Receipt Scanner API.
+
+## Prerequisites
+
+- **Python 3.11+**
+- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** - Fast Python package manager
+- **Docker** - For PostgreSQL database
+- **Gemini API Key** - Get one at <https://aistudio.google.com/apikey>
 
 ## Initial Setup
 
-### Prerequisites
-
-- Python 3.12 or higher
-- Docker and Docker Compose
-- UV package manager
-- Google Gemini API key
-
-### Environment Setup
-
-1. Clone the Repository
-   ```bash
-   git clone https://github.com/cgoncalves94/receipt-scanner.git
-   cd receipt-scanner
-   ```
-
-2. Start Docker Services
-   ```bash
-   # Build and start all services
-   docker compose up --build -d
-
-   # View logs if needed
-   docker compose logs -f
-   ```
-
-3. Setup Python Environment
-   ```bash
-   # Create and activate virtual environment
-   uv venv
-   source .venv/bin/activate  # Unix/macOS
-   # or
-   .venv\Scripts\activate     # Windows
-
-   # Install dependencies
-   uv pip install -e ".[dev]"
-   ```
-
-4. Configure Environment
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configurations, especially the Gemini API key
-   ```
-
-## Development Workflow
-
-### Running the Application
-
-You can run the application using either the native command or our script:
+### 1. Clone and Install
 
 ```bash
-# Using native command
-uvicorn app.main:app --reload
+git clone https://github.com/cgoncalves94/receipt-scanner.git
+cd receipt-scanner
 
-# Or using our script
-./scripts/start-dev.sh
+# Install uv if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install project dependencies
+make install
 ```
-The API will be available at http://localhost:8000
 
-### Database Migrations
-
-When modifying models (add/remove fields, create new models):
+### 2. Start Database
 
 ```bash
-# Generate a new migration
-alembic revision --autogenerate -m "describe your changes"
+# Start PostgreSQL container
+make db-up
 
-# Apply migrations
-alembic upgrade head
-# Or using our script
-./scripts/db.sh
-
-# View current state and history
-alembic current
-alembic history
-
-# Rollback if needed
-alembic downgrade -1
-alembic downgrade <revision_id>
+# Verify it's running
+docker compose ps
 ```
 
-### Package Management
-
-UV is our recommended package manager for its speed and reliability.
+### 3. Configure Environment
 
 ```bash
-# Add new packages
-uv pip install package_name
-uv add package_name          # Also updates pyproject.toml
-uv add --dev package_name    # Add dev dependency
-
-# Manage dependencies
-uv pip list                  # View installed packages
-uv pip list --outdated      # Check for updates
-uv pip install --upgrade package_name  # Update specific package
+cp .env.example .env
 ```
 
-## Quality Assurance
+Edit `.env` and add your Gemini API key:
 
-### Code Quality Tools
-
-1. Install Pre-commit Hooks
-   ```bash
-   pre-commit install
-   ```
-
-2. Run Linting and Formatting
-   ```bash
-   # Manual pre-commit check
-   pre-commit run --all-files
-
-   # Direct tool usage
-   ruff check .    # Linting
-   ruff format .   # Formatting
-   ```
-
-### Testing
-
-Run the test suite:
 ```bash
-./scripts/test.sh
+GEMINI_API_KEY=your_api_key_here
 ```
 
-The script handles:
-- Test environment setup
-- Test database creation
-- Test execution with coverage
-- Database cleanup
+### 4. Run the Application
 
-View coverage report:
 ```bash
-open htmlcov/index.html     # macOS
-xdg-open htmlcov/index.html # Linux
-start htmlcov/index.html    # Windows
+# Apply migrations and start server with hot reload
+make dev
 ```
 
-#### Test Categories
-- **Unit Tests** (`tests/unit/`): Test components in isolation
-- **Integration Tests** (`tests/integration/`): Test API endpoints with dedicated test database
+The API is available at <http://localhost:8000>
 
-#### Environment
-- Separate `test_db` database is used automatically
-- Database is created/dropped for each test run
-- CI pipeline uses the same configuration
+## Daily Development
 
-## Contributing
+### Running the Server
 
-1. Create Feature Branch
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+```bash
+make dev      # With migrations (recommended)
+make run      # Without migrations
+```
 
-2. Development Cycle
-   - Make your changes
-   - Run tests: `./scripts/test.sh`
-   - Run quality checks: `pre-commit run --all-files`
+### Running Tests
 
-3. Submit Pull Request
-   - Ensure all tests pass
-   - Update documentation if needed
-   - Follow existing code style
+```bash
+make test     # Run all tests
+make test-cov # Run with coverage report
+```
+
+### Code Quality
+
+```bash
+make lint     # Check for issues
+make format   # Auto-fix and format
+```
+
+Pre-commit hooks are recommended:
+
+```bash
+pre-commit install
+```
+
+## Database
+
+### Migrations
+
+```bash
+make migrate                    # Apply pending migrations
+make migration m='add users'    # Create new migration
+make migrate-down               # Rollback one migration
+make migrate-history            # View migration history
+```
+
+### Direct Alembic Commands
+
+```bash
+uv run alembic current          # Current revision
+uv run alembic heads            # Latest available
+uv run alembic downgrade base   # Reset all migrations
+```
+
+## Project Architecture
+
+### Vertical Slice Structure
+
+Each domain is self-contained:
+
+```text
+app/
+├── main.py                 # FastAPI app, lifespan, middleware
+├── models.py               # SQLModel registry (for Alembic)
+├── core/                   # Shared infrastructure
+│   ├── config.py           # Settings from environment
+│   ├── db.py               # Database engine and sessions
+│   ├── deps.py             # Shared dependencies (get_session)
+│   ├── exceptions.py       # Custom exception classes
+│   ├── error_handlers.py   # Exception → HTTP response mapping
+│   └── decorators.py       # @transactional decorator
+├── receipt/                # Receipt domain
+│   ├── router.py           # API endpoints (/api/v1/receipts)
+│   ├── models.py           # Receipt, ReceiptItem models + schemas
+│   ├── services.py         # Business logic
+│   └── deps.py             # ReceiptDeps injection
+├── category/               # Category domain (same structure)
+└── integrations/
+    └── pydantic_ai/        # AI integration
+        ├── receipt_agent.py    # Pydantic AI agent
+        ├── receipt_schema.py   # Response schemas
+        └── receipt_prompt.py   # System prompts
+```
+
+### Key Patterns
+
+#### Dependency Injection
+
+```python
+# deps.py
+ReceiptDeps = Annotated[ReceiptService, Depends(get_receipt_service)]
+
+# router.py
+@router.get("/{id}")
+async def get_receipt(id: int, service: ReceiptDeps):
+    return await service.get(id)
+```
+
+#### Exception Handling
+
+```python
+# Raise domain exceptions
+raise NotFoundError(f"Receipt {id} not found")
+
+# Automatically mapped to HTTP 404
+```
+
+#### Transactional Decorator
+
+```python
+@transactional
+async def create_from_scan(self, image: UploadFile) -> Receipt:
+    # All operations in a single transaction
+    # Automatic rollback on failure
+```
+
+## Docker
+
+### Full Stack
+
+```bash
+make docker-up      # Start db + app
+make docker-down    # Stop all
+make docker-logs    # View logs
+```
+
+### Database Only
+
+```bash
+make db-up          # Start PostgreSQL
+make db-down        # Stop PostgreSQL
+```
+
+### Rebuild
+
+```bash
+make docker-build   # Rebuild and start
+```
+
+## Testing
+
+### Test Structure
+
+```text
+tests/
+├── conftest.py             # Shared fixtures
+├── unit/                   # Unit tests (mocked dependencies)
+│   ├── category/
+│   ├── receipt/
+│   └── core/
+└── integration/            # API tests (real database)
+    ├── category/
+    └── receipt/
+```
+
+### Running Specific Tests
+
+```bash
+# Single file
+uv run pytest tests/unit/receipt/test_receipt_service.py -v
+
+# Single test
+uv run pytest tests/unit/receipt/test_receipt_service.py::test_create_receipt -v
+
+# By marker
+uv run pytest -m asyncio -v
+```
+
+## Troubleshooting
+
+### Database Connection Issues
+
+```bash
+# Check if PostgreSQL is running
+docker compose ps
+
+# Restart database
+make db-down && make db-up
+
+# Check connection
+uv run python -c "from app.core.db import check_db_connection; import asyncio; print(asyncio.run(check_db_connection()))"
+```
+
+### Import Errors
+
+```bash
+# Reinstall dependencies
+make clean
+make install
+```
+
+### Migration Conflicts
+
+```bash
+# Reset to clean state (WARNING: deletes data)
+uv run alembic downgrade base
+uv run alembic upgrade head
+```

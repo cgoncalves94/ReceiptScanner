@@ -7,7 +7,7 @@ from .models import (
     CategoryUpdate,
 )
 
-router = APIRouter(prefix="/categories", tags=["categories"])
+router = APIRouter(prefix="/api/v1/categories", tags=["categories"])
 
 
 @router.post("", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)

@@ -8,12 +8,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import __author__
-from app.api.v1.router import APIRouter
+from app.category.router import router as category_router
 from app.core.config import settings
 from app.core.db import check_db_connection, engine, init_db
 from app.core.error_handlers import (
     register_exception_handlers,
 )
+from app.receipt.router import router as receipt_router
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +69,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API router
-app.include_router(APIRouter, prefix=settings.API_V1_STR)
+# Include domain routers
+app.include_router(receipt_router)
+app.include_router(category_router)
 
 
 # Define the root endpoint

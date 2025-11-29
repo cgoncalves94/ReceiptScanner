@@ -10,7 +10,7 @@ from .models import (
     ReceiptUpdate,
 )
 
-router = APIRouter(prefix="/receipts", tags=["receipts"])
+router = APIRouter(prefix="/api/v1/receipts", tags=["receipts"])
 
 
 @router.post("/scan", response_model=ReceiptRead, status_code=status.HTTP_201_CREATED)

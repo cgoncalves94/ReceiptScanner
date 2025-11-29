@@ -9,10 +9,10 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.category.models import Category
-from app.domains.category.services import CategoryService
-from app.domains.receipt.models import Receipt, ReceiptCreate, ReceiptItem
-from app.domains.receipt.services import ReceiptService
+from app.category.models import Category
+from app.category.services import CategoryService
+from app.receipt.models import Receipt, ReceiptCreate, ReceiptItem
+from app.receipt.services import ReceiptService
 
 
 @pytest_asyncio.fixture
