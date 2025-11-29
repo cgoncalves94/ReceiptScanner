@@ -6,7 +6,7 @@ A modern Python API for analyzing receipt images using AI. Built with **FastAPI*
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.14+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 - Docker (for PostgreSQL)
 - [Gemini API key](https://aistudio.google.com/apikey)
@@ -19,10 +19,10 @@ git clone https://github.com/cgoncalves94/receipt-scanner.git
 cd receipt-scanner
 
 # Start PostgreSQL
-docker compose up -d db
+make db-up
 
 # Install dependencies
-make install
+make install-dev
 
 # Configure environment
 cp .env.example .env

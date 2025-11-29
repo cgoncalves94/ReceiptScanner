@@ -4,7 +4,7 @@ Detailed guide for developing the Receipt Scanner API.
 
 ## Prerequisites
 
-- **Python 3.11+**
+- **Python 3.14+**
 - **[uv](https://docs.astral.sh/uv/getting-started/installation/)** - Fast Python package manager
 - **Docker** - For PostgreSQL database
 - **Gemini API Key** - Get one at <https://aistudio.google.com/apikey>
@@ -21,7 +21,7 @@ cd receipt-scanner
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install project dependencies
-make install
+make install-dev
 ```
 
 ### 2. Start Database
