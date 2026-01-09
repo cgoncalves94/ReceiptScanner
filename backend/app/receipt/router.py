@@ -8,6 +8,7 @@ from .models import (
     Receipt,
     ReceiptItem,
     ReceiptItemRead,
+    ReceiptItemUpdate,
     ReceiptRead,
     ReceiptUpdate,
 )
@@ -82,3 +83,27 @@ async def update_receipt(
 ) -> Receipt:
     """Update a receipt."""
     return await service.update(receipt_id, receipt_in)
+
+
+@router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_receipt(
+    receipt_id: int,
+    service: ReceiptDeps,
+) -> None:
+    """Delete a receipt and all its items."""
+    await service.delete(receipt_id)
+
+
+@router.patch(
+    "/{receipt_id}/items/{item_id}",
+    response_model=ReceiptRead,
+    status_code=status.HTTP_200_OK,
+)
+async def update_receipt_item(
+    receipt_id: int,
+    item_id: int,
+    item_in: ReceiptItemUpdate,
+    service: ReceiptDeps,
+) -> Receipt:
+    """Update a receipt item."""
+    return await service.update_item(receipt_id, item_id, item_in)

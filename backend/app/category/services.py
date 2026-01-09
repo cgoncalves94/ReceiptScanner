@@ -1,10 +1,11 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlmodel import select
+from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.receipt.models import ReceiptItem
 
 from .models import Category, CategoryCreate, CategoryUpdate
 
@@ -73,7 +74,21 @@ class CategoryService:
         return category
 
     async def delete(self, category_id: int) -> None:
-        """Delete a category."""
+        """Delete a category.
+
+        Raises ConflictError if the category has items assigned to it.
+        """
         category = await self.get(category_id)
+
+        # Check if any items are using this category
+        stmt = select(func.count(ReceiptItem.id)).where(ReceiptItem.category_id == category_id)
+        item_count = await self.session.scalar(stmt)
+
+        if item_count and item_count > 0:
+            raise ConflictError(
+                f"Cannot delete category '{category.name}': {item_count} item(s) are assigned to it. "
+                "Please reassign or remove items first."
+            )
+
         await self.session.delete(category)
         await self.session.flush()

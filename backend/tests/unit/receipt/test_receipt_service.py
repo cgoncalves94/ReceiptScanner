@@ -11,6 +11,7 @@ from app.receipt.models import (
     Receipt,
     ReceiptCreate,
     ReceiptItem,
+    ReceiptItemUpdate,
     ReceiptUpdate,
 )
 from app.receipt.services import ReceiptService
@@ -297,3 +298,69 @@ async def test_list_items_by_category(
     assert len(retrieved_items) == 2
     assert all(item.category_id == category_id for item in retrieved_items)
     mock_session.scalars.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_item(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test updating a receipt item."""
+    # Arrange
+    item = ReceiptItem(
+        id=1,
+        name="Original Item",
+        quantity=1,
+        unit_price=Decimal("10.99"),
+        total_price=Decimal("10.99"),
+        currency="$",
+        category_id=1,
+        receipt_id=1,
+    )
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("10.99"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[item],
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.flush = AsyncMock()
+    mock_session.refresh = AsyncMock()
+
+    update_data = ReceiptItemUpdate(name="Updated Item", category_id=2)
+
+    # Act
+    updated_receipt = await receipt_service.update_item(
+        receipt_id=1, item_id=1, item_in=update_data
+    )
+
+    # Assert
+    assert updated_receipt.items[0].name == "Updated Item"
+    assert updated_receipt.items[0].category_id == 2
+    mock_session.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_nonexistent_receipt_item(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test updating a receipt item that doesn't exist."""
+    # Arrange
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("10.99"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[],  # No items
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.refresh = AsyncMock()
+
+    update_data = ReceiptItemUpdate(name="Updated Item")
+
+    # Act & Assert
+    with pytest.raises(NotFoundError) as exc_info:
+        await receipt_service.update_item(receipt_id=1, item_id=999, item_in=update_data)
+    assert "not found" in str(exc_info.value)

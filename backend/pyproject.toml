@@ -60,8 +60,8 @@ description = ""
 requires-python = ">=3.14"
 dependencies = [
     # Web framework and related
-    "fastapi[standard]>=0.122.0",
-    "uvicorn>=0.34.0",
+    "fastapi[standard]>=0.128.0",
+    "uvicorn>=0.40.0",
     "python-multipart>=0.0.20",
     "email-validator>=2.2.0",
     "jinja2>=3.1.6",
@@ -69,8 +69,8 @@ dependencies = [
     "aiofiles>=24.1.0",
 
     # Database
-    "sqlmodel>=0.0.27",
-    "alembic>=1.17.0",
+    "sqlmodel>=0.0.31",
+    "alembic>=1.17.2",
     "asyncpg>=0.30.0",
     "psycopg[binary]>=3.2.5",
     "greenlet>=3.2.0",
@@ -83,8 +83,8 @@ dependencies = [
     "pydantic>=2.12.0",
     "pydantic-settings>=2.12.0",
     # AI and image processing
-    "pydantic-ai>=1.0.0",
-    "pillow>=12.0.0",
+    "pydantic-ai>=1.40.0",
+    "pillow>=12.1.0",
     # Utilities
     "tenacity>=9.1.0",
     "python-dotenv>=1.1.0",

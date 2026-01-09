@@ -42,13 +42,8 @@ async def app_exception_handler(_: Request, exc: AppError) -> Response | JSONRes
     # Log the error with appropriate level
     logger.debug(f"app_exception_handler handling exception type: {type(exc).__name__}")
 
-    # Build response content
-    response_content = {
-        "error": {"detail": exc.detail, "code": exc.code, "status_code": status_code}
-    }
-
-    logger.debug(f"Returning response with content: {response_content}")
-    return JSONResponse(status_code=status_code, content=response_content)
+    # Standard FastAPI error format
+    return JSONResponse(status_code=status_code, content={"detail": exc.detail})
 
 
 async def validation_exception_handler(

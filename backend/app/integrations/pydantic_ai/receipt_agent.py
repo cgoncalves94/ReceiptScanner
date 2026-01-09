@@ -1,10 +1,12 @@
+import os
 from dataclasses import dataclass
 from io import BytesIO
 
 from PIL import Image
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent, ModelSettings, RunContext
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.instrumented import InstrumentationSettings
 from pydantic_ai.providers.google import GoogleProvider
 
 from app.core.config import settings
@@ -12,9 +14,27 @@ from app.core.exceptions import ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_prompt import RECEIPT_SYSTEM_PROMPT
 from app.integrations.pydantic_ai.receipt_schema import CurrencySymbol, ReceiptAnalysis
 
+# Model configuration - use Gemini 3 Flash by default (faster + cheaper than Pro)
+# Set GEMINI_MODEL env var to override (e.g., "gemini-3-pro-preview" for higher quality)
+DEFAULT_MODEL = "gemini-3-flash-preview"
+_model_name = os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
+
 # Configure Google provider with API key
 _google_provider = GoogleProvider(api_key=settings.GEMINI_API_KEY)
-_google_model = GoogleModel("gemini-2.5-flash", provider=_google_provider)
+_google_model = GoogleModel(_model_name, provider=_google_provider)
+
+# Default model settings with timeout (60 seconds for receipt analysis)
+DEFAULT_MODEL_SETTINGS = ModelSettings(timeout=60)
+
+# Instrumentation settings for fine-grained Logfire tracing
+# - include_content: Log prompts and completions (useful for debugging)
+# - include_binary_content: Log image data (disable in prod if bandwidth is concern)
+# - version: Use latest OpenTelemetry GenAI spec format
+_instrumentation = InstrumentationSettings(
+    include_content=True,
+    include_binary_content=settings.ENVIRONMENT.lower() != "production",
+    version=2,
+)
 
 
 @dataclass
@@ -25,14 +45,15 @@ class ReceiptDependencies:
     existing_categories: list[dict[str, str]] | None = None
 
 
-# Create receipt analyzer agent with Gemini 2.5 Flash
+# Create receipt analyzer agent with Gemini 3 (or configured model)
 receipt_agent: Agent[ReceiptDependencies, ReceiptAnalysis] = Agent(
     model=_google_model,
     deps_type=ReceiptDependencies,
     output_type=ReceiptAnalysis,
     system_prompt=RECEIPT_SYSTEM_PROMPT,
+    model_settings=DEFAULT_MODEL_SETTINGS,
     retries=3,
-    instrument=True,
+    instrument=_instrumentation,
 )
 
 

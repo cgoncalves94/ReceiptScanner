@@ -6,6 +6,7 @@ import logfire
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import __author__
@@ -64,7 +65,7 @@ register_exception_handlers(app)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[str(origin) for origin in settings.ALLOWED_ORIGINS],
+    allow_origins=[str(origin).rstrip("/") for origin in settings.ALLOWED_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,6 +74,9 @@ app.add_middleware(
 # Include domain routers
 app.include_router(receipt_router)
 app.include_router(category_router)
+
+# Serve uploaded files (receipt images)
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 
 # Define the root endpoint

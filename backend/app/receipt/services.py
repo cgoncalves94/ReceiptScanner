@@ -21,6 +21,7 @@ from .models import (
     ReceiptCreate,
     ReceiptItem,
     ReceiptItemCreate,
+    ReceiptItemUpdate,
     ReceiptUpdate,
 )
 
@@ -190,6 +191,31 @@ class ReceiptService:
         await self.session.flush()
 
     # Receipt Item Operations
+
+    async def update_item(
+        self, receipt_id: int, item_id: int, item_in: ReceiptItemUpdate
+    ) -> Receipt:
+        """Update a receipt item."""
+        # Get the receipt to verify it exists
+        receipt = await self.get(receipt_id)
+
+        # Find the item in the receipt
+        item = next((i for i in receipt.items if i.id == item_id), None)
+        if not item:
+            raise NotFoundError(
+                f"Item with id {item_id} not found in receipt {receipt_id}"
+            )
+
+        # Update item fields
+        update_data = item_in.model_dump(exclude_unset=True)
+        item.sqlmodel_update(update_data)
+        item.updated_at = datetime.now(UTC)
+
+        await self.session.flush()
+        await self.session.refresh(receipt, ["items"])
+
+        return receipt
+
     async def create_items(
         self, receipt_id: int, items_in: Sequence[ReceiptItemCreate]
     ) -> Sequence[ReceiptItem]:

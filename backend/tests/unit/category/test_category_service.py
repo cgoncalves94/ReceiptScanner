@@ -233,7 +233,8 @@ async def test_delete_category(
         name="Test Category",
         description="Test Description",
     )
-    mock_session.scalar.return_value = category
+    # First call returns category (get), second call returns 0 (item count)
+    mock_session.scalar.side_effect = [category, 0]
 
     # Mock the delete and flush methods
     mock_session.delete = AsyncMock()
@@ -262,4 +263,28 @@ async def test_delete_nonexistent_category(
     with pytest.raises(NotFoundError) as exc_info:
         await category_service.delete(999)
     assert "not found" in str(exc_info.value)
+    mock_session.delete.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_delete_category_with_items(
+    category_service: CategoryService, mock_session: AsyncMock
+) -> None:
+    """Test deleting a category that has items assigned raises ConflictError."""
+    # Arrange
+    category = Category(
+        id=1,
+        name="Test Category",
+        description="Test Description",
+    )
+    # First call returns category (get), second call returns item count > 0
+    mock_session.scalar.side_effect = [category, 5]
+
+    mock_session.delete = AsyncMock()
+
+    # Act & Assert
+    with pytest.raises(ConflictError) as exc_info:
+        await category_service.delete(category.id)
+    assert "Cannot delete category" in str(exc_info.value)
+    assert "5 item(s)" in str(exc_info.value)
     mock_session.delete.assert_not_called()
