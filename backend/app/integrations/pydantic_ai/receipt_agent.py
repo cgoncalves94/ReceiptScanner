@@ -102,8 +102,6 @@ Note:
     return agent
 
 
-
-
 async def analyze_receipt(
     image: Image.Image,
     existing_categories: list[dict[str, str]] | None = None,
