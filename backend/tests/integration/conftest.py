@@ -15,10 +15,12 @@ References:
 """
 
 import os
+import tempfile
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -35,6 +37,7 @@ from sqlmodel import SQLModel
 
 from app.category.models import Category
 from app.category.services import CategoryService
+from app.core.config import settings
 from app.core.deps import get_session
 from app.main import app
 from app.receipt.models import Receipt, ReceiptCreate, ReceiptItem
@@ -53,6 +56,22 @@ def get_test_database_url() -> str:
     password = os.getenv("POSTGRES_PASSWORD", "postgres")
     db = os.getenv("POSTGRES_DB", "test_db")
     return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
+
+
+# =============================================================================
+# Filesystem Isolation Fixtures
+# =============================================================================
+
+
+@pytest.fixture(scope="session")
+def test_uploads_dir() -> Generator[Path]:
+    """Create a temporary directory for file uploads during tests.
+
+    This prevents test files from accumulating in the real uploads/ directory.
+    The temp directory is automatically cleaned up after the test session.
+    """
+    with tempfile.TemporaryDirectory(prefix="receipt_test_uploads_") as tmp_dir:
+        yield Path(tmp_dir)
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -127,11 +146,15 @@ async def test_session(
 def test_client(
     test_session: AsyncSession,
     test_engine: AsyncEngine,
+    test_uploads_dir: Path,
 ) -> Generator[TestClient]:
     """Create a test client with the test database session.
 
     Overrides FastAPI's session dependency to use our test session,
     ensuring all requests use the same transaction that will be rolled back.
+
+    Also redirects file uploads to a temp directory to prevent test files
+    from accumulating in the real uploads/ directory.
     """
 
     async def override_get_session() -> AsyncGenerator[AsyncSession]:
@@ -139,13 +162,22 @@ def test_client(
 
     app.dependency_overrides[get_session] = override_get_session
 
-    # Patch lifespan to avoid connecting to Docker 'db' host
+    # Store original upload dir
+    original_upload_dir = settings.UPLOAD_DIR
+
+    # Patch lifespan and uploads directory
     with (
         patch("app.main.init_db", AsyncMock()),
         patch("app.main.engine", test_engine),
     ):
-        with TestClient(app) as client:
-            yield client
+        # Redirect uploads to temp directory
+        settings.UPLOAD_DIR = test_uploads_dir
+        try:
+            with TestClient(app) as client:
+                yield client
+        finally:
+            # Restore original upload dir
+            settings.UPLOAD_DIR = original_upload_dir
 
     app.dependency_overrides.clear()
 
