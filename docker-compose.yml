@@ -1,22 +1,4 @@
 services:
-  app-dev:
-    container_name: receipt-api-dev
-    image: receipt-dev-image
-    env_file:
-      - .env
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ./:/app
-    ports:
-      - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - backend
-
   db:
     image: pgvector/pgvector:pg17
     container_name: receipt-postgres
@@ -29,17 +11,52 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - backend
+      - app-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  backend:
+    container_name: receipt-api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: db
+    ports:
+      - "8000:8000"
+    volumes:
+      - receipt-uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  frontend:
+    container_name: receipt-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
 volumes:
   postgres-data:
     driver: local
+  receipt-uploads:
+    driver: local
 
 networks:
-  backend:
+  app-network:
     driver: bridge

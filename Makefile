@@ -1,149 +1,115 @@
-.PHONY: help install dev run test test-unit test-integration test-all test-cov db-test-setup db-test-teardown lint format migrate clean docker-up docker-down
+.PHONY: help dev dev-backend dev-frontend build up down logs test clean db-up db-down
 
 # Default target
 help:
-	@echo "Receipt Scanner - Available Commands"
-	@echo ""
-	@echo "Setup:"
-	@echo "  make install     Install all dependencies"
-	@echo "  make install-dev Install with dev dependencies"
+	@echo "Receipt Scanner Monorepo - Available Commands"
 	@echo ""
 	@echo "Development:"
-	@echo "  make dev         Run migrations + start server (hot reload)"
-	@echo "  make run         Start server without migrations"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test            Run unit tests (no database required)"
-	@echo "  make test-unit       Run unit tests only"
-	@echo "  make test-integration Run integration tests (auto-creates test_db)"
-	@echo "  make test-all        Run all tests (auto-creates test_db)"
-	@echo "  make test-cov        Run tests with coverage report"
-	@echo "  make db-test-setup   Create test database"
-	@echo "  make db-test-teardown Drop test database"
-	@echo ""
-	@echo "Code Quality:"
-	@echo "  make lint        Check code with ruff"
-	@echo "  make format      Format code with ruff"
-	@echo "  make typecheck   Run mypy type checking"
-	@echo ""
-	@echo "Database:"
-	@echo "  make migrate     Apply database migrations"
-	@echo "  make migration   Create new migration (usage: make migration m='description')"
+	@echo "  make dev            Start all services (db + backend)"
+	@echo "  make dev-backend    Start backend only (requires db running)"
+	@echo "  make dev-frontend   Start frontend only (requires backend running)"
 	@echo ""
 	@echo "Docker:"
-	@echo "  make docker-up   Start all services (db + app)"
-	@echo "  make docker-down Stop all services"
-	@echo "  make db-up       Start database only"
-	@echo "  make db-down     Stop database"
+	@echo "  make build          Build all Docker images"
+	@echo "  make up             Start all services in Docker"
+	@echo "  make down           Stop all services"
+	@echo "  make logs           View logs from all services"
+	@echo "  make db-up          Start database only"
+	@echo "  make db-down        Stop database"
 	@echo ""
-	@echo "Cleanup:"
-	@echo "  make clean       Remove cache and build files"
-
-# ============================================================================
-# Setup
-# ============================================================================
-
-install:
-	uv sync
-
-install-dev:
-	uv sync --all-extras
+	@echo "Testing:"
+	@echo "  make test           Run all tests"
+	@echo "  make test-backend   Run backend tests"
+	@echo "  make test-frontend  Run frontend tests"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  make clean          Remove cache and build files"
+	@echo "  make setup          Initial setup (install deps, create .env)"
 
 # ============================================================================
 # Development
 # ============================================================================
 
-dev: migrate
-	uv run uvicorn app.main:app --reload
+dev: db-up
+	@echo "Starting backend..."
+	cd backend && make dev
 
-run:
-	uv run uvicorn app.main:app --reload
+dev-backend:
+	cd backend && make dev
 
-test: test-unit
-
-test-unit:
-	uv run pytest tests/unit/ -v --tb=short
-
-test-integration: db-test-setup
-	uv run pytest tests/integration/ -v --tb=short
-	@$(MAKE) db-test-teardown
-
-test-all: db-test-setup
-	uv run pytest tests/ -v --tb=short
-	@$(MAKE) db-test-teardown
-
-test-cov: db-test-setup
-	uv run pytest tests/ -v --cov=app --cov-report=html --cov-report=term
-	@$(MAKE) db-test-teardown
-	@echo "Coverage report: open htmlcov/index.html"
-
-db-test-setup:
-	@echo "🔧 Setting up test database..."
-	@docker exec receipt-postgres psql -U postgres -c "DROP DATABASE IF EXISTS test_db;" -q
-	@docker exec receipt-postgres psql -U postgres -c "CREATE DATABASE test_db;" -q
-	@echo "✅ Test database ready"
-
-db-test-teardown:
-	@echo "🧹 Cleaning up test database..."
-	@docker exec receipt-postgres psql -U postgres -c "DROP DATABASE IF EXISTS test_db;" -q
-	@echo "✅ Test database removed"
-
-lint:
-	uv run ruff check .
-
-format:
-	uv run ruff check --fix .
-	uv run ruff format .
-
-typecheck:
-	uv run mypy app/
-
-# ============================================================================
-# Database
-# ============================================================================
-
-migrate:
-	uv run alembic upgrade head
-
-migration:
-	uv run alembic revision --autogenerate -m "$(m)"
-
-migrate-down:
-	uv run alembic downgrade -1
-
-migrate-history:
-	uv run alembic history
+dev-frontend:
+	cd frontend && pnpm dev
 
 # ============================================================================
 # Docker
 # ============================================================================
 
-docker-up:
+build:
+	docker compose build
+
+up:
 	docker compose up -d
 
-docker-down:
+down:
 	docker compose down
 
-docker-build:
-	docker compose up --build -d
+logs:
+	docker compose logs -f
 
 db-up:
 	docker compose up -d db
+	@echo "Waiting for database to be ready..."
+	@sleep 3
 
 db-down:
 	docker compose down db
 
-docker-logs:
-	docker compose logs -f
+# ============================================================================
+# Testing
+# ============================================================================
+
+test: test-backend
+
+test-backend:
+	cd backend && make test
+
+test-frontend:
+	cd frontend && pnpm test
+
+# ============================================================================
+# Setup
+# ============================================================================
+
+setup:
+	@echo "Setting up Receipt Scanner..."
+	@echo ""
+	@echo "1. Installing backend dependencies..."
+	cd backend && make install-dev
+	@echo ""
+	@echo "2. Installing frontend dependencies..."
+	cd frontend && pnpm install
+	@echo ""
+	@echo "3. Creating backend .env file..."
+	@if [ ! -f backend/.env ]; then \
+		cp backend/.env.example backend/.env; \
+		echo "   Created backend/.env - please add your GEMINI_API_KEY"; \
+	else \
+		echo "   backend/.env already exists"; \
+	fi
+	@echo ""
+	@echo "Setup complete! Next steps:"
+	@echo "  1. Add your GEMINI_API_KEY to backend/.env"
+	@echo "  2. Run 'make dev' to start the backend"
+	@echo "  3. Run 'make dev-frontend' to start the frontend"
 
 # ============================================================================
 # Cleanup
 # ============================================================================
 
 clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name "htmlcov" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-	find . -type f -name ".coverage" -delete 2>/dev/null || true
+	cd backend && make clean
+	@if [ -d frontend/node_modules ]; then \
+		echo "Cleaning frontend..."; \
+		cd frontend && rm -rf .next node_modules; \
+	fi
+	docker compose down -v --remove-orphans 2>/dev/null || true
