@@ -43,19 +43,21 @@ export default function Dashboard() {
   const { data: receipts, isLoading } = useReceipts();
 
   // Month/Year selector state - default to current month
-  const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  // Using primitives to avoid memoization issues with Date objects
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
 
   // Get available years from receipts
   const availableYears = useMemo(() => {
-    if (!receipts?.length) return [now.getFullYear()];
+    if (!receipts?.length) return [currentYear];
     const years = new Set(
       receipts.map((r) => new Date(r.purchase_date).getFullYear())
     );
-    years.add(now.getFullYear()); // Always include current year
+    years.add(currentYear); // Always include current year
     return Array.from(years).sort((a, b) => b - a);
-  }, [receipts, now]);
+  }, [receipts, currentYear]);
 
   // Filter receipts for selected month
   const monthReceipts = useMemo(() => {
@@ -89,7 +91,7 @@ export default function Dashboard() {
     }
   };
 
-  const isCurrentMonth = selectedMonth === now.getMonth() && selectedYear === now.getFullYear();
+  const isCurrentMonth = selectedMonth === currentMonth && selectedYear === currentYear;
 
   return (
     <div className="space-y-6">
@@ -101,7 +103,7 @@ export default function Dashboard() {
           </Button>
           <div className="flex items-center gap-2">
             <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -113,7 +115,7 @@ export default function Dashboard() {
               </SelectContent>
             </Select>
             <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-24">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -134,8 +136,8 @@ export default function Dashboard() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              setSelectedMonth(now.getMonth());
-              setSelectedYear(now.getFullYear());
+              setSelectedMonth(currentMonth);
+              setSelectedYear(currentYear);
             }}
           >
             Today
