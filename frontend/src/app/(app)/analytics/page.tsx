@@ -42,9 +42,10 @@ export default function AnalyticsPage() {
   const { data: categories, isLoading: categoriesLoading } = useCategories();
 
   // Month/Year selector - "all" means all months in the year
-  const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState<string>(now.getMonth().toString());
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth.toString());
+  const [selectedYear, setSelectedYear] = useState(currentYear);
 
   // Currency selector - default to most common currency in receipts
   const [displayCurrency, setDisplayCurrency] = useState<string>("EUR");
@@ -60,11 +61,11 @@ export default function AnalyticsPage() {
 
   // Get available years
   const availableYears = useMemo(() => {
-    if (!receipts?.length) return [now.getFullYear()];
+    if (!receipts?.length) return [currentYear];
     const years = new Set(receipts.map((r) => new Date(r.purchase_date).getFullYear()));
-    years.add(now.getFullYear());
+    years.add(currentYear);
     return Array.from(years).sort((a, b) => b - a);
-  }, [receipts, now]);
+  }, [receipts, currentYear]);
 
   // Filter receipts for selected period
   const filteredReceipts = useMemo(() => {
@@ -109,7 +110,7 @@ export default function AnalyticsPage() {
 
     // Filter to only categories with spending and sort by total
     return Array.from(spending.entries())
-      .filter(([_, data]) => data.items.length > 0)
+      .filter(([, data]) => data.items.length > 0)
       .sort((a, b) => b[1].total - a[1].total);
   }, [categories, filteredItems, displayCurrency, exchangeRates]);
 
@@ -148,7 +149,7 @@ export default function AnalyticsPage() {
     }
   };
 
-  const isCurrentPeriod = selectedMonth === now.getMonth().toString() && selectedYear === now.getFullYear();
+  const isCurrentPeriod = selectedMonth === currentMonth.toString() && selectedYear === currentYear;
 
   // Filter category items by selected period (using Map for O(1) receipt lookup)
   const filteredCategoryItems = useMemo(() => {
@@ -183,7 +184,7 @@ export default function AnalyticsPage() {
           </Button>
           <div className="flex items-center gap-2">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -196,7 +197,7 @@ export default function AnalyticsPage() {
               </SelectContent>
             </Select>
             <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-24">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -216,8 +217,8 @@ export default function AnalyticsPage() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                setSelectedMonth(now.getMonth().toString());
-                setSelectedYear(now.getFullYear());
+                setSelectedMonth(currentMonth.toString());
+                setSelectedYear(currentYear);
               }}
             >
               Today
@@ -229,7 +230,7 @@ export default function AnalyticsPage() {
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Display in:</span>
           <Select value={displayCurrency} onValueChange={setDisplayCurrency}>
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-28">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
