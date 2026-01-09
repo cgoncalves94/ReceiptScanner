@@ -13,7 +13,7 @@ from app.category.models import CategoryCreate
 from app.category.services import CategoryService
 from app.core.config import settings
 from app.core.decorators import transactional
-from app.core.exceptions import NotFoundError, ServiceUnavailableError
+from app.core.exceptions import BadRequestError, NotFoundError, ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_agent import analyze_receipt
 
 from .models import (
@@ -70,8 +70,13 @@ class ReceiptService:
             content = await image_file.read()
             f.write(content)
 
-        # Open the image with PIL for processing
-        pil_image = Image.open(image_path)
+        # Open and validate the image
+        try:
+            pil_image = Image.open(image_path)
+            pil_image.verify()  # Verify it's a valid image
+            pil_image = Image.open(image_path)  # Re-open after verify
+        except Exception as e:
+            raise BadRequestError(f"Invalid image file: {e}") from e
 
         # Get existing categories to help the AI model
         categories = await self.category_service.list()

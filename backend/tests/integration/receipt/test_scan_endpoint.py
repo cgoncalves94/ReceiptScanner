@@ -12,7 +12,6 @@ from io import BytesIO
 
 import pytest
 from fastapi.testclient import TestClient
-from PIL import UnidentifiedImageError
 from pydantic_ai.models.test import TestModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -98,23 +97,19 @@ async def test_scan_receipt_uses_existing_categories(
 async def test_scan_receipt_with_invalid_image(
     test_client: TestClient,
 ) -> None:
-    """Test that scanning with invalid file raises an error.
-
-    Note: TestClient raises exceptions by default (raise_server_exceptions=True).
-    The PIL.UnidentifiedImageError is not caught by the service, indicating
-    the app needs better input validation.
-
-    TODO: Add proper image validation in the service to return 400/422.
-    """
+    """Test that scanning with invalid file returns 400 Bad Request."""
     # Arrange: Create invalid file content
     invalid_file = BytesIO(b"not an image")
 
-    # Act & Assert: Exception is raised because invalid images aren't handled gracefully
-    with pytest.raises(UnidentifiedImageError):
-        test_client.post(
-            "/api/v1/receipts/scan",
-            files={"image": ("receipt.txt", invalid_file, "text/plain")},
-        )
+    # Act
+    response = test_client.post(
+        "/api/v1/receipts/scan",
+        files={"image": ("receipt.txt", invalid_file, "text/plain")},
+    )
+
+    # Assert: Should return 400 with helpful error message
+    assert response.status_code == 400
+    assert "Invalid image file" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
