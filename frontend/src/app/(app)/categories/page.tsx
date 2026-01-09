@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -45,16 +45,19 @@ export default function CategoriesPage() {
   const { data: categories, isLoading } = useCategories();
   const { data: receipts } = useReceipts();
 
-  // Count items per category
-  const itemCountByCategory = new Map<number, number>();
-  receipts?.forEach((receipt) => {
-    receipt.items.forEach((item) => {
-      if (item.category_id) {
-        const count = itemCountByCategory.get(item.category_id) ?? 0;
-        itemCountByCategory.set(item.category_id, count + 1);
-      }
+  // Count items per category (memoized to avoid recalculation on every render)
+  const itemCountByCategory = useMemo(() => {
+    const counts = new Map<number, number>();
+    receipts?.forEach((receipt) => {
+      receipt.items.forEach((item) => {
+        if (item.category_id) {
+          const count = counts.get(item.category_id) ?? 0;
+          counts.set(item.category_id, count + 1);
+        }
+      });
     });
-  });
+    return counts;
+  }, [receipts]);
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
   const deleteMutation = useDeleteCategory();

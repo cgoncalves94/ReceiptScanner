@@ -150,11 +150,12 @@ export default function AnalyticsPage() {
 
   const isCurrentPeriod = selectedMonth === now.getMonth().toString() && selectedYear === now.getFullYear();
 
-  // Filter category items by selected period
+  // Filter category items by selected period (using Map for O(1) receipt lookup)
   const filteredCategoryItems = useMemo(() => {
-    if (!categoryItems) return [];
+    if (!categoryItems || !receipts) return [];
+    const receiptsMap = new Map(receipts.map((r) => [r.id, r]));
     return categoryItems.filter((item) => {
-      const receipt = receipts?.find((r) => r.id === item.receipt_id);
+      const receipt = receiptsMap.get(item.receipt_id);
       if (!receipt) return false;
       const purchaseDate = new Date(receipt.purchase_date);
       const yearMatch = purchaseDate.getFullYear() === selectedYear;
