@@ -1,0 +1,357 @@
+"use client";
+
+import { use, useState } from "react";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ArrowLeft,
+  Receipt,
+  Calendar,
+  Store,
+  ImageIcon,
+  Trash2,
+  Pencil,
+} from "lucide-react";
+import { useReceipt, useDeleteReceipt, useUpdateReceiptItem, useCategories } from "@/hooks";
+import { formatCurrency, formatDate } from "@/lib/format";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import type { ReceiptItem } from "@/types";
+
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function ReceiptDetailPage({ params }: PageProps) {
+  const { id } = use(params);
+  const receiptId = parseInt(id, 10);
+  const router = useRouter();
+
+  const { data: receipt, isLoading, error } = useReceipt(receiptId);
+  const { data: categories } = useCategories();
+  const deleteMutation = useDeleteReceipt();
+  const updateItemMutation = useUpdateReceiptItem();
+
+  // Create a map for quick category lookup
+  const categoryMap = new Map(
+    categories?.map((c) => [c.id, c.name]) ?? []
+  );
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCategoryId, setEditCategoryId] = useState<string>("");
+
+  const openEditItem = (item: ReceiptItem) => {
+    setEditingItem(item);
+    setEditName(item.name);
+    setEditCategoryId(item.category_id?.toString() ?? "");
+  };
+
+  const handleUpdateItem = async () => {
+    if (!editingItem) return;
+
+    try {
+      await updateItemMutation.mutateAsync({
+        receiptId,
+        itemId: editingItem.id,
+        data: {
+          name: editName.trim() || undefined,
+          category_id: editCategoryId ? parseInt(editCategoryId) : undefined,
+        },
+      });
+      toast.success("Item updated");
+      setEditingItem(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update item"
+      );
+      updateItemMutation.reset();
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteMutation.mutateAsync(receiptId);
+      toast.success("Receipt deleted");
+      router.push("/receipts");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete receipt"
+      );
+      deleteMutation.reset();
+      setDeleteDialogOpen(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <Skeleton className="h-10 w-32" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  if (error || !receipt) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="py-12 text-center">
+            <Receipt className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+            <p className="text-lg font-medium">Receipt not found</p>
+            <p className="text-muted-foreground mb-4">
+              This receipt may have been deleted
+            </p>
+            <Button variant="outline" asChild>
+              <Link href="/receipts">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Receipts
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Back Button */}
+      <Button variant="ghost" asChild className="-ml-2">
+        <Link href="/receipts">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Receipts
+        </Link>
+      </Button>
+
+      {/* Receipt Header */}
+      <Card className="bg-card/50 border-border/50">
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <Receipt className="h-7 w-7 text-amber-500" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl">{receipt.store_name}</CardTitle>
+                <div className="flex items-center gap-4 mt-1 text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4" />
+                    <span>{formatDate(receipt.purchase_date)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Store className="h-4 w-4" />
+                    <span>{receipt.items.length} items</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold">
+                {formatCurrency(Number(receipt.total_amount), receipt.currency)}
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Items */}
+      <Card className="bg-card/50 border-border/50">
+        <CardHeader>
+          <CardTitle>Items</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {receipt.items.map((item, index) => {
+              const categoryName = item.category_id
+                ? categoryMap.get(item.category_id)
+                : null;
+
+              return (
+                <div key={item.id}>
+                  {index > 0 && <Separator className="my-3" />}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{item.name}</span>
+                        {categoryName && (
+                          <Badge variant="secondary" className="text-xs">
+                            {categoryName}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {item.quantity} × {formatCurrency(Number(item.unit_price), item.currency)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">
+                        {formatCurrency(Number(item.total_price), item.currency)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEditItem(item)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="flex items-center justify-between text-lg font-semibold">
+            <span>Total</span>
+            <span>{formatCurrency(Number(receipt.total_amount), receipt.currency)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Receipt Image */}
+      {receipt.image_path && (
+        <Card className="bg-card/50 border-border/50">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+              <CardTitle>Receipt Image</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg overflow-hidden border border-border/50 bg-muted/20">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/${receipt.image_path}`}
+                alt="Receipt"
+                className="w-full max-h-150 object-contain"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Receipt
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Receipt</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this receipt? This action cannot
+                be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+
+      {/* Edit Item Dialog */}
+      <Dialog
+        open={!!editingItem}
+        onOpenChange={(open) => !open && setEditingItem(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Item</DialogTitle>
+            <DialogDescription>
+              Update item details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-item-name">Name</Label>
+              <Input
+                id="edit-item-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-item-category">Category</Label>
+              <Select value={editCategoryId} onValueChange={setEditCategoryId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories?.map((category) => (
+                    <SelectItem key={category.id} value={category.id.toString()}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setEditingItem(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateItem}
+              disabled={updateItemMutation.isPending}
+              className="bg-amber-500 hover:bg-amber-600 text-black"
+            >
+              {updateItemMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -1,0 +1,132 @@
+[tool.ruff]
+# Target Python version
+target-version = "py314"
+# Line length - standard for modern Python
+line-length = 88
+
+# Exclude common directories
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+# Select a comprehensive set of rules
+# Based on recommended practices from Ruff documentation
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "S",  # flake8-bandit (security checks)
+    "A",  # flake8-builtins (prevents shadowing builtins)
+]
+
+# Common ignores for web development
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults (common in FastAPI)
+]
+
+# Allow fixing all enabled rules
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore assert statements in tests
+"tests/**/*.py" = ["S101"]
+
+[tool.ruff.format]
+# Modern formatting options
+quote-style = "double"
+indent-style = "space"
+# Format docstring code blocks
+docstring-code-format = true
+# Like Black, respect magic trailing commas
+skip-magic-trailing-comma = false
+# Like Black, automatically detect the appropriate line ending
+line-ending = "auto"
+
+[project]
+name = "app"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.14"
+dependencies = [
+    # Web framework and related
+    "fastapi[standard]>=0.128.0",
+    "uvicorn>=0.40.0",
+    "python-multipart>=0.0.20",
+    "email-validator>=2.2.0",
+    "jinja2>=3.1.6",
+    "httpx>=0.28.0",
+    "aiofiles>=24.1.0",
+
+    # Database
+    "sqlmodel>=0.0.31",
+    "alembic>=1.17.2",
+    "asyncpg>=0.30.0",
+    "psycopg[binary]>=3.2.5",
+    "greenlet>=3.2.0",
+    # Authentication and security
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.3.0",
+    "pyjwt>=2.10.0",
+    "python-jose>=3.4.0",
+    # Data validation and settings
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.12.0",
+    # AI and image processing
+    "pydantic-ai>=1.40.0",
+    "pillow>=12.1.0",
+    # Utilities
+    "tenacity>=9.1.0",
+    "python-dotenv>=1.1.0",
+    "rich>=14.0.0",
+    # Monitoring and logging
+    "logfire[fastapi,httpx,sqlalchemy]>=4.0.0"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=7.0.0",
+    "pytest-dotenv>=0.5.2",
+    "mypy>=1.19.0",
+    "ruff>=0.14.0",
+    "pre-commit>=4.5.0",
+    "types-passlib>=1.7.7.20250602",
+    "types-requests>=2.32.0",
+    "coverage>=7.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.mypy]
+strict = true
+exclude = ["venv", ".venv", "alembic"]
+disable_error_code = ["prop-decorator"]
+
+[tool.logfire]
+ignore_no_config = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "session"
+env_files = [".env.test"]
+env_override_existing_values = true
+filterwarnings = [
+    "ignore:'_UnionGenericAlias' is deprecated:DeprecationWarning:google.genai.types",
+]

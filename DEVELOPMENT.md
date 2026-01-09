@@ -1,141 +1,158 @@
 # Development Guide
 
-Detailed guide for developing the Receipt Scanner API.
+Detailed guide for developing the Receipt Scanner full-stack application.
 
 ## Prerequisites
 
 - **Python 3.14+**
-- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** - Fast Python package manager
+- **Node.js 20+** and **pnpm**
+- **[uv](https://docs.astral.sh/uv/)** - Fast Python package manager
 - **Docker** - For PostgreSQL database
 - **Gemini API Key** - Get one at <https://aistudio.google.com/apikey>
 
 ## Initial Setup
 
-### 1. Clone and Install
+### Quick Setup
 
 ```bash
-git clone https://github.com/cgoncalves94/receipt-scanner.git
-cd receipt-scanner
+# Install everything and create .env
+make setup
 
-# Install uv if you haven't already
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# Add your API key to backend/.env
+echo "GEMINI_API_KEY=your_key" >> backend/.env
 
-# Install project dependencies
-make install-dev
+# Start development
+make dev              # Terminal 1: Backend
+make dev-frontend     # Terminal 2: Frontend
 ```
 
-### 2. Start Database
+### Manual Setup
 
 ```bash
-# Start PostgreSQL container
-make db-up
+# 1. Install backend dependencies
+cd backend && uv sync --all-extras
 
-# Verify it's running
-docker compose ps
+# 2. Install frontend dependencies
+cd frontend && pnpm install
+
+# 3. Start database
+docker compose up -d db
+
+# 4. Configure environment
+cp backend/.env.example backend/.env
+# Edit backend/.env and add GEMINI_API_KEY
+
+# 5. Run migrations
+cd backend && uv run alembic upgrade head
+
+# 6. Start services
+cd backend && uv run uvicorn app.main:app --reload  # Terminal 1
+cd frontend && pnpm dev                              # Terminal 2
 ```
 
-### 3. Configure Environment
+## Development Workflow
+
+### Backend Development
 
 ```bash
-cp .env.example .env
-```
+cd backend
 
-Edit `.env` and add your Gemini API key:
+# Daily development
+make dev          # Run migrations + start server with hot reload
+make run          # Start server without migrations
 
-```bash
-GEMINI_API_KEY=your_api_key_here
-```
+# Testing
+make test         # Run unit tests
+make test-cov     # Run with coverage report
 
-### 4. Run the Application
+# Code quality
+make lint         # Check with ruff + mypy
+make format       # Auto-fix and format
 
-```bash
-# Apply migrations and start server with hot reload
-make dev
-```
-
-The API is available at <http://localhost:8000>
-
-## Daily Development
-
-### Running the Server
-
-```bash
-make dev      # With migrations (recommended)
-make run      # Without migrations
-```
-
-### Running Tests
-
-```bash
-make test     # Run all tests
-make test-cov # Run with coverage report
-```
-
-### Code Quality
-
-```bash
-make lint     # Check for issues
-make format   # Auto-fix and format
-```
-
-Pre-commit hooks are recommended:
-
-```bash
-pre-commit install
-```
-
-## Database
-
-### Migrations
-
-```bash
+# Database
 make migrate                    # Apply pending migrations
-make migration m='add users'    # Create new migration
+make migration m='add_field'    # Create new migration
 make migrate-down               # Rollback one migration
-make migrate-history            # View migration history
 ```
 
-### Direct Alembic Commands
+### Frontend Development
 
 ```bash
-uv run alembic current          # Current revision
-uv run alembic heads            # Latest available
-uv run alembic downgrade base   # Reset all migrations
+cd frontend
+
+# Development
+pnpm dev          # Start with hot reload (port 3000)
+
+# Build
+pnpm build        # Production build
+pnpm start        # Run production build
+
+# Quality
+pnpm lint         # Run ESLint
+```
+
+### Full Stack (from root)
+
+```bash
+make dev              # Start db + backend
+make dev-frontend     # Start frontend
+make test             # Run all tests
+make clean            # Remove all caches
 ```
 
 ## Project Architecture
 
-### Vertical Slice Structure
+### Backend (Vertical Slice)
 
 Each domain is self-contained:
 
 ```text
-app/
+backend/app/
 ├── main.py                 # FastAPI app, lifespan, middleware
-├── models.py               # SQLModel registry (for Alembic)
 ├── core/                   # Shared infrastructure
-│   ├── config.py           # Settings from environment
-│   ├── db.py               # Database engine and sessions
-│   ├── deps.py             # Shared dependencies (get_session)
-│   ├── exceptions.py       # Custom exception classes
-│   ├── error_handlers.py   # Exception → HTTP response mapping
+│   ├── config.py           # Settings (pydantic-settings)
+│   ├── db.py               # Async database engine/sessions
+│   ├── deps.py             # Shared dependencies
+│   ├── exceptions.py       # Domain exceptions
+│   ├── error_handlers.py   # Exception → HTTP mapping
 │   └── decorators.py       # @transactional decorator
 ├── receipt/                # Receipt domain
-│   ├── router.py           # API endpoints (/api/v1/receipts)
-│   ├── models.py           # Receipt, ReceiptItem models + schemas
+│   ├── router.py           # API endpoints
+│   ├── models.py           # SQLModel models + schemas
 │   ├── services.py         # Business logic
-│   └── deps.py             # ReceiptDeps injection
+│   └── deps.py             # Domain dependencies
 ├── category/               # Category domain (same structure)
 └── integrations/
-    └── pydantic_ai/        # AI integration
-        ├── receipt_agent.py    # Pydantic AI agent
-        ├── receipt_schema.py   # Response schemas
-        └── receipt_prompt.py   # System prompts
+    └── pydantic_ai/        # Gemini AI integration
 ```
 
-### Key Patterns
+### Frontend
 
-#### Dependency Injection
+```text
+frontend/src/
+├── app/                    # Next.js App Router
+│   ├── (app)/              # Authenticated routes
+│   │   ├── page.tsx        # Dashboard
+│   │   ├── receipts/       # Receipt pages
+│   │   ├── categories/     # Category management
+│   │   ├── analytics/      # Spending analytics
+│   │   └── scan/           # Receipt scanning
+│   └── layout.tsx          # Root layout
+├── components/
+│   └── ui/                 # shadcn/ui components
+├── hooks/                  # TanStack Query hooks
+│   ├── use-receipts.ts     # Receipt mutations/queries
+│   ├── use-categories.ts   # Category mutations/queries
+│   └── use-currency.ts     # Currency conversion
+├── lib/
+│   ├── api/client.ts       # API client
+│   └── format.ts           # Formatters
+└── types/                  # TypeScript types
+```
+
+## Key Patterns
+
+### Backend: Dependency Injection
 
 ```python
 # deps.py
@@ -147,22 +164,78 @@ async def get_receipt(id: int, service: ReceiptDeps):
     return await service.get(id)
 ```
 
-#### Exception Handling
+### Backend: Exception Handling
 
 ```python
-# Raise domain exceptions
-raise NotFoundError(f"Receipt {id} not found")
-
-# Automatically mapped to HTTP 404
+# Raise domain exceptions - automatically mapped to HTTP
+raise NotFoundError(f"Receipt {id} not found")  # → 404
+raise ConflictError("Category has items")        # → 409
 ```
 
-#### Transactional Decorator
+### Frontend: TanStack Query
 
-```python
-@transactional
-async def create_from_scan(self, image: UploadFile) -> Receipt:
-    # All operations in a single transaction
-    # Automatic rollback on failure
+```typescript
+// Queries
+const { data, isLoading } = useReceipts();
+
+// Mutations with optimistic updates
+const deleteMutation = useDeleteReceipt();
+await deleteMutation.mutateAsync(id);
+```
+
+## Database
+
+### Migrations
+
+```bash
+cd backend
+
+make migrate                    # Apply migrations
+make migration m='description'  # Create new migration
+make migrate-down               # Rollback one
+make migrate-history            # View history
+```
+
+### Direct Alembic
+
+```bash
+cd backend
+uv run alembic current          # Current revision
+uv run alembic heads            # Latest available
+uv run alembic downgrade base   # Reset all (WARNING: deletes data)
+```
+
+## Testing
+
+### Backend Tests
+
+```text
+backend/tests/
+├── unit/                   # Mocked dependencies, fast
+│   ├── receipt/
+│   ├── category/
+│   └── core/
+└── integration/            # Real database
+    ├── receipt/
+    └── category/
+```
+
+```bash
+# Run all unit tests
+cd backend && make test
+
+# Run specific test
+cd backend && uv run pytest tests/unit/receipt/test_receipt_service.py -v
+
+# With coverage
+cd backend && make test-cov
+```
+
+### Frontend Tests
+
+```bash
+cd frontend && pnpm test
+# (Tests not yet configured - add Vitest when needed)
 ```
 
 ## Docker
@@ -170,9 +243,10 @@ async def create_from_scan(self, image: UploadFile) -> Receipt:
 ### Full Stack
 
 ```bash
-make docker-up      # Start db + app
-make docker-down    # Stop all
-make docker-logs    # View logs
+make build          # Build images
+make up             # Start all services
+make down           # Stop all
+make logs           # View logs
 ```
 
 ### Database Only
@@ -182,44 +256,27 @@ make db-up          # Start PostgreSQL
 make db-down        # Stop PostgreSQL
 ```
 
-### Rebuild
+## Environment Variables
 
-```bash
-make docker-build   # Rebuild and start
-```
+### Backend (`backend/.env`)
 
-## Testing
+Required:
 
-### Test Structure
+- `GEMINI_API_KEY` - Google Gemini API key
 
-```text
-tests/
-├── conftest.py             # Shared fixtures
-├── unit/                   # Unit tests (mocked dependencies)
-│   ├── category/
-│   ├── receipt/
-│   └── core/
-└── integration/            # API tests (real database)
-    ├── category/
-    └── receipt/
-```
+Optional:
 
-### Running Specific Tests
+- `GEMINI_MODEL` - AI model (default: `gemini-2.5-flash-preview-05-20`)
+- `POSTGRES_*` - Database config (defaults work with docker-compose)
+- `LOGFIRE_TOKEN` - For monitoring
 
-```bash
-# Single file
-uv run pytest tests/unit/receipt/test_receipt_service.py -v
+### Frontend (`frontend/.env.local`)
 
-# Single test
-uv run pytest tests/unit/receipt/test_receipt_service.py::test_create_receipt -v
-
-# By marker
-uv run pytest -m asyncio -v
-```
+- `NEXT_PUBLIC_API_URL` - Backend URL (default: `http://localhost:8000`)
 
 ## Troubleshooting
 
-### Database Connection Issues
+### Database Connection
 
 ```bash
 # Check if PostgreSQL is running
@@ -227,23 +284,18 @@ docker compose ps
 
 # Restart database
 make db-down && make db-up
-
-# Check connection
-uv run python -c "from app.core.db import check_db_connection; import asyncio; print(asyncio.run(check_db_connection()))"
 ```
 
 ### Import Errors
 
 ```bash
 # Reinstall dependencies
-make clean
-make install
+cd backend && uv sync --all-extras
+cd frontend && pnpm install
 ```
 
-### Migration Conflicts
+### Port Conflicts
 
-```bash
-# Reset to clean state (WARNING: deletes data)
-uv run alembic downgrade base
-uv run alembic upgrade head
-```
+- Backend: 8000 (change in backend/Makefile)
+- Frontend: 3000 (change with `pnpm dev -p 3001`)
+- Database: 5432 (change in docker-compose.yml)

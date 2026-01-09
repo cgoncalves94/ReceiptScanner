@@ -1,18 +1,20 @@
-name: Tests
+name: Backend Tests
 
 on:
   pull_request:
     branches: [ "main" ]
     paths:
-      - '**.py'
-      - 'pyproject.toml'
-      - '.github/workflows/**'
+      - 'backend/**'
+      - '.github/workflows/tests.yml'
   push:
     branches: [ "main" ]
     paths:
-      - '**.py'
-      - 'pyproject.toml'
-      - '.github/workflows/**'
+      - 'backend/**'
+      - '.github/workflows/tests.yml'
+
+defaults:
+  run:
+    working-directory: backend
 
 jobs:
   test:
@@ -46,9 +48,10 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.14"
-          cache-dependency-glob: "pyproject.toml"
+          cache-dependency-glob: "backend/pyproject.toml"
 
       - name: Install dockerize
+        working-directory: .
         run: |
             wget https://github.com/jwilder/dockerize/releases/download/v0.6.1/dockerize-linux-amd64-v0.6.1.tar.gz
             sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-v0.6.1.tar.gz
@@ -61,6 +64,7 @@ jobs:
           uv pip install ".[dev]"
 
       - name: Wait for PostgreSQL
+        working-directory: .
         run: |
           dockerize -wait tcp://localhost:5432 -timeout 1m
 
@@ -75,6 +79,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: htmlcov/
+          path: backend/htmlcov/
           retention-days: 7
           compression-level: 9

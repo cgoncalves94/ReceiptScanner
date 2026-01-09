@@ -1,13 +1,21 @@
 # Receipt Scanner
 
-A modern Python API for analyzing receipt images using AI. Built with **FastAPI**, **Pydantic AI**, and **Gemini Vision**.
+A full-stack receipt scanning application with AI-powered analysis. Upload receipts, extract items automatically, and track spending by category.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | Next.js 16, React 19, TanStack Query, Tailwind CSS, shadcn/ui |
+| **Backend** | FastAPI, SQLModel, Pydantic AI, PostgreSQL |
+| **AI** | Google Gemini Vision |
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.14+
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+- Node.js 20+
 - Docker (for PostgreSQL)
 - [Gemini API key](https://aistudio.google.com/apikey)
 
@@ -18,77 +26,85 @@ A modern Python API for analyzing receipt images using AI. Built with **FastAPI*
 git clone https://github.com/cgoncalves94/receipt-scanner.git
 cd receipt-scanner
 
-# Start PostgreSQL
-make db-up
+# Run setup (installs deps, creates .env)
+make setup
 
-# Install dependencies
-make install-dev
+# Add your GEMINI_API_KEY to backend/.env
 
-# Configure environment
-cp .env.example .env
-# Add your GEMINI_API_KEY to .env
-
-# Run migrations and start server
+# Start database + backend
 make dev
+
+# In another terminal, start frontend
+make dev-frontend
 ```
 
-The API is now running at <http://localhost:8000>
-
-- Swagger UI: <http://localhost:8000/docs>
-- ReDoc: <http://localhost:8000/redoc>
+- **Frontend**: <http://localhost:3000>
+- **Backend API**: <http://localhost:8000>
+- **API Docs**: <http://localhost:8000/docs>
 
 ### Common Commands
 
 ```bash
-make install    # Install dependencies
-make dev        # Run migrations + start server (hot reload)
-make test       # Run test suite with coverage
-make lint       # Run linter and formatter
-make migrate    # Apply database migrations
-make help       # Show all commands
+# Development
+make dev              # Start db + backend
+make dev-frontend     # Start frontend
+
+# Testing
+make test             # Run backend tests
+make test-frontend    # Run frontend tests
+
+# Docker (full stack)
+make up               # Start all services
+make down             # Stop all services
+make logs             # View logs
+
+# Utilities
+make setup            # Initial setup
+make clean            # Remove caches
+make help             # Show all commands
 ```
 
 ## Project Structure
 
 ```text
-app/
-├── main.py              # FastAPI app entry point
-├── core/                # Shared infrastructure (config, db, exceptions)
-├── receipt/             # Receipt domain
-│   ├── router.py        # API endpoints
-│   ├── models.py        # SQLModel + Pydantic schemas
-│   ├── services.py      # Business logic
-│   └── deps.py          # Dependency injection
-├── category/            # Category domain (same structure)
-└── integrations/
-    └── pydantic_ai/     # Gemini Vision AI integration
+receipt-scanner/
+├── backend/                # FastAPI Python backend
+│   ├── app/
+│   │   ├── core/           # Config, db, exceptions
+│   │   ├── receipt/        # Receipt domain
+│   │   ├── category/       # Category domain
+│   │   └── integrations/   # AI integration
+│   └── tests/
+├── frontend/               # Next.js frontend
+│   └── src/
+│       ├── app/            # App Router pages
+│       ├── components/     # React components
+│       ├── hooks/          # TanStack Query hooks
+│       └── lib/            # API client, utilities
+├── docker-compose.yml
+└── Makefile
 ```
 
-Each domain is **self-contained** with its own router, models, services, and dependencies.
+## Features
 
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Framework | FastAPI |
-| ORM | SQLModel (SQLAlchemy + Pydantic) |
-| Database | PostgreSQL (async) |
-| AI | Pydantic AI + Gemini Vision |
-| Migrations | Alembic |
-| Testing | Pytest (async) |
-| Code Quality | Ruff, Pre-commit |
+- **AI Receipt Scanning**: Upload receipt images, get items extracted automatically
+- **Category Management**: Organize items with custom categories
+- **Multi-Currency Support**: Track spending in EUR, GBP, USD with real-time conversion
+- **Analytics Dashboard**: Monthly spending breakdown by category
+- **Dark Mode**: Modern dark-first UI design
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/receipts/scan` | Upload and analyze receipt image |
-| `GET` | `/api/v1/receipts` | List all receipts |
-| `GET` | `/api/v1/receipts/{id}` | Get receipt by ID |
+| `POST` | `/api/v1/receipts/scan` | Upload and analyze receipt |
+| `GET` | `/api/v1/receipts` | List receipts |
+| `GET` | `/api/v1/receipts/{id}` | Get receipt details |
 | `PATCH` | `/api/v1/receipts/{id}` | Update receipt |
-| `POST` | `/api/v1/categories` | Create category |
+| `DELETE` | `/api/v1/receipts/{id}` | Delete receipt |
+| `PATCH` | `/api/v1/receipts/{id}/items/{itemId}` | Update item |
 | `GET` | `/api/v1/categories` | List categories |
-| `GET` | `/api/v1/categories/{id}` | Get category |
+| `POST` | `/api/v1/categories` | Create category |
 | `PATCH` | `/api/v1/categories/{id}` | Update category |
 | `DELETE` | `/api/v1/categories/{id}` | Delete category |
 
