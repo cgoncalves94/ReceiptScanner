@@ -1,5 +1,5 @@
 # Workflow name
-name: "Run pre-commit hooks"
+name: "Lint"
 
 # Trigger the workflow on pull requests and pushes to the "main" branch
 on:
@@ -16,10 +16,9 @@ permissions:
 
 # Define the jobs for the workflow
 jobs:
-  # Job name
-  pre-commit:
-    # Readable name for the job
-    name: Lint code and README files
+  # Backend linting with pre-commit hooks
+  backend:
+    name: Backend Lint (Ruff)
     # Runner environment for the job
     runs-on: ubuntu-latest
 
@@ -76,3 +75,36 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
+  # Frontend linting and build check
+  frontend:
+    name: Frontend Lint (ESLint) & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
