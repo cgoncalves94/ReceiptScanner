@@ -46,7 +46,7 @@ async def test_scan_receipt_creates_receipt_and_items(
     data = response.json()
 
     assert data["store_name"] == "Test Grocery Store"
-    assert float(data["total_amount"]) == 25.98
+    assert float(data["total_amount"]) == pytest.approx(25.98)
     assert data["currency"] == "€"
     assert len(data["items"]) == 3
 

@@ -36,12 +36,10 @@ from sqlalchemy.ext.asyncio import (
 from sqlmodel import SQLModel
 
 from app.category.models import Category
-from app.category.services import CategoryService
 from app.core.config import settings
 from app.core.deps import get_session
 from app.main import app
-from app.receipt.models import Receipt, ReceiptCreate, ReceiptItem
-from app.receipt.services import ReceiptService
+from app.receipt.models import Receipt, ReceiptItem
 
 
 def get_test_database_url() -> str:
@@ -267,16 +265,16 @@ async def test_category(test_session: AsyncSession) -> AsyncGenerator[Category]:
 @pytest_asyncio.fixture
 async def test_receipt(test_session: AsyncSession) -> AsyncGenerator[Receipt]:
     """Create a test receipt in the database."""
-    category_service = CategoryService(test_session)
-    receipt_service = ReceiptService(test_session, category_service)
-    receipt_create = ReceiptCreate(
+    receipt = Receipt(
         store_name="Test Store",
         total_amount=Decimal("10.99"),
         currency="$",
         image_path="/path/to/image.jpg",
     )
-    created_receipt = await receipt_service.create(receipt_create)
-    yield created_receipt
+    test_session.add(receipt)
+    await test_session.commit()
+    await test_session.refresh(receipt)
+    yield receipt
 
 
 @pytest_asyncio.fixture
