@@ -362,5 +362,7 @@ async def test_update_nonexistent_receipt_item(
 
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
-        await receipt_service.update_item(receipt_id=1, item_id=999, item_in=update_data)
+        await receipt_service.update_item(
+            receipt_id=1, item_id=999, item_in=update_data
+        )
     assert "not found" in str(exc_info.value)

@@ -81,7 +81,9 @@ class CategoryService:
         category = await self.get(category_id)
 
         # Check if any items are using this category
-        stmt = select(func.count(ReceiptItem.id)).where(ReceiptItem.category_id == category_id)
+        stmt = select(func.count(ReceiptItem.id)).where(
+            ReceiptItem.category_id == category_id
+        )
         item_count = await self.session.scalar(stmt)
 
         if item_count and item_count > 0:
