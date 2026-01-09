@@ -32,24 +32,17 @@ def test_create_category(test_client: TestClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_category(
-    test_client: TestClient, test_session: AsyncSession
-) -> None:
+async def test_get_category(test_client: TestClient, test_category: Category) -> None:
     """Test getting a category by ID via API."""
-    # Arrange
-    category = Category(name="Test Category", description="Test Description")
-    test_session.add(category)
-    await test_session.commit()
-
     # Act
-    response = test_client.get(f"/api/v1/categories/{category.id}")
+    response = test_client.get(f"/api/v1/categories/{test_category.id}")
 
     # Assert
     assert response.status_code == 200
     data = response.json()
-    assert data["id"] == category.id
-    assert data["name"] == category.name
-    assert data["description"] == category.description
+    assert data["id"] == test_category.id
+    assert data["name"] == test_category.name
+    assert data["description"] == test_category.description
 
 
 @pytest.mark.asyncio
@@ -106,23 +99,16 @@ async def test_update_category(
 
 
 @pytest.mark.asyncio
-async def test_delete_category(
-    test_client: TestClient, test_session: AsyncSession
-) -> None:
+async def test_delete_category(test_client: TestClient, test_category: Category) -> None:
     """Test deleting a category via API."""
-    # Arrange
-    category = Category(name="Test Category", description="Test Description")
-    test_session.add(category)
-    await test_session.commit()
-
     # Act
-    response = test_client.delete(f"/api/v1/categories/{category.id}")
+    response = test_client.delete(f"/api/v1/categories/{test_category.id}")
 
     # Assert
     assert response.status_code == 204
 
     # Verify category is deleted
-    get_response = test_client.get(f"/api/v1/categories/{category.id}")
+    get_response = test_client.get(f"/api/v1/categories/{test_category.id}")
     assert get_response.status_code == 404
 
 
@@ -134,18 +120,13 @@ def test_get_nonexistent_category(test_client: TestClient) -> None:
 
 @pytest.mark.asyncio
 async def test_create_duplicate_category(
-    test_client: TestClient, test_session: AsyncSession
+    test_client: TestClient, test_category: Category
 ) -> None:
     """Test creating a category with a name that already exists."""
-    # Arrange
-    category = Category(name="Test Category", description="Test Description")
-    test_session.add(category)
-    await test_session.commit()
-
-    # Act
+    # Act: Try to create category with same name as fixture
     response = test_client.post(
         "/api/v1/categories/",
-        json={"name": "Test Category", "description": "New Description"},
+        json={"name": test_category.name, "description": "New Description"},
     )
 
     # Assert
