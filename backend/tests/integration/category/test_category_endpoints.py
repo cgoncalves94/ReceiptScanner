@@ -1,10 +1,13 @@
 """Tests for the category API endpoints."""
 
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.category.models import Category
+from app.receipt.models import Receipt, ReceiptItem
 
 
 def test_create_category(test_client: TestClient) -> None:
@@ -148,3 +151,51 @@ async def test_create_duplicate_category(
     # Assert
     assert response.status_code == 409
     assert "already exists" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_delete_category_with_items_returns_409(
+    test_client: TestClient, test_session: AsyncSession
+) -> None:
+    """Test that deleting a category with assigned items returns 409 Conflict.
+
+    This tests the business rule that categories cannot be deleted
+    if they have receipt items assigned to them.
+    """
+    # Arrange: Create category, receipt, and item
+    category = Category(name="Protected Category", description="Has items")
+    test_session.add(category)
+    await test_session.flush()
+
+    receipt = Receipt(
+        store_name="Test Store",
+        total_amount=Decimal("10.00"),
+        currency="€",
+        image_path="/test/path.jpg",
+    )
+    test_session.add(receipt)
+    await test_session.flush()
+
+    item = ReceiptItem(
+        name="Test Item",
+        quantity=1,
+        unit_price=Decimal("10.00"),
+        total_price=Decimal("10.00"),
+        currency="€",
+        receipt_id=receipt.id,
+        category_id=category.id,
+    )
+    test_session.add(item)
+    await test_session.commit()
+
+    # Act: Try to delete category with items
+    response = test_client.delete(f"/api/v1/categories/{category.id}")
+
+    # Assert: Should return 409 Conflict
+    assert response.status_code == 409
+    detail = response.json()["detail"].lower()
+    assert "items" in detail or "assigned" in detail
+
+    # Verify category still exists
+    get_response = test_client.get(f"/api/v1/categories/{category.id}")
+    assert get_response.status_code == 200

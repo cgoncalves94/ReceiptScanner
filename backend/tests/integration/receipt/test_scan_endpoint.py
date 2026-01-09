@@ -1,0 +1,139 @@
+"""Integration tests for the receipt scan endpoint.
+
+These tests verify the full flow from HTTP request to database persistence,
+using Pydantic AI's TestModel to simulate the Gemini Vision API response.
+
+References:
+- https://ai.pydantic.dev/testing/
+- https://ai.pydantic.dev/api/models/test/
+"""
+
+from io import BytesIO
+
+import pytest
+from fastapi.testclient import TestClient
+from PIL import UnidentifiedImageError
+from pydantic_ai.models.test import TestModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.category.models import Category
+from app.integrations.pydantic_ai.receipt_agent import get_receipt_agent
+
+
+@pytest.mark.asyncio
+async def test_scan_receipt_creates_receipt_and_items(
+    test_client: TestClient,
+    test_image: BytesIO,
+    mock_receipt_analysis: dict,
+) -> None:
+    """Test that scanning a receipt creates receipt and items in database.
+
+    Uses Pydantic AI's TestModel to simulate the Gemini Vision API response,
+    while testing the full HTTP → Service → Database flow.
+    """
+    # Arrange: Create test model with custom output
+    test_model = TestModel(custom_output_args=mock_receipt_analysis)
+
+    # Act: Make request with mocked AI model
+    with get_receipt_agent().override(model=test_model):
+        response = test_client.post(
+            "/api/v1/receipts/scan",
+            files={"image": ("receipt.png", test_image, "image/png")},
+        )
+
+    # Assert: Response is correct
+    assert response.status_code == 201
+    data = response.json()
+
+    assert data["store_name"] == "Test Grocery Store"
+    assert float(data["total_amount"]) == 25.98
+    assert data["currency"] == "€"
+    assert len(data["items"]) == 3
+
+    # Verify items were created with correct data
+    item_names = {item["name"] for item in data["items"]}
+    assert item_names == {"Organic Milk", "Whole Wheat Bread", "Bananas"}
+
+    # Verify categories were created
+    for item in data["items"]:
+        assert item["category_id"] is not None
+
+
+@pytest.mark.asyncio
+async def test_scan_receipt_uses_existing_categories(
+    test_client: TestClient,
+    test_session: AsyncSession,
+    test_image: BytesIO,
+    mock_receipt_analysis: dict,
+) -> None:
+    """Test that scanning uses existing categories when available."""
+    # Arrange: Create an existing category that matches one in the mock response
+    existing_category = Category(
+        name="Dairy",
+        description="Existing dairy category",
+    )
+    test_session.add(existing_category)
+    await test_session.commit()
+    await test_session.refresh(existing_category)
+
+    test_model = TestModel(custom_output_args=mock_receipt_analysis)
+
+    # Act
+    with get_receipt_agent().override(model=test_model):
+        response = test_client.post(
+            "/api/v1/receipts/scan",
+            files={"image": ("receipt.png", test_image, "image/png")},
+        )
+
+    # Assert
+    assert response.status_code == 201
+    data = response.json()
+
+    # Find the dairy item and verify it uses the existing category
+    dairy_item = next(item for item in data["items"] if item["name"] == "Organic Milk")
+    assert dairy_item["category_id"] == existing_category.id
+
+
+@pytest.mark.asyncio
+async def test_scan_receipt_with_invalid_image(
+    test_client: TestClient,
+) -> None:
+    """Test that scanning with invalid file raises an error.
+
+    Note: TestClient raises exceptions by default (raise_server_exceptions=True).
+    The PIL.UnidentifiedImageError is not caught by the service, indicating
+    the app needs better input validation.
+
+    TODO: Add proper image validation in the service to return 400/422.
+    """
+    # Arrange: Create invalid file content
+    invalid_file = BytesIO(b"not an image")
+
+    # Act & Assert: Exception is raised because invalid images aren't handled gracefully
+    with pytest.raises(UnidentifiedImageError):
+        test_client.post(
+            "/api/v1/receipts/scan",
+            files={"image": ("receipt.txt", invalid_file, "text/plain")},
+        )
+
+
+@pytest.mark.asyncio
+async def test_scan_receipt_ai_failure_returns_503(
+    test_client: TestClient,
+    test_image: BytesIO,
+) -> None:
+    """Test that AI service failure returns 503 Service Unavailable."""
+    # Arrange: Create a broken model that will fail validation
+    # by providing invalid output args (missing required fields)
+    broken_model = TestModel(custom_output_args={"invalid": "data"})
+
+    # Act
+    with get_receipt_agent().override(model=broken_model):
+        response = test_client.post(
+            "/api/v1/receipts/scan",
+            files={"image": ("receipt.png", test_image, "image/png")},
+        )
+
+    # Assert: Should return 503 (wrapped by ServiceUnavailableError)
+    assert response.status_code == 503
+    assert "detail" in response.json()
