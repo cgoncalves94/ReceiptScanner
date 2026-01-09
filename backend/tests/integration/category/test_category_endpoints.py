@@ -99,7 +99,9 @@ async def test_update_category(
 
 
 @pytest.mark.asyncio
-async def test_delete_category(test_client: TestClient, test_category: Category) -> None:
+async def test_delete_category(
+    test_client: TestClient, test_category: Category
+) -> None:
     """Test deleting a category via API."""
     # Act
     response = test_client.delete(f"/api/v1/categories/{test_category.id}")
