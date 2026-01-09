@@ -49,12 +49,14 @@ def get_test_database_url() -> str:
 
     Reads directly from env vars (set by pytest-dotenv from .env.test)
     instead of using the settings singleton which may have cached .env values.
+
+    Requires .env.test to be present with all POSTGRES_* variables defined.
     """
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    user = os.getenv("POSTGRES_USER", "postgres")
-    password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    db = os.getenv("POSTGRES_DB", "test_db")
+    host = os.environ["POSTGRES_HOST"]
+    port = os.environ["POSTGRES_PORT"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_PASSWORD"]
+    db = os.environ["POSTGRES_DB"]
     return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
 
 
