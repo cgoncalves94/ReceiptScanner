@@ -1,10 +1,13 @@
 """Tests for the category API endpoints."""
 
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.category.models import Category
+from app.receipt.models import Receipt, ReceiptItem
 
 
 def test_create_category(test_client: TestClient) -> None:
@@ -29,24 +32,17 @@ def test_create_category(test_client: TestClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_category(
-    test_client: TestClient, test_session: AsyncSession
-) -> None:
+async def test_get_category(test_client: TestClient, test_category: Category) -> None:
     """Test getting a category by ID via API."""
-    # Arrange
-    category = Category(name="Test Category", description="Test Description")
-    test_session.add(category)
-    await test_session.commit()
-
     # Act
-    response = test_client.get(f"/api/v1/categories/{category.id}")
+    response = test_client.get(f"/api/v1/categories/{test_category.id}")
 
     # Assert
     assert response.status_code == 200
     data = response.json()
-    assert data["id"] == category.id
-    assert data["name"] == category.name
-    assert data["description"] == category.description
+    assert data["id"] == test_category.id
+    assert data["name"] == test_category.name
+    assert data["description"] == test_category.description
 
 
 @pytest.mark.asyncio
@@ -104,22 +100,17 @@ async def test_update_category(
 
 @pytest.mark.asyncio
 async def test_delete_category(
-    test_client: TestClient, test_session: AsyncSession
+    test_client: TestClient, test_category: Category
 ) -> None:
     """Test deleting a category via API."""
-    # Arrange
-    category = Category(name="Test Category", description="Test Description")
-    test_session.add(category)
-    await test_session.commit()
-
     # Act
-    response = test_client.delete(f"/api/v1/categories/{category.id}")
+    response = test_client.delete(f"/api/v1/categories/{test_category.id}")
 
     # Assert
     assert response.status_code == 204
 
     # Verify category is deleted
-    get_response = test_client.get(f"/api/v1/categories/{category.id}")
+    get_response = test_client.get(f"/api/v1/categories/{test_category.id}")
     assert get_response.status_code == 404
 
 
@@ -131,20 +122,63 @@ def test_get_nonexistent_category(test_client: TestClient) -> None:
 
 @pytest.mark.asyncio
 async def test_create_duplicate_category(
-    test_client: TestClient, test_session: AsyncSession
+    test_client: TestClient, test_category: Category
 ) -> None:
     """Test creating a category with a name that already exists."""
-    # Arrange
-    category = Category(name="Test Category", description="Test Description")
-    test_session.add(category)
-    await test_session.commit()
-
-    # Act
+    # Act: Try to create category with same name as fixture
     response = test_client.post(
         "/api/v1/categories/",
-        json={"name": "Test Category", "description": "New Description"},
+        json={"name": test_category.name, "description": "New Description"},
     )
 
     # Assert
     assert response.status_code == 409
     assert "already exists" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_delete_category_with_items_returns_409(
+    test_client: TestClient, test_session: AsyncSession
+) -> None:
+    """Test that deleting a category with assigned items returns 409 Conflict.
+
+    This tests the business rule that categories cannot be deleted
+    if they have receipt items assigned to them.
+    """
+    # Arrange: Create category, receipt, and item
+    category = Category(name="Protected Category", description="Has items")
+    test_session.add(category)
+    await test_session.flush()
+
+    receipt = Receipt(
+        store_name="Test Store",
+        total_amount=Decimal("10.00"),
+        currency="€",
+        image_path="/test/path.jpg",
+    )
+    test_session.add(receipt)
+    await test_session.flush()
+
+    item = ReceiptItem(
+        name="Test Item",
+        quantity=1,
+        unit_price=Decimal("10.00"),
+        total_price=Decimal("10.00"),
+        currency="€",
+        receipt_id=receipt.id,
+        category_id=category.id,
+    )
+    test_session.add(item)
+    await test_session.commit()
+
+    # Act: Try to delete category with items
+    response = test_client.delete(f"/api/v1/categories/{category.id}")
+
+    # Assert: Should return 409 Conflict
+    assert response.status_code == 409
+    detail = response.json()["detail"].lower()
+    assert "items" in detail or "assigned" in detail
+
+    # Verify category still exists
+    get_response = test_client.get(f"/api/v1/categories/{category.id}")
+    assert get_response.status_code == 200
