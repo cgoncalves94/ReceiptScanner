@@ -1,13 +1,27 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from pydantic import computed_field
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.types import String
 from sqlmodel import Field, Relationship, SQLModel
 from sqlmodel._compat import SQLModelConfig
 
 if TYPE_CHECKING:
     from ..category.models import Category
+
+
+class PaymentMethod(str, Enum):
+    """Payment method options for receipts."""
+
+    CASH = "cash"
+    CREDIT_CARD = "credit_card"
+    DEBIT_CARD = "debit_card"
+    MOBILE_PAYMENT = "mobile_payment"
+    OTHER = "other"
 
 
 # Base model for receipt data
@@ -31,6 +45,22 @@ class ReceiptBase(SQLModel):
     image_path: str = Field(
         unique=True, description="Path to the image file of the receipt"
     )
+    # Metadata fields
+    notes: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Optional notes about the receipt",
+    )
+    payment_method: PaymentMethod | None = Field(
+        default=None,
+        description="Payment method used for the purchase",
+    )
+    tax_amount: Decimal | None = Field(
+        default=None,
+        max_digits=10,
+        decimal_places=2,
+        description="Tax amount on the receipt",
+    )
 
 
 # Receipt model for database
@@ -47,6 +77,12 @@ class Receipt(ReceiptBase, table=True):
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         description="Date and time the receipt was last updated",
+    )
+    # Tags stored as PostgreSQL array
+    tags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(String), nullable=False, default=[]),
+        description="List of tags for organizing receipts",
     )
 
     # Relationships
@@ -135,6 +171,26 @@ class ReceiptUpdate(SQLModel):
         default=None, description="Currency symbol (e.g., $, £, €)"
     )
     purchase_date: datetime | None = Field(default=None, description="Date of purchase")
+    # Metadata fields
+    notes: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Optional notes about the receipt",
+    )
+    tags: list[str] | None = Field(
+        default=None,
+        description="List of tags for organizing receipts",
+    )
+    payment_method: PaymentMethod | None = Field(
+        default=None,
+        description="Payment method used for the purchase",
+    )
+    tax_amount: Decimal | None = Field(
+        default=None,
+        max_digits=10,
+        decimal_places=2,
+        description="Tax amount on the receipt",
+    )
 
 
 class ReceiptItemCreate(ReceiptItemBase):
@@ -192,6 +248,7 @@ class ReceiptRead(ReceiptBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    tags: list[str]
     items: list[ReceiptItemRead]
 
     model_config = SQLModelConfig(from_attributes=True)
