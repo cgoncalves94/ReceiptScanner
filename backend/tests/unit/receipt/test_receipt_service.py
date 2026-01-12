@@ -11,6 +11,7 @@ from app.receipt.models import (
     Receipt,
     ReceiptCreate,
     ReceiptItem,
+    ReceiptItemCreateRequest,
     ReceiptItemUpdate,
     ReceiptUpdate,
 )
@@ -365,4 +366,138 @@ async def test_update_nonexistent_receipt_item(
         await receipt_service.update_item(
             receipt_id=1, item_id=999, item_in=update_data
         )
+    assert "not found" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_create_item(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test creating a receipt item and updating receipt total."""
+    # Arrange
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("10.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[],
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.flush = AsyncMock()
+    mock_session.refresh = AsyncMock()
+
+    item_data = ReceiptItemCreateRequest(
+        name="New Item",
+        quantity=2,
+        unit_price=Decimal("5.50"),
+        currency="$",
+        category_id=1,
+    )
+
+    # Act
+    updated_receipt = await receipt_service.create_item(
+        receipt_id=1, item_in=item_data
+    )
+
+    # Assert
+    # Total should be original (10.00) + new item total (2 * 5.50 = 11.00) = 21.00
+    assert updated_receipt.total_amount == Decimal("21.00")
+    mock_session.add.assert_called()
+    mock_session.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_item_nonexistent_receipt(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test creating an item on a receipt that doesn't exist."""
+    # Arrange
+    mock_session.scalar.return_value = None
+
+    item_data = ReceiptItemCreateRequest(
+        name="New Item",
+        quantity=1,
+        unit_price=Decimal("5.00"),
+        currency="$",
+    )
+
+    # Act & Assert
+    with pytest.raises(NotFoundError) as exc_info:
+        await receipt_service.create_item(receipt_id=999, item_in=item_data)
+    assert "not found" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_delete_item(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test deleting a receipt item and updating receipt total."""
+    # Arrange
+    item = ReceiptItem(
+        id=1,
+        name="Item to Delete",
+        quantity=1,
+        unit_price=Decimal("5.00"),
+        total_price=Decimal("5.00"),
+        currency="$",
+        receipt_id=1,
+    )
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("15.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[item],
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.delete = AsyncMock()
+    mock_session.flush = AsyncMock()
+    mock_session.refresh = AsyncMock()
+
+    # Act
+    updated_receipt = await receipt_service.delete_item(receipt_id=1, item_id=1)
+
+    # Assert
+    # Total should be original (15.00) - deleted item (5.00) = 10.00
+    assert updated_receipt.total_amount == Decimal("10.00")
+    mock_session.delete.assert_called_once_with(item)
+    mock_session.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_item_nonexistent_item(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test deleting an item that doesn't exist in the receipt."""
+    # Arrange
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("10.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[],  # No items
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.refresh = AsyncMock()
+
+    # Act & Assert
+    with pytest.raises(NotFoundError) as exc_info:
+        await receipt_service.delete_item(receipt_id=1, item_id=999)
+    assert "not found" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_delete_item_nonexistent_receipt(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test deleting an item from a receipt that doesn't exist."""
+    # Arrange
+    mock_session.scalar.return_value = None
+
+    # Act & Assert
+    with pytest.raises(NotFoundError) as exc_info:
+        await receipt_service.delete_item(receipt_id=999, item_id=1)
     assert "not found" in str(exc_info.value)
