@@ -366,3 +366,96 @@ async def test_update_nonexistent_receipt_item(
             receipt_id=1, item_id=999, item_in=update_data
         )
     assert "not found" in str(exc_info.value)
+
+
+# Filter Tests
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_search_filter(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test listing receipts with search filter."""
+    # Arrange
+    receipts = [
+        Receipt(
+            id=1,
+            store_name="Grocery Store",
+            total_amount=Decimal("50.00"),
+            currency="$",
+            image_path="/path/1.jpg",
+        ),
+    ]
+
+    mock_session.scalars = AsyncMock()
+    mock_session.scalars.return_value = MagicMock()
+    mock_session.scalars.return_value.all.return_value = receipts
+    mock_session.refresh = AsyncMock()
+
+    # Act
+    result = await receipt_service.list(filters={"search": "grocery"})
+
+    # Assert
+    assert len(result) == 1
+    mock_session.scalars.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_amount_filters(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test listing receipts with min/max amount filters."""
+    # Arrange
+    receipts = [
+        Receipt(
+            id=1,
+            store_name="Store",
+            total_amount=Decimal("75.00"),
+            currency="$",
+            image_path="/path/1.jpg",
+        ),
+    ]
+
+    mock_session.scalars = AsyncMock()
+    mock_session.scalars.return_value = MagicMock()
+    mock_session.scalars.return_value.all.return_value = receipts
+    mock_session.refresh = AsyncMock()
+
+    # Act
+    result = await receipt_service.list(
+        filters={"min_amount": Decimal("50.00"), "max_amount": Decimal("100.00")}
+    )
+
+    # Assert
+    assert len(result) == 1
+    mock_session.scalars.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_no_filters(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test listing receipts without any filters returns all receipts."""
+    # Arrange
+    receipts = [
+        Receipt(
+            id=i,
+            store_name=f"Store {i}",
+            total_amount=Decimal(f"{10.00 * i}"),
+            currency="$",
+            image_path=f"/path/{i}.jpg",
+        )
+        for i in range(1, 4)
+    ]
+
+    mock_session.scalars = AsyncMock()
+    mock_session.scalars.return_value = MagicMock()
+    mock_session.scalars.return_value.all.return_value = receipts
+    mock_session.refresh = AsyncMock()
+
+    # Act
+    result = await receipt_service.list(filters=None)
+
+    # Assert
+    assert len(result) == 3
+    mock_session.scalars.assert_called_once()
