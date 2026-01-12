@@ -5,6 +5,8 @@ export {
   useUpdateReceipt,
   useDeleteReceipt,
   useUpdateReceiptItem,
+  useCreateReceiptItem,
+  useDeleteReceiptItem,
 } from "./use-receipts";
 
 export {
