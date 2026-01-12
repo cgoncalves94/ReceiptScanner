@@ -143,6 +143,24 @@ class ReceiptItemCreate(ReceiptItemBase):
     pass
 
 
+class ReceiptItemCreateRequest(SQLModel):
+    """Schema for creating a receipt item via API request.
+
+    The receipt_id is provided via the URL path, not in the request body.
+    """
+
+    name: str = Field(max_length=255, description="Name of the item")
+    quantity: int = Field(ge=1, description="Quantity of the item")
+    unit_price: Decimal = Field(
+        max_digits=10, decimal_places=2, description="Unit price of the item"
+    )
+    currency: str = Field(description="Currency symbol (e.g., $, £, €)")
+    category_id: int | None = Field(
+        default=None,
+        description="ID of the category the item belongs to",
+    )
+
+
 class ReceiptItemUpdate(SQLModel):
     """Schema for updating a receipt item.
 

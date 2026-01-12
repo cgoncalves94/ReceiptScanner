@@ -21,6 +21,7 @@ from .models import (
     ReceiptCreate,
     ReceiptItem,
     ReceiptItemCreate,
+    ReceiptItemCreateRequest,
     ReceiptItemUpdate,
     ReceiptUpdate,
 )
@@ -254,3 +255,74 @@ class ReceiptService:
         )
         results = await self.session.scalars(stmt)
         return results.all()
+
+    async def create_item(
+        self, receipt_id: int, item_in: ReceiptItemCreateRequest
+    ) -> Receipt:
+        """Create a single receipt item and update the receipt total.
+
+        Args:
+            receipt_id: The ID of the receipt to add the item to
+            item_in: The item data
+
+        Returns:
+            The updated receipt with all items
+        """
+        # Get the receipt to verify it exists
+        receipt = await self.get(receipt_id)
+
+        # Calculate total_price from quantity and unit_price
+        total_price = item_in.quantity * item_in.unit_price
+
+        # Create the new item
+        item = ReceiptItem(
+            name=item_in.name,
+            quantity=item_in.quantity,
+            unit_price=item_in.unit_price,
+            total_price=total_price,
+            currency=item_in.currency,
+            category_id=item_in.category_id,
+            receipt_id=receipt_id,
+        )
+
+        self.session.add(item)
+
+        # Update the receipt total
+        receipt.total_amount = receipt.total_amount + total_price
+        receipt.updated_at = datetime.now(UTC)
+
+        await self.session.flush()
+        await self.session.refresh(receipt, ["items"])
+
+        return receipt
+
+    async def delete_item(self, receipt_id: int, item_id: int) -> Receipt:
+        """Delete a receipt item and update the receipt total.
+
+        Args:
+            receipt_id: The ID of the receipt
+            item_id: The ID of the item to delete
+
+        Returns:
+            The updated receipt with remaining items
+        """
+        # Get the receipt to verify it exists
+        receipt = await self.get(receipt_id)
+
+        # Find the item in the receipt
+        item = next((i for i in receipt.items if i.id == item_id), None)
+        if not item:
+            raise NotFoundError(
+                f"Item with id {item_id} not found in receipt {receipt_id}"
+            )
+
+        # Update the receipt total before deleting
+        receipt.total_amount = receipt.total_amount - item.total_price
+        receipt.updated_at = datetime.now(UTC)
+
+        # Delete the item
+        await self.session.delete(item)
+        await self.session.flush()
+        await self.session.refresh(receipt, ["items"])
+
+        return receipt
