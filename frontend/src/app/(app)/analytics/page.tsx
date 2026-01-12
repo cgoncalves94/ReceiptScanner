@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,10 +19,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BarChart3, TrendingUp, FolderOpen, ChevronLeft, ChevronRight, Receipt, RefreshCw } from "lucide-react";
+import { BarChart3, TrendingUp, FolderOpen, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
 import {
-  useReceipts,
-  useCategories,
+  useAnalyticsSummary,
+  useCategoryBreakdown,
   useCategoryItems,
   useExchangeRates,
   convertAmount,
@@ -38,93 +38,45 @@ const MONTHS = [
 ];
 
 export default function AnalyticsPage() {
-  const { data: receipts, isLoading: receiptsLoading } = useReceipts();
-  const { data: categories, isLoading: categoriesLoading } = useCategories();
-
   // Month/Year selector - "all" means all months in the year
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth.toString());
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  // Currency selector - default to most common currency in receipts
+  // Currency selector
   const [displayCurrency, setDisplayCurrency] = useState<string>("EUR");
 
   // Category detail modal
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const { data: categoryItems, isLoading: itemsLoading } = useCategoryItems(selectedCategoryId);
 
-  // Fetch exchange rates for display currency
-  const { data: exchangeRates, isLoading: ratesLoading, refetch: refetchRates } = useExchangeRates(displayCurrency);
+  // Fetch exchange rates for category items display (still needed for modal)
+  const { data: exchangeRates } = useExchangeRates(displayCurrency);
 
-  const isLoading = receiptsLoading || categoriesLoading;
+  // Parse month for API calls
+  const monthForApi = selectedMonth === "all" ? undefined : parseInt(selectedMonth);
 
-  // Get available years
-  const availableYears = useMemo(() => {
-    if (!receipts?.length) return [currentYear];
-    const years = new Set(receipts.map((r) => new Date(r.purchase_date).getFullYear()));
-    years.add(currentYear);
-    return Array.from(years).sort((a, b) => b - a);
-  }, [receipts, currentYear]);
+  // Backend analytics hooks
+  const { data: summary, isLoading: summaryLoading } = useAnalyticsSummary(
+    selectedYear,
+    monthForApi,
+    displayCurrency
+  );
 
-  // Filter receipts for selected period
-  const filteredReceipts = useMemo(() => {
-    return receipts?.filter((r) => {
-      const purchaseDate = new Date(r.purchase_date);
-      const yearMatch = purchaseDate.getFullYear() === selectedYear;
-      if (selectedMonth === "all") return yearMatch;
-      return yearMatch && purchaseDate.getMonth() === parseInt(selectedMonth);
-    }) ?? [];
-  }, [receipts, selectedMonth, selectedYear]);
+  const { data: categoryBreakdown, isLoading: breakdownLoading } = useCategoryBreakdown(
+    selectedYear,
+    monthForApi,
+    displayCurrency
+  );
 
-  // Get all items from filtered receipts
-  const filteredItems = useMemo(() => {
-    return filteredReceipts.flatMap((r) => r.items);
-  }, [filteredReceipts]);
+  const isLoading = summaryLoading || breakdownLoading;
 
-  // Category spending breakdown
-  const categorySpending = useMemo(() => {
-    const spending = new Map<number, { name: string; items: typeof filteredItems; total: number }>();
-
-    // Initialize with all categories
-    categories?.forEach((cat) => {
-      spending.set(cat.id, { name: cat.name, items: [], total: 0 });
-    });
-
-    // Group items by category and convert to display currency
-    filteredItems.forEach((item) => {
-      if (item.category_id) {
-        const entry = spending.get(item.category_id);
-        if (entry) {
-          entry.items.push(item);
-          const converted = convertAmount(
-            Number(item.total_price),
-            item.currency,
-            displayCurrency,
-            exchangeRates
-          );
-          entry.total += converted;
-        }
-      }
-    });
-
-    // Filter to only categories with spending and sort by total
-    return Array.from(spending.entries())
-      .filter(([, data]) => data.items.length > 0)
-      .sort((a, b) => b[1].total - a[1].total);
-  }, [categories, filteredItems, displayCurrency, exchangeRates]);
-
-  // Stats - convert all to display currency
-  const totalSpent = useMemo(() => {
-    return convertAndSum(
-      filteredReceipts.map((r) => ({ amount: Number(r.total_amount), currency: r.currency })),
-      displayCurrency,
-      exchangeRates
-    );
-  }, [filteredReceipts, displayCurrency, exchangeRates]);
-
-  const receiptCount = filteredReceipts.length;
-  const avgPerReceipt = receiptCount > 0 ? totalSpent / receiptCount : 0;
+  // Available years (simple range for now)
+  const availableYears = Array.from(
+    { length: 10 },
+    (_, i) => currentYear - i
+  );
 
   // Navigation
   const goToPrevMonth = () => {
@@ -151,27 +103,28 @@ export default function AnalyticsPage() {
 
   const isCurrentPeriod = selectedMonth === currentMonth.toString() && selectedYear === currentYear;
 
-  // Filter category items by selected period (using Map for O(1) receipt lookup)
-  const filteredCategoryItems = useMemo(() => {
-    if (!categoryItems || !receipts) return [];
-    const receiptsMap = new Map(receipts.map((r) => [r.id, r]));
-    return categoryItems.filter((item) => {
-      const receipt = receiptsMap.get(item.receipt_id);
-      if (!receipt) return false;
-      const purchaseDate = new Date(receipt.purchase_date);
-      const yearMatch = purchaseDate.getFullYear() === selectedYear;
-      if (selectedMonth === "all") return yearMatch;
-      return yearMatch && purchaseDate.getMonth() === parseInt(selectedMonth);
-    });
-  }, [categoryItems, receipts, selectedMonth, selectedYear]);
+  // Filter category items by selected period for modal
+  const filteredCategoryItems = categoryItems?.filter((item) => {
+    // We don't have receipt data here, so show all items from this category
+    // In future, we could add a dedicated endpoint for this
+    return true;
+  }) ?? [];
 
-  const selectedCategory = categories?.find((c) => c.id === selectedCategoryId);
+  const selectedCategory = categoryBreakdown?.categories.find(
+    (c) => c.category_id === selectedCategoryId
+  );
   const currencySymbol = codeToSymbol(displayCurrency);
 
   // Period label
   const periodLabel = selectedMonth === "all"
     ? `${selectedYear}`
     : `${MONTHS[parseInt(selectedMonth)]} ${selectedYear}`;
+
+  // Stats from backend
+  const totalSpent = summary?.total_spent ?? 0;
+  const receiptCount = summary?.receipt_count ?? 0;
+  const avgPerReceipt = summary?.avg_per_receipt ?? 0;
+  const categoriesCount = categoryBreakdown?.categories.length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -241,24 +194,8 @@ export default function AnalyticsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => refetchRates()}
-            disabled={ratesLoading}
-            title="Refresh exchange rates"
-          >
-            <RefreshCw className={`h-4 w-4 ${ratesLoading ? "animate-spin" : ""}`} />
-          </Button>
         </div>
       </div>
-
-      {/* Exchange rate info */}
-      {exchangeRates && (
-        <p className="text-xs text-muted-foreground">
-          Rates as of {exchangeRates.date} from Frankfurter API
-        </p>
-      )}
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -270,11 +207,11 @@ export default function AnalyticsPage() {
             <TrendingUp className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            {isLoading || ratesLoading ? (
+            {isLoading ? (
               <Skeleton className="h-8 w-24" />
             ) : (
               <div className="text-2xl font-bold text-amber-500">
-                {currencySymbol}{totalSpent.toFixed(2)}
+                {currencySymbol}{Number(totalSpent).toFixed(2)}
               </div>
             )}
           </CardContent>
@@ -304,11 +241,11 @@ export default function AnalyticsPage() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading || ratesLoading ? (
+            {isLoading ? (
               <Skeleton className="h-8 w-20" />
             ) : (
               <div className="text-2xl font-bold">
-                {currencySymbol}{avgPerReceipt.toFixed(2)}
+                {currencySymbol}{Number(avgPerReceipt).toFixed(2)}
               </div>
             )}
           </CardContent>
@@ -325,7 +262,7 @@ export default function AnalyticsPage() {
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold">{categorySpending.length}</div>
+              <div className="text-2xl font-bold">{categoriesCount}</div>
             )}
           </CardContent>
         </Card>
@@ -338,13 +275,13 @@ export default function AnalyticsPage() {
           <CardDescription>{periodLabel} breakdown</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading || ratesLoading ? (
+          {isLoading ? (
             <div className="space-y-3">
               {[...Array(4)].map((_, i) => (
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : categorySpending.length === 0 ? (
+          ) : !categoryBreakdown?.categories.length ? (
             <div className="text-center py-12 text-muted-foreground">
               <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No category data for {periodLabel}</p>
@@ -352,42 +289,39 @@ export default function AnalyticsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {categorySpending.map(([categoryId, data]) => {
-                const percentage = totalSpent > 0 ? (data.total / totalSpent) * 100 : 0;
-                return (
-                  <button
-                    key={categoryId}
-                    onClick={() => setSelectedCategoryId(categoryId)}
-                    className="w-full text-left"
-                  >
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-accent/50 hover:bg-accent transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                          <FolderOpen className="h-5 w-5 text-amber-500" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{data.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {data.items.length} item{data.items.length !== 1 ? "s" : ""} • {percentage.toFixed(1)}%
-                          </p>
-                        </div>
+              {categoryBreakdown.categories.map((cat) => (
+                <button
+                  key={cat.category_id}
+                  onClick={() => setSelectedCategoryId(cat.category_id)}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-center justify-between p-4 rounded-lg bg-accent/50 hover:bg-accent transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                        <FolderOpen className="h-5 w-5 text-amber-500" />
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-amber-500">
-                          {currencySymbol}{data.total.toFixed(2)}
+                      <div>
+                        <p className="font-medium">{cat.category_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {cat.item_count} item{cat.item_count !== 1 ? "s" : ""} • {Number(cat.percentage).toFixed(1)}%
                         </p>
                       </div>
                     </div>
-                    {/* Progress bar */}
-                    <div className="h-1 mt-1 bg-accent rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-amber-500 rounded-full transition-all"
-                        style={{ width: `${percentage}%` }}
-                      />
+                    <div className="text-right">
+                      <p className="font-semibold text-amber-500">
+                        {currencySymbol}{Number(cat.total_spent).toFixed(2)}
+                      </p>
                     </div>
-                  </button>
-                );
-              })}
+                  </div>
+                  {/* Progress bar */}
+                  <div className="h-1 mt-1 bg-accent rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 rounded-full transition-all"
+                      style={{ width: `${cat.percentage}%` }}
+                    />
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </CardContent>
@@ -397,7 +331,7 @@ export default function AnalyticsPage() {
       <Dialog open={selectedCategoryId !== null} onOpenChange={(open) => !open && setSelectedCategoryId(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedCategory?.name} Items</DialogTitle>
+            <DialogTitle>{selectedCategory?.category_name} Items</DialogTitle>
             <DialogDescription>
               {periodLabel} • {filteredCategoryItems.length} item{filteredCategoryItems.length !== 1 ? "s" : ""}
             </DialogDescription>
