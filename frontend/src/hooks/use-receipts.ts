@@ -2,14 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Receipt, ReceiptUpdate, ReceiptItemUpdate } from "@/types";
+import type { Receipt, ReceiptUpdate, ReceiptItemUpdate, ReceiptFilters } from "@/types";
 
 const RECEIPTS_KEY = ["receipts"];
 
-export function useReceipts() {
+export function useReceipts(filters?: ReceiptFilters) {
+  // Include filters in query key so queries with different filters are cached separately
+  const queryKey = filters
+    ? [...RECEIPTS_KEY, "filtered", filters]
+    : RECEIPTS_KEY;
+
   return useQuery({
-    queryKey: RECEIPTS_KEY,
-    queryFn: () => api.getReceipts(),
+    queryKey,
+    queryFn: () => api.getReceipts(filters),
   });
 }
 
