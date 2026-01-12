@@ -42,12 +42,18 @@ import {
   ImageIcon,
   Trash2,
   Pencil,
+  FileText,
+  Tag,
+  CreditCard,
+  DollarSign,
 } from "lucide-react";
-import { useReceipt, useDeleteReceipt, useUpdateReceiptItem, useCategories } from "@/hooks";
+import { useReceipt, useDeleteReceipt, useUpdateReceipt, useUpdateReceiptItem, useCategories } from "@/hooks";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import type { ReceiptItem } from "@/types";
+import type { ReceiptItem, ReceiptUpdate } from "@/types";
+import { PAYMENT_METHOD_LABELS } from "@/types";
+import { MetadataForm } from "@/components/receipts/metadata-form";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -61,6 +67,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   const { data: receipt, isLoading, error } = useReceipt(receiptId);
   const { data: categories } = useCategories();
   const deleteMutation = useDeleteReceipt();
+  const updateMutation = useUpdateReceipt();
   const updateItemMutation = useUpdateReceiptItem();
 
   // Create a map for quick category lookup
@@ -69,6 +76,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   );
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
@@ -98,6 +106,19 @@ export default function ReceiptDetailPage({ params }: PageProps) {
         error instanceof Error ? error.message : "Failed to update item"
       );
       updateItemMutation.reset();
+    }
+  };
+
+  const handleUpdateMetadata = async (data: ReceiptUpdate) => {
+    try {
+      await updateMutation.mutateAsync({ id: receiptId, data });
+      toast.success("Details updated");
+      setMetadataDialogOpen(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update details"
+      );
+      updateMutation.reset();
     }
   };
 
@@ -245,6 +266,90 @@ export default function ReceiptDetailPage({ params }: PageProps) {
         </CardContent>
       </Card>
 
+      {/* Details / Metadata */}
+      <Card className="bg-card/50 border-border/50">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Details</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMetadataDialogOpen(true)}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Details
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Notes */}
+            <div className="space-y-1.5 md:col-span-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span>Notes</span>
+              </div>
+              <p className="text-sm">
+                {receipt.notes || (
+                  <span className="text-muted-foreground italic">No notes</span>
+                )}
+              </p>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-1.5 md:col-span-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Tag className="h-4 w-4" />
+                <span>Tags</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {receipt.tags.length > 0 ? (
+                  receipt.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground italic">
+                    No tags
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Payment Method */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CreditCard className="h-4 w-4" />
+                <span>Payment Method</span>
+              </div>
+              <p className="text-sm">
+                {receipt.payment_method ? (
+                  PAYMENT_METHOD_LABELS[receipt.payment_method]
+                ) : (
+                  <span className="text-muted-foreground italic">Not specified</span>
+                )}
+              </p>
+            </div>
+
+            {/* Tax Amount */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <DollarSign className="h-4 w-4" />
+                <span>Tax Amount</span>
+              </div>
+              <p className="text-sm">
+                {receipt.tax_amount !== null ? (
+                  formatCurrency(receipt.tax_amount, receipt.currency)
+                ) : (
+                  <span className="text-muted-foreground italic">Not specified</span>
+                )}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Receipt Image */}
       {receipt.image_path && (
         <Card className="bg-card/50 border-border/50">
@@ -352,6 +457,15 @@ export default function ReceiptDetailPage({ params }: PageProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Metadata Dialog */}
+      <MetadataForm
+        receipt={receipt}
+        open={metadataDialogOpen}
+        onOpenChange={setMetadataDialogOpen}
+        onSave={handleUpdateMetadata}
+        isPending={updateMutation.isPending}
+      />
     </div>
   );
 }
