@@ -1,7 +1,9 @@
 from collections.abc import Sequence
+from datetime import datetime
+from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, File, UploadFile, status
+from fastapi import APIRouter, File, Query, UploadFile, status
 
 from .deps import ReceiptDeps
 from .models import (
@@ -12,6 +14,7 @@ from .models import (
     ReceiptRead,
     ReceiptUpdate,
 )
+from .services import ReceiptFilters
 
 router = APIRouter(prefix="/api/v1/receipts", tags=["receipts"])
 
@@ -37,9 +40,62 @@ async def list_receipts(
     service: ReceiptDeps,
     skip: int = 0,
     limit: int = 100,
+    search: Annotated[
+        str | None,
+        Query(description="Search store name (case-insensitive partial match)"),
+    ] = None,
+    store: Annotated[
+        str | None,
+        Query(description="Exact store name match"),
+    ] = None,
+    after: Annotated[
+        datetime | None,
+        Query(description="Filter receipts on or after this date (ISO 8601 format)"),
+    ] = None,
+    before: Annotated[
+        datetime | None,
+        Query(description="Filter receipts on or before this date (ISO 8601 format)"),
+    ] = None,
+    category_ids: Annotated[
+        list[int] | None,
+        Query(description="Filter by category IDs (receipts with items in these categories)"),
+    ] = None,
+    min_amount: Annotated[
+        Decimal | None,
+        Query(description="Minimum total amount", ge=0),
+    ] = None,
+    max_amount: Annotated[
+        Decimal | None,
+        Query(description="Maximum total amount", ge=0),
+    ] = None,
 ) -> Sequence[Receipt]:
-    """List all receipts with their items."""
-    receipts = await service.list(skip=skip, limit=limit)
+    """List all receipts with optional filtering.
+
+    Filter options:
+    - search: Case-insensitive partial match on store name
+    - store: Exact store name match
+    - after/before: Date range filter (ISO 8601 format)
+    - category_ids: Filter receipts that have items in specified categories
+    - min_amount/max_amount: Total amount range filter
+    """
+    # Build filters dict only with provided values
+    filters: ReceiptFilters = {}
+    if search is not None:
+        filters["search"] = search
+    if store is not None:
+        filters["store"] = store
+    if after is not None:
+        filters["after"] = after
+    if before is not None:
+        filters["before"] = before
+    if category_ids is not None:
+        filters["category_ids"] = category_ids
+    if min_amount is not None:
+        filters["min_amount"] = min_amount
+    if max_amount is not None:
+        filters["max_amount"] = max_amount
+
+    receipts = await service.list(skip=skip, limit=limit, filters=filters or None)
     return receipts  # pragma: no cover
 
 
