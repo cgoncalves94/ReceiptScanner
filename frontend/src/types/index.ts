@@ -1,5 +1,21 @@
 // API Response Types - matching backend schemas
 
+// Payment method enum matching backend
+export type PaymentMethod =
+  | "cash"
+  | "credit_card"
+  | "debit_card"
+  | "mobile_payment"
+  | "other";
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: "Cash",
+  credit_card: "Credit Card",
+  debit_card: "Debit Card",
+  mobile_payment: "Mobile Payment",
+  other: "Other",
+};
+
 export interface Category {
   id: number;
   name: string;
@@ -51,6 +67,11 @@ export interface Receipt {
   created_at: string;
   updated_at: string;
   items: ReceiptItem[];
+  // Metadata fields
+  notes: string | null;
+  tags: string[];
+  payment_method: PaymentMethod | null;
+  tax_amount: number | null;
 }
 
 export interface ReceiptUpdate {
@@ -58,6 +79,11 @@ export interface ReceiptUpdate {
   total_amount?: number | null;
   currency?: string | null;
   purchase_date?: string | null;
+  // Metadata fields
+  notes?: string | null;
+  tags?: string[] | null;
+  payment_method?: PaymentMethod | null;
+  tax_amount?: number | null;
 }
 
 // Scan result from AI analysis
