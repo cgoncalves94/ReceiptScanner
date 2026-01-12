@@ -8,6 +8,7 @@ import pytest
 from app.category.services import CategoryService
 from app.core.exceptions import NotFoundError
 from app.receipt.models import (
+    PaymentMethod,
     Receipt,
     ReceiptCreate,
     ReceiptItem,
@@ -366,3 +367,77 @@ async def test_update_nonexistent_receipt_item(
             receipt_id=1, item_id=999, item_in=update_data
         )
     assert "not found" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_with_metadata(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test updating a receipt with metadata fields (notes, tags, payment_method, tax_amount)."""
+    # Arrange
+    existing_receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("100.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        notes=None,
+        payment_method=None,
+        tax_amount=None,
+        tags=[],
+    )
+
+    # Mock the scalar method for get
+    mock_session.scalar.return_value = existing_receipt
+
+    # Mock the flush and refresh methods
+    mock_session.flush = AsyncMock()
+    mock_session.refresh = AsyncMock()
+
+    update_data = ReceiptUpdate(
+        notes="Weekly grocery shopping",
+        tags=["groceries", "weekly"],
+        payment_method=PaymentMethod.CREDIT_CARD,
+        tax_amount=Decimal("8.50"),
+    )
+
+    # Act
+    updated_receipt = await receipt_service.update(existing_receipt.id, update_data)
+
+    # Assert
+    assert updated_receipt.notes == "Weekly grocery shopping"
+    assert updated_receipt.tags == ["groceries", "weekly"]
+    assert updated_receipt.payment_method == PaymentMethod.CREDIT_CARD
+    assert updated_receipt.tax_amount == Decimal("8.50")
+    mock_session.flush.assert_called_once()
+
+
+def test_receipt_with_metadata_fields():
+    """Test that Receipt model accepts metadata fields."""
+    # Arrange & Act
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("50.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        notes="Some notes",
+        payment_method=PaymentMethod.MOBILE_PAYMENT,
+        tax_amount=Decimal("4.25"),
+        tags=["quick", "lunch"],
+    )
+
+    # Assert
+    assert receipt.notes == "Some notes"
+    assert receipt.payment_method == PaymentMethod.MOBILE_PAYMENT
+    assert receipt.tax_amount == Decimal("4.25")
+    assert receipt.tags == ["quick", "lunch"]
+
+
+def test_payment_method_enum_values():
+    """Test that PaymentMethod enum has expected values."""
+    assert PaymentMethod.CASH.value == "cash"
+    assert PaymentMethod.CREDIT_CARD.value == "credit_card"
+    assert PaymentMethod.DEBIT_CARD.value == "debit_card"
+    assert PaymentMethod.MOBILE_PAYMENT.value == "mobile_payment"
+    assert PaymentMethod.OTHER.value == "other"

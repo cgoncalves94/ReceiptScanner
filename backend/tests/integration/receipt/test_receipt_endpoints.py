@@ -74,3 +74,83 @@ async def test_list_items_by_category(
     assert len(data) > 0
     assert data[0]["name"] == test_receipt_item.name
     assert data[0]["category_id"] == test_category.id
+
+
+@pytest.mark.asyncio
+async def test_get_receipt_includes_metadata_fields(
+    test_client: TestClient, test_receipt: Receipt
+) -> None:
+    """Test that receipt response includes metadata fields."""
+    response = test_client.get(f"/api/v1/receipts/{test_receipt.id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    # Metadata fields should be present (even if null/empty)
+    assert "notes" in data
+    assert "tags" in data
+    assert "payment_method" in data
+    assert "tax_amount" in data
+    # Default values for new receipts
+    assert data["tags"] == []
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_metadata(
+    test_client: TestClient, test_receipt: Receipt
+) -> None:
+    """Test updating a receipt with metadata fields."""
+    update_data = {
+        "notes": "Weekly grocery run",
+        "tags": ["groceries", "weekly", "essential"],
+        "payment_method": "credit_card",
+        "tax_amount": 5.25,
+    }
+
+    response = test_client.patch(
+        f"/api/v1/receipts/{test_receipt.id}",
+        content=json.dumps(update_data),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["notes"] == "Weekly grocery run"
+    assert data["tags"] == ["groceries", "weekly", "essential"]
+    assert data["payment_method"] == "credit_card"
+    assert float(data["tax_amount"]) == 5.25
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_clear_metadata(
+    test_client: TestClient, test_receipt: Receipt
+) -> None:
+    """Test clearing metadata fields by setting them to null."""
+    # First, set some metadata
+    test_client.patch(
+        f"/api/v1/receipts/{test_receipt.id}",
+        content=json.dumps({
+            "notes": "Some notes",
+            "tags": ["tag1"],
+            "payment_method": "cash",
+            "tax_amount": 10.00,
+        }),
+    )
+
+    # Now clear them
+    update_data = {
+        "notes": None,
+        "tags": [],
+        "payment_method": None,
+        "tax_amount": None,
+    }
+
+    response = test_client.patch(
+        f"/api/v1/receipts/{test_receipt.id}",
+        content=json.dumps(update_data),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["notes"] is None
+    assert data["tags"] == []
+    assert data["payment_method"] is None
+    assert data["tax_amount"] is None
