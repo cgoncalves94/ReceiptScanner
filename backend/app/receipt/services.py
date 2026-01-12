@@ -3,11 +3,25 @@ import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import TypedDict
 
 from fastapi import UploadFile
 from PIL import Image
+from sqlalchemy import distinct
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+
+class ReceiptFilters(TypedDict, total=False):
+    """Filter parameters for listing receipts."""
+
+    search: str | None
+    store: str | None
+    after: datetime | None
+    before: datetime | None
+    category_ids: list[int] | None
+    min_amount: Decimal | None
+    max_amount: Decimal | None
 
 from app.category.models import CategoryCreate
 from app.category.services import CategoryService
@@ -161,9 +175,66 @@ class ReceiptService:
 
         return receipt
 
-    async def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
-        """List all receipts with pagination."""
-        stmt = select(Receipt).offset(skip).limit(limit)
+    async def list(
+        self,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        filters: ReceiptFilters | None = None,
+    ) -> Sequence[Receipt]:
+        """List all receipts with pagination and optional filtering.
+
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            filters: Optional dictionary of filter parameters:
+                - search: ILIKE search on store_name
+                - store: Exact match on store_name
+                - after: Filter receipts on or after this date
+                - before: Filter receipts on or before this date
+                - category_ids: Filter by category IDs (receipts with items in these categories)
+                - min_amount: Minimum total_amount
+                - max_amount: Maximum total_amount
+
+        Returns:
+            List of receipts matching the filters
+        """
+        # Build base query
+        stmt = select(Receipt)
+
+        # Apply filters if provided
+        if filters:
+            # Search filter (case-insensitive partial match on store_name)
+            if filters.get("search"):
+                stmt = stmt.where(Receipt.store_name.ilike(f"%{filters['search']}%"))
+
+            # Exact store name match
+            if filters.get("store"):
+                stmt = stmt.where(Receipt.store_name == filters["store"])
+
+            # Date range filters
+            if filters.get("after"):
+                stmt = stmt.where(Receipt.purchase_date >= filters["after"])
+            if filters.get("before"):
+                stmt = stmt.where(Receipt.purchase_date <= filters["before"])
+
+            # Amount range filters
+            if filters.get("min_amount") is not None:
+                stmt = stmt.where(Receipt.total_amount >= filters["min_amount"])
+            if filters.get("max_amount") is not None:
+                stmt = stmt.where(Receipt.total_amount <= filters["max_amount"])
+
+            # Category filter (join with items table)
+            if filters.get("category_ids"):
+                stmt = (
+                    stmt.join(ReceiptItem)
+                    .where(ReceiptItem.category_id.in_(filters["category_ids"]))
+                    .distinct()
+                )
+
+        # Apply pagination and ordering (newest first)
+        stmt = stmt.order_by(Receipt.purchase_date.desc()).offset(skip).limit(limit)
+
         results = await self.session.scalars(stmt)
         receipts = results.all()
 
