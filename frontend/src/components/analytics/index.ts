@@ -3,3 +3,4 @@
 
 export { DateNavigator } from "./date-navigator";
 export { CurrencySelector } from "./currency-selector";
+export { StatCard } from "./stat-card";
