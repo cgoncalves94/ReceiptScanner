@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
 
+from sqlalchemy import select as sa_select
 from sqlmodel import col, extract, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -307,7 +308,7 @@ class AnalyticsService:
     ) -> CategoryBreakdownResponse:
         """Get spending breakdown by category, grouped by currency."""
         stmt: Any = (
-            select(  # type: ignore[call-overload]
+            sa_select(
                 col(ReceiptItem.category_id).label("category_id"),
                 col(Category.name).label("category_name"),
                 col(Receipt.currency).label("currency"),
