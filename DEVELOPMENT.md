@@ -122,6 +122,11 @@ backend/app/
 │   ├── services.py         # Business logic
 │   └── deps.py             # Domain dependencies
 ├── category/               # Category domain (same structure)
+├── analytics/              # Analytics domain (query-only, no DB models)
+│   ├── router.py           # /api/v1/analytics endpoints
+│   ├── models.py           # Response schemas
+│   ├── services.py         # Aggregation queries
+│   └── deps.py             # Domain dependencies
 └── integrations/
     └── pydantic_ai/        # Gemini AI integration
 ```
@@ -143,6 +148,7 @@ frontend/src/
 ├── hooks/                  # TanStack Query hooks
 │   ├── use-receipts.ts     # Receipt mutations/queries
 │   ├── use-categories.ts   # Category mutations/queries
+│   ├── use-analytics.ts    # Analytics queries (summary, trends, breakdowns)
 │   └── use-currency.ts     # Currency conversion
 ├── lib/
 │   ├── api/client.ts       # API client

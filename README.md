@@ -5,7 +5,7 @@ A full-stack receipt scanning application with AI-powered analysis. Upload recei
 ## Tech Stack
 
 | Layer | Technology |
-|-------|------------|
+| ----- | ---------- |
 | **Frontend** | Next.js 16, React 19, TanStack Query, Tailwind CSS, shadcn/ui |
 | **Backend** | FastAPI, SQLModel, Pydantic AI, PostgreSQL |
 | **AI** | Google Gemini Vision |
@@ -73,6 +73,7 @@ receipt-scanner/
 │   │   ├── core/           # Config, db, exceptions
 │   │   ├── receipt/        # Receipt domain
 │   │   ├── category/       # Category domain
+│   │   ├── analytics/      # Analytics domain
 │   │   └── integrations/   # AI integration
 │   └── tests/
 ├── frontend/               # Next.js frontend
@@ -96,17 +97,24 @@ receipt-scanner/
 ## API Endpoints
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| ------ | -------- | ----------- |
 | `POST` | `/api/v1/receipts/scan` | Upload and analyze receipt |
-| `GET` | `/api/v1/receipts` | List receipts |
+| `GET` | `/api/v1/receipts` | List receipts (with filtering) |
 | `GET` | `/api/v1/receipts/{id}` | Get receipt details |
 | `PATCH` | `/api/v1/receipts/{id}` | Update receipt |
 | `DELETE` | `/api/v1/receipts/{id}` | Delete receipt |
 | `PATCH` | `/api/v1/receipts/{id}/items/{itemId}` | Update item |
+| `POST` | `/api/v1/receipts/{id}/items` | Create item |
+| `DELETE` | `/api/v1/receipts/{id}/items/{itemId}` | Delete item |
+| `GET` | `/api/v1/receipts/category/{id}/items` | List items by category |
 | `GET` | `/api/v1/categories` | List categories |
 | `POST` | `/api/v1/categories` | Create category |
 | `PATCH` | `/api/v1/categories/{id}` | Update category |
 | `DELETE` | `/api/v1/categories/{id}` | Delete category |
+| `GET` | `/api/v1/analytics/summary` | Spending summary |
+| `GET` | `/api/v1/analytics/trends` | Spending trends |
+| `GET` | `/api/v1/analytics/top-stores` | Top stores by spending |
+| `GET` | `/api/v1/analytics/category-breakdown` | Spending by category |
 
 ## Development
 
