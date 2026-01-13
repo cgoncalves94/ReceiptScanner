@@ -46,7 +46,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("image_path"),
     )
-    op.create_index(op.f("ix_receipt_store_name"), "receipt", ["store_name"], unique=False)
+    op.create_index(
+        op.f("ix_receipt_store_name"), "receipt", ["store_name"], unique=False
+    )
 
     # Create receiptitem table
     op.create_table(
