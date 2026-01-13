@@ -72,12 +72,13 @@ export interface ApiError {
 }
 
 // Analytics Types
+// Note: Decimal fields from backend are serialized as strings to preserve precision
 export interface SpendingSummary {
-  total_spent: number;
+  total_spent: string;
   receipt_count: number;
-  avg_per_receipt: number;
+  avg_per_receipt: string;
   top_category: string | null;
-  top_category_amount: number | null;
+  top_category_amount: string | null;
   currency: string;
   year: number;
   month: number | null;
@@ -85,7 +86,7 @@ export interface SpendingSummary {
 
 export interface SpendingTrend {
   date: string;
-  total: number;
+  total: string;
   receipt_count: number;
   currency: string;
 }
@@ -100,8 +101,8 @@ export interface SpendingTrendsResponse {
 export interface StoreVisit {
   store_name: string;
   visit_count: number;
-  total_spent: number;
-  avg_per_visit: number;
+  total_spent: string;
+  avg_per_visit: string;
   currency: string;
 }
 
@@ -115,14 +116,14 @@ export interface CategorySpending {
   category_id: number;
   category_name: string;
   item_count: number;
-  total_spent: number;
-  percentage: number;
+  total_spent: string;
+  percentage: string;
   currency: string;
 }
 
 export interface CategoryBreakdownResponse {
   categories: CategorySpending[];
-  total_spent: number;
+  total_spent: string;
   year: number;
   month: number | null;
 }
