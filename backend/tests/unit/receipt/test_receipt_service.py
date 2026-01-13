@@ -556,9 +556,9 @@ async def test_list_receipts_with_search_filter(
         ),
     ]
 
-    mock_session.exec = MagicMock()
-    mock_session.exec.return_value = MagicMock()
-    mock_session.exec.return_value.all.return_value = receipts
+    mock_exec_result = MagicMock()
+    mock_exec_result.all.return_value = receipts
+    mock_session.exec = AsyncMock(return_value=mock_exec_result)
     mock_session.refresh = AsyncMock()
 
     # Act
@@ -585,9 +585,9 @@ async def test_list_receipts_with_amount_filters(
         ),
     ]
 
-    mock_session.exec = MagicMock()
-    mock_session.exec.return_value = MagicMock()
-    mock_session.exec.return_value.all.return_value = receipts
+    mock_exec_result = MagicMock()
+    mock_exec_result.all.return_value = receipts
+    mock_session.exec = AsyncMock(return_value=mock_exec_result)
     mock_session.refresh = AsyncMock()
 
     # Act
@@ -617,9 +617,9 @@ async def test_list_receipts_with_no_filters(
         for i in range(1, 4)
     ]
 
-    mock_session.exec = MagicMock()
-    mock_session.exec.return_value = MagicMock()
-    mock_session.exec.return_value.all.return_value = receipts
+    mock_exec_result = MagicMock()
+    mock_exec_result.all.return_value = receipts
+    mock_session.exec = AsyncMock(return_value=mock_exec_result)
     mock_session.refresh = AsyncMock()
 
     # Act
