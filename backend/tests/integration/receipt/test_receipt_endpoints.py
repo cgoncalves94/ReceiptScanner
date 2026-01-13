@@ -127,12 +127,14 @@ async def test_update_receipt_clear_metadata(
     # First, set some metadata
     setup_response = test_client.patch(
         f"/api/v1/receipts/{test_receipt.id}",
-        content=json.dumps({
-            "notes": "Some notes",
-            "tags": ["tag1"],
-            "payment_method": "cash",
-            "tax_amount": 10.00,
-        }),
+        content=json.dumps(
+            {
+                "notes": "Some notes",
+                "tags": ["tag1"],
+                "payment_method": "cash",
+                "tax_amount": 10.00,
+            }
+        ),
     )
     assert setup_response.status_code == 200
 
