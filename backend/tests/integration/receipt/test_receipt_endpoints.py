@@ -274,3 +274,18 @@ async def test_list_receipts_with_category_filter(
     assert len(data) >= 1
     # Verify the receipt with the test item is in the results
     assert any(r["id"] == test_receipt.id for r in data)
+
+
+@pytest.mark.asyncio
+async def test_list_stores(test_client: TestClient, test_receipt: Receipt) -> None:
+    """Test listing unique store names."""
+    response = test_client.get("/api/v1/receipts/stores")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    # The store names should be sorted
+    assert data == sorted(data)
+    # Our test receipt's store should be in the list
+    assert test_receipt.store_name in data

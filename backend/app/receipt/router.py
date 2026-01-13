@@ -102,6 +102,14 @@ async def list_receipts(
     return receipts  # pragma: no cover
 
 
+@router.get("/stores", response_model=list[str], status_code=status.HTTP_200_OK)
+async def list_stores(
+    service: ReceiptDeps,
+) -> Sequence[str]:
+    """Get a list of unique store names for filtering."""
+    return await service.list_stores()
+
+
 @router.get("/{receipt_id}", response_model=ReceiptRead, status_code=status.HTTP_200_OK)
 async def get_receipt(
     receipt_id: int,
