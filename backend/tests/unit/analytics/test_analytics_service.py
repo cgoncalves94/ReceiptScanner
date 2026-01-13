@@ -192,7 +192,9 @@ async def test_get_top_stores_with_month_filter(
     # Arrange
     mock_result = MagicMock()
     mock_result.all.return_value = [
-        MagicMock(store_name="Monthly Store", visit_count=2, total_spent=Decimal("80.00")),
+        MagicMock(
+            store_name="Monthly Store", visit_count=2, total_spent=Decimal("80.00")
+        ),
     ]
     mock_session.execute.return_value = mock_result
 

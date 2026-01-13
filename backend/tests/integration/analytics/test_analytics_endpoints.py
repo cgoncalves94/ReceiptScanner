@@ -76,9 +76,7 @@ class TestTrendsEndpoint:
         assert data["trends"] == []
         assert data["period"] == "daily"
 
-    def test_trends_with_data(
-        self, test_client: TestClient, analytics_test_data: dict
-    ):
+    def test_trends_with_data(self, test_client: TestClient, analytics_test_data: dict):
         """Test trends returns time-series data."""
         response = test_client.get(
             "/api/v1/analytics/trends",
@@ -147,9 +145,7 @@ class TestTopStoresEndpoint:
         assert Decimal(data["stores"][0]["total_spent"]) == Decimal("80.00")
         assert data["stores"][0]["visit_count"] == 2
 
-    def test_top_stores_limit(
-        self, test_client: TestClient, analytics_test_data: dict
-    ):
+    def test_top_stores_limit(self, test_client: TestClient, analytics_test_data: dict):
         """Test top-stores respects limit parameter."""
         response = test_client.get(
             "/api/v1/analytics/top-stores?year=2025&month=1&limit=1"
@@ -161,7 +157,5 @@ class TestTopStoresEndpoint:
 
     def test_top_stores_invalid_limit(self, test_client: TestClient):
         """Test top-stores rejects invalid limit."""
-        response = test_client.get(
-            "/api/v1/analytics/top-stores?year=2025&limit=100"
-        )
+        response = test_client.get("/api/v1/analytics/top-stores?year=2025&limit=100")
         assert response.status_code == 422

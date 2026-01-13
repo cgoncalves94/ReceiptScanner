@@ -154,14 +154,11 @@ class AnalyticsService:
         currency: str = "EUR",
     ) -> TopStoresResponse:
         """Get top stores by spending."""
-        stmt = (
-            select(
-                Receipt.store_name,
-                func.count(Receipt.id).label("visit_count"),
-                func.sum(Receipt.total_amount).label("total_spent"),
-            )
-            .where(extract("year", Receipt.purchase_date) == year)
-        )
+        stmt = select(
+            Receipt.store_name,
+            func.count(Receipt.id).label("visit_count"),
+            func.sum(Receipt.total_amount).label("total_spent"),
+        ).where(extract("year", Receipt.purchase_date) == year)
 
         if month:
             stmt = stmt.where(extract("month", Receipt.purchase_date) == month)
@@ -234,9 +231,8 @@ class AnalyticsService:
         if month:
             stmt = stmt.where(extract("month", Receipt.purchase_date) == month)
 
-        stmt = (
-            stmt.group_by(ReceiptItem.category_id)
-            .order_by(func.sum(ReceiptItem.total_price).desc())
+        stmt = stmt.group_by(ReceiptItem.category_id).order_by(
+            func.sum(ReceiptItem.total_price).desc()
         )
 
         result = await self.session.execute(stmt)
