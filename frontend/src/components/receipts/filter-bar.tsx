@@ -137,7 +137,7 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
           value={filters.store || "all"}
           onValueChange={handleStoreChange}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-45">
             <SelectValue placeholder="All Stores" />
           </SelectTrigger>
           <SelectContent>
@@ -155,7 +155,7 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
           value={filters.category_ids?.[0]?.toString() || "all"}
           onValueChange={handleCategoryChange}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-45">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
@@ -172,15 +172,15 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
         <div className="flex gap-2">
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             onClick={() => setShowAdvanced(!showAdvanced)}
             className={showAdvanced ? "bg-accent" : ""}
           >
             <Filter className="h-4 w-4" />
             {showAdvanced ? (
-              <ChevronUp className="h-3 w-3 ml-1" />
+              <ChevronUp className="h-3 w-3" />
             ) : (
-              <ChevronDown className="h-3 w-3 ml-1" />
+              <ChevronDown className="h-3 w-3" />
             )}
           </Button>
 
@@ -210,7 +210,7 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
               type="date"
               value={filters.after?.split("T")[0] || ""}
               onChange={(e) => handleDateChange("after", e.target.value)}
-              className="w-[150px]"
+              className="w-38"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
               type="date"
               value={filters.before?.split("T")[0] || ""}
               onChange={(e) => handleDateChange("before", e.target.value)}
-              className="w-[150px]"
+              className="w-38"
             />
           </div>
 
@@ -237,7 +237,7 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
               step="0.01"
               value={filters.min_amount ?? ""}
               onChange={(e) => handleAmountChange("min_amount", e.target.value)}
-              className="w-[100px]"
+              className="w-25"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -251,7 +251,7 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
               step="0.01"
               value={filters.max_amount ?? ""}
               onChange={(e) => handleAmountChange("max_amount", e.target.value)}
-              className="w-[100px]"
+              className="w-25"
             />
           </div>
         </div>
