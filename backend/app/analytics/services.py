@@ -256,44 +256,49 @@ class AnalyticsService:
         if not top_stores:
             return TopStoresResponse(stores=[], year=year, month=month)
 
-        # Get detailed data per store with currency breakdown
-        stores = []
-        for store_name in top_stores:
-            detail_stmt: Any = select(
-                col(Receipt.currency).label("currency"),
-                func.count(col(Receipt.id)).label("visit_count"),
-                func.sum(col(Receipt.total_amount)).label("total_spent"),
-            ).where(
-                extract("year", col(Receipt.purchase_date)) == year,
-                col(Receipt.store_name) == store_name,
+        # Get detailed data for all top stores in a single batch query
+        detail_stmt: Any = select(
+            col(Receipt.store_name).label("store_name"),
+            col(Receipt.currency).label("currency"),
+            func.count(col(Receipt.id)).label("visit_count"),
+            func.sum(col(Receipt.total_amount)).label("total_spent"),
+        ).where(
+            extract("year", col(Receipt.purchase_date)) == year,
+            col(Receipt.store_name).in_(top_stores),
+        )
+
+        if month:
+            detail_stmt = detail_stmt.where(
+                extract("month", col(Receipt.purchase_date)) == month
             )
 
-            if month:
-                detail_stmt = detail_stmt.where(
-                    extract("month", col(Receipt.purchase_date)) == month
-                )
+        detail_stmt = detail_stmt.group_by(
+            col(Receipt.store_name), col(Receipt.currency)
+        )
 
-            detail_stmt = detail_stmt.group_by(col(Receipt.currency))
+        detail_result = await self.session.exec(detail_stmt)
+        detail_rows = detail_result.all()
 
-            detail_result = await self.session.exec(detail_stmt)
-            detail_rows = detail_result.all()
+        # Group results by store
+        store_data: dict[str, dict[str, Any]] = {
+            store_name: {"totals": [], "visit_count": 0} for store_name in top_stores
+        }
 
-            totals_by_currency = []
-            total_visits = 0
-
-            for currency, visit_count, total_spent in detail_rows:
-                totals_by_currency.append(
-                    CurrencyAmount(currency=currency, amount=Decimal(total_spent or 0))
-                )
-                total_visits += int(visit_count or 0)
-
-            stores.append(
-                StoreVisit(
-                    store_name=store_name,
-                    visit_count=total_visits,
-                    totals_by_currency=totals_by_currency,
-                )
+        for store_name, currency, visit_count, total_spent in detail_rows:
+            store_data[store_name]["totals"].append(
+                CurrencyAmount(currency=currency, amount=Decimal(total_spent or 0))
             )
+            store_data[store_name]["visit_count"] += int(visit_count or 0)
+
+        # Build response maintaining top stores order
+        stores = [
+            StoreVisit(
+                store_name=store_name,
+                visit_count=store_data[store_name]["visit_count"],
+                totals_by_currency=store_data[store_name]["totals"],
+            )
+            for store_name in top_stores
+        ]
 
         return TopStoresResponse(
             stores=stores,

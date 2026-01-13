@@ -231,17 +231,16 @@ async def test_get_top_stores_with_data(
         ("Store B", Decimal("150.00")),
     ]
 
-    # Detail queries for each store: (currency, visit_count, total_spent)
-    mock_detail_a = MagicMock()
-    mock_detail_a.all.return_value = [("EUR", 5, Decimal("200.00"))]
-
-    mock_detail_b = MagicMock()
-    mock_detail_b.all.return_value = [("EUR", 3, Decimal("150.00"))]
+    # Batch detail query for all stores: (store_name, currency, visit_count, total_spent)
+    mock_batch_detail = MagicMock()
+    mock_batch_detail.all.return_value = [
+        ("Store A", "EUR", 5, Decimal("200.00")),
+        ("Store B", "EUR", 3, Decimal("150.00")),
+    ]
 
     mock_session.exec.side_effect = [
         mock_top_stores_result,
-        mock_detail_a,
-        mock_detail_b,
+        mock_batch_detail,
     ]
 
     # Act
