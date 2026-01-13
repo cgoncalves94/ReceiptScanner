@@ -92,6 +92,13 @@ migrate-down:
 migrate-history:
 	uv run alembic history
 
+# Create test database (run once, requires Docker postgres to be running)
+test-db-create:
+	@echo "Creating test database..."
+	@docker exec receipt-postgres psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'test_db'" | grep -q 1 || \
+		docker exec receipt-postgres psql -U postgres -c "CREATE DATABASE test_db;"
+	@echo "Test database ready."
+
 # ============================================================================
 # Cleanup
 # ============================================================================
