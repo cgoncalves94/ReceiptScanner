@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Receipt, ChevronRight, Calendar, Scan } from "lucide-react";
-import { useReceipts } from "@/hooks";
+import { useReceipts, useStores } from "@/hooks";
 import { FilterBar } from "@/components/receipts/filter-bar";
 import { formatCurrency, formatDate, formatDistanceToNow } from "@/lib/format";
 import type { ReceiptFilters } from "@/types";
@@ -54,15 +54,8 @@ function ReceiptsPageContent() {
     Object.keys(filters).length > 0 ? filters : undefined
   );
 
-  // Also fetch all receipts (without filters) to extract unique stores
-  const { data: allReceipts } = useReceipts();
-
-  // Extract unique store names for the store filter dropdown
-  const uniqueStores = useMemo(() => {
-    if (!allReceipts) return [];
-    const stores = new Set(allReceipts.map((r) => r.store_name));
-    return Array.from(stores).sort();
-  }, [allReceipts]);
+  // Fetch unique store names from dedicated endpoint
+  const { data: stores = [] } = useStores();
 
   const hasFilters = Object.keys(filters).length > 0;
 
@@ -72,7 +65,7 @@ function ReceiptsPageContent() {
       <FilterBar
         filters={filters}
         onFiltersChange={setFilters}
-        stores={uniqueStores}
+        stores={stores}
       />
 
       {/* Receipts List */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Search, X, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import type { ReceiptFilters } from "@/types";
 interface FilterBarProps {
   filters: ReceiptFilters;
   onFiltersChange: (filters: ReceiptFilters) => void;
-  stores?: string[]; // Unique stores extracted from receipts
+  stores?: string[]; // Unique stores from dedicated endpoint
 }
 
 // Debounce helper
@@ -38,6 +38,17 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// Helper to create filters object without undefined keys
+function buildFilters(updates: Partial<ReceiptFilters>): ReceiptFilters {
+  const result: ReceiptFilters = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined && value !== null && value !== "") {
+      (result as Record<string, unknown>)[key] = value;
+    }
+  }
+  return result;
+}
+
 export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarProps) {
   const { data: categories } = useCategories();
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -46,22 +57,36 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
   const [searchInput, setSearchInput] = useState(filters.search || "");
   const debouncedSearch = useDebounce(searchInput, 300);
 
-  // Update filters when debounced search changes
+  // Track if this is the initial mount to avoid duplicate requests
+  const isInitialMount = useRef(true);
+  const prevDebouncedSearch = useRef(debouncedSearch);
+
+  // Update filters when debounced search changes (after initial mount)
   useEffect(() => {
-    if (debouncedSearch !== filters.search) {
-      onFiltersChange({
+    // Skip initial mount to avoid "" !== undefined triggering a request
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    // Only update if the debounced value actually changed
+    if (prevDebouncedSearch.current !== debouncedSearch) {
+      prevDebouncedSearch.current = debouncedSearch;
+      const newFilters = buildFilters({
         ...filters,
         search: debouncedSearch || undefined,
       });
+      onFiltersChange(newFilters);
     }
-  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, filters, onFiltersChange]);
 
   const handleStoreChange = useCallback(
     (value: string) => {
-      onFiltersChange({
+      const newFilters = buildFilters({
         ...filters,
         store: value === "all" ? undefined : value,
       });
+      onFiltersChange(newFilters);
     },
     [filters, onFiltersChange]
   );
@@ -70,20 +95,22 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
     (value: string) => {
       const categoryIds =
         value === "all" ? undefined : [parseInt(value)];
-      onFiltersChange({
+      const newFilters = buildFilters({
         ...filters,
         category_ids: categoryIds,
       });
+      onFiltersChange(newFilters);
     },
     [filters, onFiltersChange]
   );
 
   const handleDateChange = useCallback(
     (field: "after" | "before", value: string) => {
-      onFiltersChange({
+      const newFilters = buildFilters({
         ...filters,
         [field]: value || undefined,
       });
+      onFiltersChange(newFilters);
     },
     [filters, onFiltersChange]
   );
@@ -91,29 +118,31 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
   const handleAmountChange = useCallback(
     (field: "min_amount" | "max_amount", value: string) => {
       const numValue = value ? parseFloat(value) : undefined;
-      onFiltersChange({
+      const newFilters = buildFilters({
         ...filters,
         [field]: numValue,
       });
+      onFiltersChange(newFilters);
     },
     [filters, onFiltersChange]
   );
 
   const clearFilters = useCallback(() => {
     setSearchInput("");
+    prevDebouncedSearch.current = "";
     onFiltersChange({});
   }, [onFiltersChange]);
 
-  // Count active filters
+  // Count active filters - properly handle zero values
   const activeFilterCount = [
     filters.search,
     filters.store,
     filters.after,
     filters.before,
     filters.category_ids?.length,
-    filters.min_amount,
-    filters.max_amount,
-  ].filter(Boolean).length;
+    filters.min_amount !== undefined ? true : undefined,
+    filters.max_amount !== undefined ? true : undefined,
+  ].filter((v) => v !== undefined && v !== null && v !== false && v !== 0 && v !== "").length;
 
   const hasFilters = activeFilterCount > 0;
 
