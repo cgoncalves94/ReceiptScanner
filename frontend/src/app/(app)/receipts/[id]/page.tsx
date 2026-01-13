@@ -82,7 +82,8 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
-  const [deletingItem, setDeletingItem] = useState<ReceiptItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<ReceiptItem | null>(null);
+  const [isDeleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
 
@@ -128,18 +129,18 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   };
 
   const handleDeleteItem = async () => {
-    if (!deletingItem) return;
+    if (!itemToDelete) return;
 
     try {
-      await deleteItemMutation.mutateAsync({ receiptId, itemId: deletingItem.id });
+      await deleteItemMutation.mutateAsync({ receiptId, itemId: itemToDelete.id });
       toast.success("Item deleted");
-      setDeletingItem(null);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to delete item"
       );
       deleteItemMutation.reset();
-      setDeletingItem(null);
+    } finally {
+      setDeleteConfirmationOpen(false);
     }
   };
 
@@ -285,7 +286,10 @@ export default function ReceiptDetailPage({ params }: PageProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeletingItem(item)}
+                        onClick={() => {
+                          setItemToDelete(item);
+                          setDeleteConfirmationOpen(true);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -499,14 +503,14 @@ export default function ReceiptDetailPage({ params }: PageProps) {
 
       {/* Delete Item Confirmation Dialog */}
       <AlertDialog
-        open={!!deletingItem}
-        onOpenChange={(open) => !open && setDeletingItem(null)}
+        open={isDeleteConfirmationOpen}
+        onOpenChange={setDeleteConfirmationOpen}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Item</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingItem?.name}&quot;? This action cannot be undone.
+              Are you sure you want to delete &quot;{itemToDelete?.name}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
