@@ -258,7 +258,14 @@ export default function AnalyticsPage() {
         onOpenChange={(open) => !open && setSelectedCategoryId(null)}
         categoryName={selectedCategory?.category_name}
         periodLabel={periodLabel}
-        items={filteredCategoryItems}
+        items={filteredCategoryItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          unit_price: item.unit_price.toString(),
+          total_price: item.total_price.toString(),
+          currency: item.currency,
+        }))}
         isLoading={itemsLoading}
         displayCurrency={displayCurrency}
         currencySymbol={currencySymbol}

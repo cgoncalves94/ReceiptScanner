@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { convertAmount, convertAndSum, codeToSymbol } from "@/hooks";
+import type { ExchangeRates } from "@/hooks";
 
 interface CategoryItemsModalProps {
   open: boolean;
@@ -25,7 +26,7 @@ interface CategoryItemsModalProps {
   isLoading: boolean;
   displayCurrency: string;
   currencySymbol: string;
-  exchangeRates?: Record<string, number>;
+  exchangeRates?: ExchangeRates;
 }
 
 export function CategoryItemsModal({

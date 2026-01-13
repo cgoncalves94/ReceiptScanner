@@ -13,10 +13,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp } from "lucide-react";
 import { convertCurrencyAmounts } from "@/hooks";
+import type { ExchangeRates } from "@/hooks";
 
 interface TrendData {
   period_label: string;
-  totals_by_currency: Array<{ currency: string; amount: number }>;
+  totals_by_currency: Array<{ currency: string; amount: string }>;
 }
 
 interface SpendingTrendsChartProps {
@@ -26,7 +27,7 @@ interface SpendingTrendsChartProps {
   isLoading?: boolean;
   displayCurrency: string;
   currencySymbol: string;
-  exchangeRates?: Record<string, number>;
+  exchangeRates?: ExchangeRates;
   isMonthlyView: boolean;
 }
 
@@ -71,8 +72,8 @@ export function SpendingTrendsChart({
                 tickFormatter={(value) => `${currencySymbol}${value.toFixed(0)}`}
               />
               <Tooltip
-                formatter={(value: number) => [
-                  `${currencySymbol}${value.toFixed(2)}`,
+                formatter={(value: number | undefined) => [
+                  `${currencySymbol}${(value ?? 0).toFixed(2)}`,
                   "Total Spent",
                 ]}
               />

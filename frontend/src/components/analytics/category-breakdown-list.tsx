@@ -2,6 +2,7 @@ import { BarChart3, FolderOpen } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { convertCurrencyAmounts, codeToSymbol } from "@/hooks";
+import type { ExchangeRates } from "@/hooks";
 import type { CurrencyAmount } from "@/types";
 
 interface CategoryBreakdownItem {
@@ -15,7 +16,7 @@ interface CategoryBreakdownListProps {
   categories: CategoryBreakdownItem[];
   isLoading: boolean;
   displayCurrency: string;
-  exchangeRates: Record<string, number> | undefined;
+  exchangeRates: ExchangeRates | undefined;
   periodLabel: string;
   categoryTotalSpent: number;
   onCategoryClick: (categoryId: number) => void;

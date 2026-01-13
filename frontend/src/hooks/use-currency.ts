@@ -40,7 +40,7 @@ export function codeToSymbol(code: string): string {
   return ISO_TO_SYMBOL[code] || code;
 }
 
-interface ExchangeRates {
+export interface ExchangeRates {
   base: string;
   rates: Record<string, number>;
   date: string;

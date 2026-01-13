@@ -2,13 +2,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Store } from "lucide-react";
 import { convertCurrencyAmounts, codeToSymbol } from "@/hooks";
+import type { ExchangeRates } from "@/hooks";
 import type { StoreVisit } from "@/types";
 
 interface TopStoresListProps {
   stores?: StoreVisit[];
   isLoading: boolean;
   displayCurrency: string;
-  exchangeRates?: Record<string, number>;
+  exchangeRates?: ExchangeRates;
   periodLabel: string;
 }
 
