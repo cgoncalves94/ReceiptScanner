@@ -13,7 +13,15 @@ import {
   convertCurrencyAmounts,
   codeToSymbol,
 } from "@/hooks";
-import { DateNavigator, CurrencySelector, StatCard, SpendingTrendsChart, CategoryBreakdownList, TopStoresList, CategoryItemsModal } from "@/components/analytics";
+import {
+  DateNavigator,
+  CurrencySelector,
+  StatCard,
+  SpendingTrendsChart,
+  CategoryBreakdownList,
+  TopStoresList,
+  CategoryItemsModal,
+} from "@/components/analytics";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
