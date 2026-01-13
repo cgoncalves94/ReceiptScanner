@@ -272,8 +272,11 @@ class ReceiptService:
         Returns:
             The updated receipt with all items
         """
-        # Get the receipt to verify it exists
-        receipt = await self.get(receipt_id)
+        # Get receipt with row lock to prevent concurrent update race conditions
+        stmt = select(Receipt).where(Receipt.id == receipt_id).with_for_update()
+        receipt = await self.session.scalar(stmt)
+        if not receipt:
+            raise NotFoundError(f"Receipt with id {receipt_id} not found")
 
         # Validate currency matches the receipt
         if item_in.currency != receipt.currency:
@@ -317,8 +320,12 @@ class ReceiptService:
         Returns:
             The updated receipt with remaining items
         """
-        # Get the receipt to verify it exists
-        receipt = await self.get(receipt_id)
+        # Get receipt with row lock to prevent concurrent update race conditions
+        stmt = select(Receipt).where(Receipt.id == receipt_id).with_for_update()
+        receipt = await self.session.scalar(stmt)
+        if not receipt:
+            raise NotFoundError(f"Receipt with id {receipt_id} not found")
+        await self.session.refresh(receipt, ["items"])
 
         # Find the item in the receipt
         item = next((i for i in receipt.items if i.id == item_id), None)
