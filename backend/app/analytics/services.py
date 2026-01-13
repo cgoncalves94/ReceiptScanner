@@ -1,11 +1,11 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
-from sqlalchemy import extract, func
-from sqlmodel import select
+from sqlmodel import col, extract, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.category.models import Category
 from app.receipt.models import Receipt, ReceiptItem
 
 from .models import (
@@ -32,60 +32,61 @@ class AnalyticsService:
         currency: str = "EUR",
     ) -> SpendingSummary:
         """Get spending summary for a given period."""
-        # Build base query
         stmt = select(
-            func.sum(Receipt.total_amount).label("total"),
-            func.count(Receipt.id).label("count"),
-        ).where(extract("year", Receipt.purchase_date) == year)
+            func.sum(col(Receipt.total_amount)).label("total_amount"),
+            func.count(col(Receipt.id)).label("receipt_count"),
+        ).where(
+            extract("year", col(Receipt.purchase_date)) == year,
+            col(Receipt.currency) == currency,
+        )
 
         if month:
-            stmt = stmt.where(extract("month", Receipt.purchase_date) == month)
+            stmt = stmt.where(extract("month", col(Receipt.purchase_date)) == month)
 
-        result = await self.session.execute(stmt)
+        result = await self.session.exec(stmt)
         row = result.one()
 
-        total_spent = row.total or Decimal("0")
-        receipt_count = row.count or 0
+        total_amount_val, receipt_count_val = row
+        total_spent = Decimal(total_amount_val or 0)
+        receipt_count = int(receipt_count_val or 0)
         avg_per_receipt = (
             total_spent / receipt_count if receipt_count > 0 else Decimal("0")
         )
 
-        # Get top category
+        # Get top category with JOIN
         top_category = None
         top_category_amount = None
 
-        category_stmt = (
+        category_stmt: Any = (
             select(
-                ReceiptItem.category_id,
-                func.sum(ReceiptItem.total_price).label("category_total"),
+                col(Category.name).label("category_name"),
+                func.sum(col(ReceiptItem.total_price)).label("category_total"),
             )
-            .join(Receipt, ReceiptItem.receipt_id == Receipt.id)
-            .where(extract("year", Receipt.purchase_date) == year)
+            .join(Receipt, col(ReceiptItem.receipt_id) == col(Receipt.id))
+            .join(Category, col(ReceiptItem.category_id) == col(Category.id))
+            .where(
+                extract("year", col(Receipt.purchase_date)) == year,
+                col(Receipt.currency) == currency,
+                col(ReceiptItem.category_id).is_not(None),
+            )
         )
 
         if month:
             category_stmt = category_stmt.where(
-                extract("month", Receipt.purchase_date) == month
+                extract("month", col(Receipt.purchase_date)) == month
             )
 
         category_stmt = (
-            category_stmt.where(ReceiptItem.category_id.isnot(None))
-            .group_by(ReceiptItem.category_id)
-            .order_by(func.sum(ReceiptItem.total_price).desc())
+            category_stmt.group_by(col(Category.name))
+            .order_by(func.sum(col(ReceiptItem.total_price)).desc())
             .limit(1)
         )
 
-        category_result = await self.session.execute(category_stmt)
+        category_result = await self.session.exec(category_stmt)
         top_cat_row = category_result.first()
 
-        if top_cat_row and top_cat_row.category_id:
-            # Get category name
-            from app.category.models import Category
-
-            cat = await self.session.get(Category, top_cat_row.category_id)
-            if cat:
-                top_category = cat.name
-                top_category_amount = top_cat_row.category_total
+        if top_cat_row:
+            top_category, top_category_amount = top_cat_row
 
         return SpendingSummary(
             total_spent=total_spent,
@@ -106,37 +107,39 @@ class AnalyticsService:
         currency: str = "EUR",
     ) -> SpendingTrendsResponse:
         """Get spending trends over time."""
-        # Determine grouping based on period - using PostgreSQL date_trunc
         if period == "daily":
-            date_trunc = func.date_trunc("day", Receipt.purchase_date)
+            date_trunc = func.date_trunc("day", col(Receipt.purchase_date))
         elif period == "weekly":
-            date_trunc = func.date_trunc("week", Receipt.purchase_date)
-        else:  # monthly
-            date_trunc = func.date_trunc("month", Receipt.purchase_date)
+            date_trunc = func.date_trunc("week", col(Receipt.purchase_date))
+        else:
+            date_trunc = func.date_trunc("month", col(Receipt.purchase_date))
 
         stmt = (
             select(
                 date_trunc.label("period_date"),
-                func.sum(Receipt.total_amount).label("total"),
-                func.count(Receipt.id).label("count"),
+                func.sum(col(Receipt.total_amount)).label("total_amount"),
+                func.count(col(Receipt.id)).label("receipt_count"),
             )
-            .where(Receipt.purchase_date >= start_date)
-            .where(Receipt.purchase_date <= end_date)
+            .where(
+                col(Receipt.purchase_date) >= start_date,
+                col(Receipt.purchase_date) <= end_date,
+                col(Receipt.currency) == currency,
+            )
             .group_by(date_trunc)
             .order_by(date_trunc)
         )
 
-        result = await self.session.execute(stmt)
+        result = await self.session.exec(stmt)
         rows = result.all()
 
         trends = [
             SpendingTrend(
-                date=str(row.period_date),
-                total=row.total or Decimal("0"),
-                receipt_count=row.count or 0,
+                date=str(period_date),
+                total=Decimal(total_amount or 0),
+                receipt_count=int(receipt_count_val or 0),
                 currency=currency,
             )
-            for row in rows
+            for period_date, total_amount, receipt_count_val in rows
         ]
 
         return SpendingTrendsResponse(
@@ -154,38 +157,43 @@ class AnalyticsService:
         currency: str = "EUR",
     ) -> TopStoresResponse:
         """Get top stores by spending."""
-        stmt = select(
-            Receipt.store_name,
-            func.count(Receipt.id).label("visit_count"),
-            func.sum(Receipt.total_amount).label("total_spent"),
-        ).where(extract("year", Receipt.purchase_date) == year)
+        stmt: Any = select(
+            col(Receipt.store_name).label("store_name"),
+            func.count(col(Receipt.id)).label("visit_count"),
+            func.sum(col(Receipt.total_amount)).label("total_spent"),
+        ).where(
+            extract("year", col(Receipt.purchase_date)) == year,
+            col(Receipt.currency) == currency,
+        )
 
         if month:
-            stmt = stmt.where(extract("month", Receipt.purchase_date) == month)
+            stmt = stmt.where(extract("month", col(Receipt.purchase_date)) == month)
 
         stmt = (
-            stmt.group_by(Receipt.store_name)
-            .order_by(func.sum(Receipt.total_amount).desc())
+            stmt.group_by(col(Receipt.store_name))
+            .order_by(func.sum(col(Receipt.total_amount)).desc())
             .limit(limit)
         )
 
-        result = await self.session.execute(stmt)
+        result = await self.session.exec(stmt)
         rows = result.all()
 
-        stores = [
-            StoreVisit(
-                store_name=row.store_name,
-                visit_count=row.visit_count,
-                total_spent=row.total_spent or Decimal("0"),
-                avg_per_visit=round(
-                    (row.total_spent or Decimal("0")) / row.visit_count, 2
-                )
-                if row.visit_count > 0
-                else Decimal("0"),
-                currency=currency,
+        stores = []
+        for store_name, visit_count_val, total_spent_val in rows:
+            visit_count = int(visit_count_val or 0)
+            total_spent = Decimal(total_spent_val or 0)
+            avg_per_visit = (
+                round(total_spent / visit_count, 2) if visit_count > 0 else Decimal("0")
             )
-            for row in rows
-        ]
+            stores.append(
+                StoreVisit(
+                    store_name=store_name,
+                    visit_count=visit_count,
+                    total_spent=total_spent,
+                    avg_per_visit=avg_per_visit,
+                    currency=currency,
+                )
+            )
 
         return TopStoresResponse(
             stores=stores,
@@ -200,60 +208,46 @@ class AnalyticsService:
         currency: str = "EUR",
     ) -> CategoryBreakdownResponse:
         """Get spending breakdown by category."""
-        from app.category.models import Category
-
-        # Get total for percentage calculation
-        total_stmt = (
-            select(func.sum(ReceiptItem.total_price))
-            .join(Receipt, ReceiptItem.receipt_id == Receipt.id)
-            .where(extract("year", Receipt.purchase_date) == year)
-        )
-        if month:
-            total_stmt = total_stmt.where(
-                extract("month", Receipt.purchase_date) == month
-            )
-
-        total_result = await self.session.execute(total_stmt)
-        total_spent = total_result.scalar() or Decimal("0")
-
-        # Get spending by category
-        stmt = (
+        stmt: Any = (
             select(
-                ReceiptItem.category_id,
-                func.count(ReceiptItem.id).label("item_count"),
-                func.sum(ReceiptItem.total_price).label("category_total"),
+                col(ReceiptItem.category_id).label("category_id"),
+                col(Category.name).label("category_name"),
+                func.count(col(ReceiptItem.id)).label("item_count"),
+                func.sum(col(ReceiptItem.total_price)).label("category_total"),
             )
-            .join(Receipt, ReceiptItem.receipt_id == Receipt.id)
-            .where(extract("year", Receipt.purchase_date) == year)
-            .where(ReceiptItem.category_id.isnot(None))
+            .join(Receipt, col(ReceiptItem.receipt_id) == col(Receipt.id))
+            .join(Category, col(ReceiptItem.category_id) == col(Category.id))
+            .where(
+                extract("year", col(Receipt.purchase_date)) == year,
+                col(Receipt.currency) == currency,
+                col(ReceiptItem.category_id).is_not(None),
+            )
         )
 
         if month:
-            stmt = stmt.where(extract("month", Receipt.purchase_date) == month)
+            stmt = stmt.where(extract("month", col(Receipt.purchase_date)) == month)
 
-        stmt = stmt.group_by(ReceiptItem.category_id).order_by(
-            func.sum(ReceiptItem.total_price).desc()
+        stmt = stmt.group_by(col(ReceiptItem.category_id), col(Category.name)).order_by(
+            func.sum(col(ReceiptItem.total_price)).desc()
         )
 
-        result = await self.session.execute(stmt)
+        result = await self.session.exec(stmt)
         rows = result.all()
 
-        # Build category spending list with names
+        total_spent = Decimal(sum(cat_total or 0 for _, _, _, cat_total in rows) or 0)
+
         categories = []
-        for row in rows:
-            cat = await self.session.get(Category, row.category_id)
-            if cat:
-                cat_total = row.category_total or Decimal("0")
-                percentage = (
-                    (cat_total / total_spent * 100) if total_spent > 0 else Decimal("0")
-                )
+        if total_spent > 0:
+            for category_id, category_name, item_count_val, cat_total in rows:
+                cat_total_dec = Decimal(cat_total or 0)
+                percentage = round((cat_total_dec / total_spent) * 100, 1)
                 categories.append(
                     CategorySpending(
-                        category_id=row.category_id,
-                        category_name=cat.name,
-                        item_count=row.item_count,
-                        total_spent=cat_total,
-                        percentage=round(percentage, 1),
+                        category_id=int(category_id),
+                        category_name=category_name,
+                        item_count=int(item_count_val or 0),
+                        total_spent=cat_total_dec,
+                        percentage=percentage,
                         currency=currency,
                     )
                 )

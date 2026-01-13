@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
@@ -48,7 +48,7 @@ class CategoryService:
     async def list(self, skip: int = 0, limit: int = 100) -> Sequence[Category]:
         """List all categories."""
         stmt = select(Category).offset(skip).limit(limit)
-        result = await self.session.scalars(stmt)
+        result = await self.session.exec(stmt)
         return result.all()
 
     async def update(self, category_id: int, category_in: CategoryUpdate) -> Category:
@@ -81,8 +81,8 @@ class CategoryService:
         category = await self.get(category_id)
 
         # Check if any items are using this category
-        stmt = select(func.count(ReceiptItem.id)).where(
-            ReceiptItem.category_id == category_id
+        stmt = select(func.count(col(ReceiptItem.id))).where(
+            col(ReceiptItem.category_id) == category_id
         )
         item_count = await self.session.scalar(stmt)
 
