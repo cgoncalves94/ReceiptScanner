@@ -274,6 +274,10 @@ class ReceiptService:
         # Prepare update data
         update_data = receipt_in.model_dump(exclude_unset=True, exclude={"id"})
 
+        # Coerce null tags to empty list (DB column is NOT NULL)
+        if "tags" in update_data and update_data["tags"] is None:
+            update_data["tags"] = []
+
         # Update the receipt
         receipt.sqlmodel_update(update_data)
         receipt.updated_at = datetime.now(UTC)

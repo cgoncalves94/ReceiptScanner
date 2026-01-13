@@ -72,11 +72,12 @@ export function MetadataForm({
       .map((tag) => tag.trim())
       .filter((tag) => tag.length > 0);
 
+    const parsedTaxAmount = parseFloat(taxAmount);
     const data: ReceiptUpdate = {
       notes: notes.trim() || null,
       tags,
       payment_method: paymentMethod || null,
-      tax_amount: taxAmount ? parseFloat(taxAmount) : null,
+      tax_amount: !isNaN(parsedTaxAmount) ? parsedTaxAmount : null,
     };
 
     await onSave(data);
