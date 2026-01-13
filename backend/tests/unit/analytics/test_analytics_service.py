@@ -26,15 +26,14 @@ async def test_get_summary_empty_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
     """Test get_summary returns zeros when no data exists."""
-    # Arrange - mock the execute to return empty results
+    # Arrange - mock exec() to return tuple results
     mock_result = MagicMock()
-    mock_result.one.return_value = MagicMock(total=None, count=0)
-    mock_session.execute.return_value = mock_result
+    mock_result.one.return_value = (None, 0)  # (total_amount, receipt_count)
 
-    # Mock category query to return empty
     mock_category_result = MagicMock()
     mock_category_result.first.return_value = None
-    mock_session.execute.side_effect = [mock_result, mock_category_result]
+
+    mock_session.exec.side_effect = [mock_result, mock_category_result]
 
     # Act
     summary = await analytics_service.get_summary(year=2025, month=1)
@@ -53,14 +52,14 @@ async def test_get_summary_with_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
     """Test get_summary returns correct calculations."""
-    # Arrange
+    # Arrange - tuples: (total_amount, receipt_count)
     mock_result = MagicMock()
-    mock_result.one.return_value = MagicMock(total=Decimal("100.00"), count=4)
+    mock_result.one.return_value = (Decimal("100.00"), 4)
 
     mock_category_result = MagicMock()
     mock_category_result.first.return_value = None
 
-    mock_session.execute.side_effect = [mock_result, mock_category_result]
+    mock_session.exec.side_effect = [mock_result, mock_category_result]
 
     # Act
     summary = await analytics_service.get_summary(year=2025, month=1)
@@ -78,12 +77,12 @@ async def test_get_summary_yearly(
     """Test get_summary works for yearly data (no month filter)."""
     # Arrange
     mock_result = MagicMock()
-    mock_result.one.return_value = MagicMock(total=Decimal("1200.00"), count=24)
+    mock_result.one.return_value = (Decimal("1200.00"), 24)
 
     mock_category_result = MagicMock()
     mock_category_result.first.return_value = None
 
-    mock_session.execute.side_effect = [mock_result, mock_category_result]
+    mock_session.exec.side_effect = [mock_result, mock_category_result]
 
     # Act
     summary = await analytics_service.get_summary(year=2025, month=None)
@@ -95,6 +94,29 @@ async def test_get_summary_yearly(
 
 
 @pytest.mark.asyncio
+async def test_get_summary_with_top_category(
+    analytics_service: AnalyticsService, mock_session: AsyncMock
+) -> None:
+    """Test get_summary returns top category when data exists."""
+    # Arrange
+    mock_result = MagicMock()
+    mock_result.one.return_value = (Decimal("500.00"), 10)
+
+    mock_category_result = MagicMock()
+    # Tuple: (category_name, category_total)
+    mock_category_result.first.return_value = ("Groceries", Decimal("200.00"))
+
+    mock_session.exec.side_effect = [mock_result, mock_category_result]
+
+    # Act
+    summary = await analytics_service.get_summary(year=2025, month=1)
+
+    # Assert
+    assert summary.top_category == "Groceries"
+    assert summary.top_category_amount == Decimal("200.00")
+
+
+@pytest.mark.asyncio
 async def test_get_trends_empty_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
@@ -102,7 +124,7 @@ async def test_get_trends_empty_data(
     # Arrange
     mock_result = MagicMock()
     mock_result.all.return_value = []
-    mock_session.execute.return_value = mock_result
+    mock_session.exec.return_value = mock_result
 
     # Act
     start = datetime(2025, 1, 1)
@@ -121,13 +143,13 @@ async def test_get_trends_with_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
     """Test get_trends returns correct trend data."""
-    # Arrange
+    # Arrange - tuples: (period_date, total_amount, receipt_count)
     mock_result = MagicMock()
     mock_result.all.return_value = [
-        MagicMock(period_date="2025-01-01", total=Decimal("50.00"), count=2),
-        MagicMock(period_date="2025-01-02", total=Decimal("75.00"), count=3),
+        ("2025-01-01", Decimal("50.00"), 2),
+        ("2025-01-02", Decimal("75.00"), 3),
     ]
-    mock_session.execute.return_value = mock_result
+    mock_session.exec.return_value = mock_result
 
     # Act
     start = datetime(2025, 1, 1)
@@ -150,7 +172,7 @@ async def test_get_top_stores_empty(
     # Arrange
     mock_result = MagicMock()
     mock_result.all.return_value = []
-    mock_session.execute.return_value = mock_result
+    mock_session.exec.return_value = mock_result
 
     # Act
     result = await analytics_service.get_top_stores(year=2025)
@@ -165,13 +187,13 @@ async def test_get_top_stores_with_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
     """Test get_top_stores returns ranked stores."""
-    # Arrange
+    # Arrange - tuples: (store_name, visit_count, total_spent)
     mock_result = MagicMock()
     mock_result.all.return_value = [
-        MagicMock(store_name="Store A", visit_count=5, total_spent=Decimal("200.00")),
-        MagicMock(store_name="Store B", visit_count=3, total_spent=Decimal("150.00")),
+        ("Store A", 5, Decimal("200.00")),
+        ("Store B", 3, Decimal("150.00")),
     ]
-    mock_session.execute.return_value = mock_result
+    mock_session.exec.return_value = mock_result
 
     # Act
     result = await analytics_service.get_top_stores(year=2025, limit=10)
@@ -192,11 +214,9 @@ async def test_get_top_stores_with_month_filter(
     # Arrange
     mock_result = MagicMock()
     mock_result.all.return_value = [
-        MagicMock(
-            store_name="Monthly Store", visit_count=2, total_spent=Decimal("80.00")
-        ),
+        ("Monthly Store", 2, Decimal("80.00")),
     ]
-    mock_session.execute.return_value = mock_result
+    mock_session.exec.return_value = mock_result
 
     # Act
     result = await analytics_service.get_top_stores(year=2025, month=1)
@@ -204,3 +224,53 @@ async def test_get_top_stores_with_month_filter(
     # Assert
     assert result.month == 1
     assert len(result.stores) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_category_breakdown_empty(
+    analytics_service: AnalyticsService, mock_session: AsyncMock
+) -> None:
+    """Test get_category_breakdown returns empty when no data."""
+    # Arrange
+    mock_result = MagicMock()
+    mock_result.all.return_value = []
+    mock_session.exec.return_value = mock_result
+
+    # Act
+    result = await analytics_service.get_category_breakdown(year=2025, month=1)
+
+    # Assert
+    assert result.categories == []
+    assert result.total_spent == Decimal("0")
+
+
+@pytest.mark.asyncio
+async def test_get_category_breakdown_with_data(
+    analytics_service: AnalyticsService, mock_session: AsyncMock
+) -> None:
+    """Test get_category_breakdown returns correct percentages."""
+    # Arrange - tuples: (category_id, category_name, item_count, category_total)
+    mock_result = MagicMock()
+    mock_result.all.return_value = [
+        (1, "Groceries", 10, Decimal("100.00")),
+        (2, "Electronics", 5, Decimal("50.00")),
+    ]
+    mock_session.exec.return_value = mock_result
+
+    # Act
+    result = await analytics_service.get_category_breakdown(year=2025)
+
+    # Assert
+    assert len(result.categories) == 2
+    assert result.total_spent == Decimal("150.00")
+
+    # First category (Groceries) - 100/150 = 66.7%
+    assert result.categories[0].category_id == 1
+    assert result.categories[0].category_name == "Groceries"
+    assert result.categories[0].item_count == 10
+    assert result.categories[0].total_spent == Decimal("100.00")
+    assert result.categories[0].percentage == Decimal("66.7")
+
+    # Second category (Electronics) - 50/150 = 33.3%
+    assert result.categories[1].category_id == 2
+    assert result.categories[1].percentage == Decimal("33.3")

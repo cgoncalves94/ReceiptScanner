@@ -159,6 +159,10 @@ async def test_delete_category_with_items_returns_409(
     test_session.add(receipt)
     await test_session.flush()
 
+    # Assert IDs are set after flush (for type checker)
+    assert receipt.id is not None
+    assert category.id is not None
+
     item = ReceiptItem(
         name="Test Item",
         quantity=1,

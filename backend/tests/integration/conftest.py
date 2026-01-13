@@ -30,10 +30,10 @@ from PIL import Image
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncEngine,
-    AsyncSession,
     create_async_engine,
 )
 from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.category.models import Category
 from app.core.config import settings

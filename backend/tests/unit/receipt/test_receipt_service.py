@@ -105,6 +105,7 @@ async def test_get_receipt(
         currency="$",
         image_path="/path/to/image.jpg",
     )
+    assert receipt.id is not None
     mock_session.scalar.return_value = receipt
     mock_session.refresh = AsyncMock()
 
@@ -150,11 +151,11 @@ async def test_list_receipts(
         for i in range(1, 4)
     ]
 
-    # Mock the session.scalars().all() chain
-    mock_session.scalars = AsyncMock()
-    # Make scalars() return an object with a non-coroutine all() method
-    mock_session.scalars.return_value = MagicMock()
-    mock_session.scalars.return_value.all.return_value = receipts[
+    # Mock the session.exec().all() chain
+    mock_session.exec = AsyncMock()
+    # Make exec() return an object with a non-coroutine all() method
+    mock_session.exec.return_value = MagicMock()
+    mock_session.exec.return_value.all.return_value = receipts[
         :2
     ]  # Return only first 2
 
@@ -166,7 +167,7 @@ async def test_list_receipts(
 
     # Assert
     assert len(retrieved_receipts) == 2
-    mock_session.scalars.assert_called_once()
+    mock_session.exec.assert_called_once()
     assert mock_session.refresh.call_count == 2  # Called once for each receipt
 
 
@@ -183,6 +184,7 @@ async def test_update_receipt(
         currency="$",
         image_path="/path/to/image.jpg",
     )
+    assert existing_receipt.id is not None
 
     # Mock the scalar method for get
     mock_session.scalar.return_value = existing_receipt
@@ -243,6 +245,7 @@ async def test_delete_receipt(
         currency="$",
         image_path="/path/to/image.jpg",
     )
+    assert receipt.id is not None
     mock_session.scalar.return_value = receipt
 
     # Mock the delete and flush methods
@@ -283,11 +286,11 @@ async def test_list_items_by_category(
         for i in range(1, 3)
     ]
 
-    # Mock the session.scalars().all() chain
-    mock_session.scalars = AsyncMock()
-    # Make scalars() return an object with a non-coroutine all() method
-    mock_session.scalars.return_value = MagicMock()
-    mock_session.scalars.return_value.all.return_value = items
+    # Mock the session.exec().all() chain
+    mock_session.exec = AsyncMock()
+    # Make exec() return an object with a non-coroutine all() method
+    mock_session.exec.return_value = MagicMock()
+    mock_session.exec.return_value.all.return_value = items
 
     # Act
     retrieved_items = await receipt_service.list_items_by_category(
@@ -297,7 +300,7 @@ async def test_list_items_by_category(
     # Assert
     assert len(retrieved_items) == 2
     assert all(item.category_id == category_id for item in retrieved_items)
-    mock_session.scalars.assert_called_once()
+    mock_session.exec.assert_called_once()
 
 
 @pytest.mark.asyncio
