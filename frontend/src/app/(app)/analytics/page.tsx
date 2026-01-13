@@ -1,15 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { BarChart3, TrendingUp, FolderOpen, Receipt } from "lucide-react";
 import {
   useAnalyticsSummary,
@@ -19,12 +10,10 @@ import {
   useTopStores,
   useReceipts,
   useExchangeRates,
-  convertAmount,
-  convertAndSum,
   convertCurrencyAmounts,
   codeToSymbol,
 } from "@/hooks";
-import { DateNavigator, CurrencySelector, StatCard, SpendingTrendsChart, CategoryBreakdownList, TopStoresList } from "@/components/analytics";
+import { DateNavigator, CurrencySelector, StatCard, SpendingTrendsChart, CategoryBreakdownList, TopStoresList, CategoryItemsModal } from "@/components/analytics";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -256,78 +245,17 @@ export default function AnalyticsPage() {
       />
 
       {/* Category Items Modal */}
-      <Dialog open={selectedCategoryId !== null} onOpenChange={(open) => !open && setSelectedCategoryId(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedCategory?.category_name} Items</DialogTitle>
-            <DialogDescription>
-              {periodLabel} • {filteredCategoryItems.length} item{filteredCategoryItems.length !== 1 ? "s" : ""}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 pt-4">
-            {itemsLoading ? (
-              <div className="space-y-2">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : filteredCategoryItems.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">
-                No items in this category for {periodLabel}
-              </p>
-            ) : (
-              filteredCategoryItems.map((item) => {
-                const convertedPrice = convertAmount(
-                  Number(item.total_price),
-                  item.currency,
-                  displayCurrency,
-                  exchangeRates
-                );
-                const isConverted = item.currency !== displayCurrency;
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-accent/50"
-                  >
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Qty: {item.quantity} × {codeToSymbol(item.currency)}{Number(item.unit_price).toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="secondary" className="font-semibold">
-                        {currencySymbol}{convertedPrice.toFixed(2)}
-                      </Badge>
-                      {isConverted && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          ({codeToSymbol(item.currency)}{Number(item.total_price).toFixed(2)})
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-            {filteredCategoryItems.length > 0 && (
-              <div className="pt-4 border-t flex justify-between items-center">
-                <span className="font-medium">Total</span>
-                <span className="font-bold text-amber-500">
-                  {currencySymbol}
-                  {convertAndSum(
-                    filteredCategoryItems.map((i) => ({
-                      amount: Number(i.total_price),
-                      currency: i.currency,
-                    })),
-                    displayCurrency,
-                    exchangeRates
-                  ).toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CategoryItemsModal
+        open={selectedCategoryId !== null}
+        onOpenChange={(open) => !open && setSelectedCategoryId(null)}
+        categoryName={selectedCategory?.category_name}
+        periodLabel={periodLabel}
+        items={filteredCategoryItems}
+        isLoading={itemsLoading}
+        displayCurrency={displayCurrency}
+        currencySymbol={currencySymbol}
+        exchangeRates={exchangeRates}
+      />
     </div>
   );
 }
