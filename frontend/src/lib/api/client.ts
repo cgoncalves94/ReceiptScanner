@@ -1,11 +1,15 @@
 import type {
   Category,
+  CategoryBreakdownResponse,
   CategoryCreate,
   CategoryUpdate,
   Receipt,
   ReceiptUpdate,
   ReceiptItemCreate,
   ReceiptItemUpdate,
+  SpendingSummary,
+  SpendingTrendsResponse,
+  TopStoresResponse,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -158,6 +162,66 @@ class ApiClient {
   async healthCheck(): Promise<{ status: string; database: string }> {
     const response = await fetch(`${API_BASE_URL}/healthcheck`);
     return response.json();
+  }
+
+  // ============================================================================
+  // Analytics
+  // Note: Backend returns data grouped by original currency.
+  // Frontend converts to display currency using exchange rates.
+  // ============================================================================
+
+  async getAnalyticsSummary(
+    year: number,
+    month?: number
+  ): Promise<SpendingSummary> {
+    const params = new URLSearchParams({
+      year: year.toString(),
+    });
+    if (month !== undefined) {
+      params.set("month", (month + 1).toString()); // Convert 0-indexed to 1-indexed
+    }
+    return this.request<SpendingSummary>(`/analytics/summary?${params}`);
+  }
+
+  async getAnalyticsTrends(
+    start: Date,
+    end: Date,
+    period: "daily" | "weekly" | "monthly" = "monthly"
+  ): Promise<SpendingTrendsResponse> {
+    const params = new URLSearchParams({
+      start: start.toISOString(),
+      end: end.toISOString(),
+      period,
+    });
+    return this.request<SpendingTrendsResponse>(`/analytics/trends?${params}`);
+  }
+
+  async getTopStores(
+    year: number,
+    month?: number,
+    limit = 10
+  ): Promise<TopStoresResponse> {
+    const params = new URLSearchParams({
+      year: year.toString(),
+      limit: limit.toString(),
+    });
+    if (month !== undefined) {
+      params.set("month", (month + 1).toString()); // Convert 0-indexed to 1-indexed
+    }
+    return this.request<TopStoresResponse>(`/analytics/top-stores?${params}`);
+  }
+
+  async getCategoryBreakdown(
+    year: number,
+    month?: number
+  ): Promise<CategoryBreakdownResponse> {
+    const params = new URLSearchParams({
+      year: year.toString(),
+    });
+    if (month !== undefined) {
+      params.set("month", (month + 1).toString()); // Convert 0-indexed to 1-indexed
+    }
+    return this.request<CategoryBreakdownResponse>(`/analytics/category-breakdown?${params}`);
   }
 }
 

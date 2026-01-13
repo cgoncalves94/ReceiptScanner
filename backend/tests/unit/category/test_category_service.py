@@ -85,6 +85,7 @@ async def test_get_category(
         name="Test Category",
         description="Test Description",
     )
+    assert category.id is not None
     mock_session.scalar.return_value = category
 
     # Act
@@ -121,11 +122,11 @@ async def test_list_categories(
         Category(id=i, name=f"Category {i}", description=f"Description {i}")
         for i in range(1, 4)
     ]
-    # Mock the session.scalars().all() chain
-    mock_session.scalars = AsyncMock()
-    # Make scalars() return an object with a non-coroutine all() method
-    mock_session.scalars.return_value = MagicMock()
-    mock_session.scalars.return_value.all.return_value = categories[
+    # Mock the session.exec().all() chain
+    mock_session.exec = AsyncMock()
+    # Make exec() return an object with a non-coroutine all() method
+    mock_session.exec.return_value = MagicMock()
+    mock_session.exec.return_value.all.return_value = categories[
         :2
     ]  # Return only first 2
 
@@ -134,7 +135,7 @@ async def test_list_categories(
 
     # Assert
     assert len(retrieved_categories) == 2
-    mock_session.scalars.assert_called_once()
+    mock_session.exec.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -148,6 +149,7 @@ async def test_update_category(
         name="Old Category",
         description="Old Description",
     )
+    assert existing_category.id is not None
 
     # First call to scalar for get
     # Second call to scalar for get_by_name
@@ -201,6 +203,7 @@ async def test_update_category_duplicate_name(
         name="Category 1",
         description="Description 1",
     )
+    assert existing_category.id is not None
 
     # First call to scalar for get
     # Second call to scalar for get_by_name
@@ -233,6 +236,7 @@ async def test_delete_category(
         name="Test Category",
         description="Test Description",
     )
+    assert category.id is not None
     # First call returns category (get), second call returns 0 (item count)
     mock_session.scalar.side_effect = [category, 0]
 
@@ -277,6 +281,7 @@ async def test_delete_category_with_items(
         name="Test Category",
         description="Test Description",
     )
+    assert category.id is not None
     # First call returns category (get), second call returns item count > 0
     mock_session.scalar.side_effect = [category, 5]
 
