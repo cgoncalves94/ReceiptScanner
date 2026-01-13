@@ -19,15 +19,13 @@ async def get_spending_summary(
     service: AnalyticsDeps,
     year: int = Query(default_factory=lambda: datetime.now().year, ge=2000, le=2100),
     month: int | None = Query(default=None, ge=1, le=12),
-    currency: str = Query(default="EUR", max_length=3),
 ) -> SpendingSummary:
     """
     Get spending summary for a given period.
 
-    Returns total spent, receipt count, average per receipt,
-    and top spending category.
+    Returns totals grouped by original currency for frontend conversion.
     """
-    return await service.get_summary(year=year, month=month, currency=currency)
+    return await service.get_summary(year=year, month=month)
 
 
 @router.get(
@@ -38,18 +36,16 @@ async def get_spending_trends(
     start: datetime = Query(..., description="Start date (ISO format)"),
     end: datetime = Query(..., description="End date (ISO format)"),
     period: Literal["daily", "weekly", "monthly"] = Query(default="monthly"),
-    currency: str = Query(default="EUR", max_length=3),
 ) -> SpendingTrendsResponse:
     """
     Get spending trends over time.
 
-    Returns time-series data grouped by day, week, or month.
+    Returns time-series data grouped by original currency for frontend conversion.
     """
     return await service.get_trends(
         start_date=start,
         end_date=end,
         period=period,
-        currency=currency,
     )
 
 
@@ -61,18 +57,16 @@ async def get_top_stores(
     year: int = Query(default_factory=lambda: datetime.now().year, ge=2000, le=2100),
     month: int | None = Query(default=None, ge=1, le=12),
     limit: int = Query(default=10, ge=1, le=50),
-    currency: str = Query(default="EUR", max_length=3),
 ) -> TopStoresResponse:
     """
     Get top stores by spending.
 
-    Returns stores ranked by total amount spent.
+    Returns stores with totals grouped by original currency for frontend conversion.
     """
     return await service.get_top_stores(
         year=year,
         month=month,
         limit=limit,
-        currency=currency,
     )
 
 
@@ -85,15 +79,14 @@ async def get_category_breakdown(
     service: AnalyticsDeps,
     year: int = Query(default_factory=lambda: datetime.now().year, ge=2000, le=2100),
     month: int | None = Query(default=None, ge=1, le=12),
-    currency: str = Query(default="EUR", max_length=3),
 ) -> CategoryBreakdownResponse:
     """
     Get spending breakdown by category.
 
-    Returns categories ranked by total spending with percentages.
+    Returns categories with totals grouped by original currency for frontend conversion.
+    Percentages are calculated on frontend after currency conversion.
     """
     return await service.get_category_breakdown(
         year=year,
         month=month,
-        currency=currency,
     )

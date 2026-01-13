@@ -17,7 +17,7 @@ from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponenti
 from app.core.config import settings
 from app.core.exceptions import ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_prompt import RECEIPT_SYSTEM_PROMPT
-from app.integrations.pydantic_ai.receipt_schema import CurrencySymbol, ReceiptAnalysis
+from app.integrations.pydantic_ai.receipt_schema import CurrencyCode, ReceiptAnalysis
 
 # Model configuration - use Gemini 3 Flash by default (faster + cheaper than Pro)
 # Set GEMINI_MODEL env var to override (e.g., "gemini-3-pro-preview" for higher quality)
@@ -141,11 +141,11 @@ Note:
     # Register output validator
     @agent.output_validator
     def validate_currencies(result: ReceiptAnalysis) -> ReceiptAnalysis:
-        """Validate and standardize currencies in the receipt analysis."""
-        result.currency = CurrencySymbol.standardize(result.currency)
+        """Validate and standardize currencies to ISO codes in the receipt analysis."""
+        result.currency = CurrencyCode.standardize(result.currency)
 
         for item in result.items:
-            item.currency = CurrencySymbol.standardize(item.currency)
+            item.currency = CurrencyCode.standardize(item.currency)
             if item.currency != result.currency:
                 item.currency = result.currency
 

@@ -4,26 +4,36 @@ from decimal import Decimal
 from sqlmodel import SQLModel
 
 
-class SpendingSummary(SQLModel):
-    """Summary of spending for a given period."""
+class CurrencyAmount(SQLModel):
+    """Amount in a specific currency."""
 
-    total_spent: Decimal
-    receipt_count: int
-    avg_per_receipt: Decimal
-    top_category: str | None
-    top_category_amount: Decimal | None
     currency: str
+    amount: Decimal
+
+
+class SpendingSummary(SQLModel):
+    """Summary of spending for a given period.
+
+    Totals are grouped by original currency for frontend conversion.
+    """
+
+    totals_by_currency: list[CurrencyAmount]
+    receipt_count: int
+    top_category: str | None
+    top_category_amounts: list[CurrencyAmount] | None  # Grouped by currency
     year: int
     month: int | None
 
 
 class SpendingTrend(SQLModel):
-    """Single data point in spending trends."""
+    """Single data point in spending trends.
+
+    Totals are grouped by original currency for frontend conversion.
+    """
 
     date: str  # ISO format date string
-    total: Decimal
+    totals_by_currency: list[CurrencyAmount]
     receipt_count: int
-    currency: str
 
 
 class SpendingTrendsResponse(SQLModel):
@@ -36,13 +46,14 @@ class SpendingTrendsResponse(SQLModel):
 
 
 class StoreVisit(SQLModel):
-    """Store visit statistics."""
+    """Store visit statistics.
+
+    Totals are grouped by original currency for frontend conversion.
+    """
 
     store_name: str
     visit_count: int
-    total_spent: Decimal
-    avg_per_visit: Decimal
-    currency: str
+    totals_by_currency: list[CurrencyAmount]
 
 
 class TopStoresResponse(SQLModel):
@@ -54,20 +65,24 @@ class TopStoresResponse(SQLModel):
 
 
 class CategorySpending(SQLModel):
-    """Spending data for a single category."""
+    """Spending data for a single category.
+
+    Totals are grouped by original currency for frontend conversion.
+    """
 
     category_id: int
     category_name: str
     item_count: int
-    total_spent: Decimal
-    percentage: Decimal
-    currency: str
+    totals_by_currency: list[CurrencyAmount]
 
 
 class CategoryBreakdownResponse(SQLModel):
-    """Response for category breakdown endpoint."""
+    """Response for category breakdown endpoint.
+
+    Note: Percentages are calculated on frontend after currency conversion.
+    """
 
     categories: list[CategorySpending]
-    total_spent: Decimal
+    totals_by_currency: list[CurrencyAmount]
     year: int
     month: int | None

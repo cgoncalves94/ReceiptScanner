@@ -1,4 +1,8 @@
-"""Integration tests for analytics endpoints."""
+"""Integration tests for analytics endpoints.
+
+Note: The service now returns data grouped by original currency.
+Frontend handles conversion to display currency.
+"""
 
 from decimal import Decimal
 
@@ -14,23 +18,23 @@ class TestSummaryEndpoint:
 
         assert response.status_code == 200
         data = response.json()
-        assert Decimal(data["total_spent"]) == Decimal("0")
+        assert data["totals_by_currency"] == []
         assert data["receipt_count"] == 0
-        assert Decimal(data["avg_per_receipt"]) == Decimal("0")
 
     def test_summary_with_data(
         self, test_client: TestClient, analytics_test_data: dict
     ):
-        """Test summary returns correct totals."""
+        """Test summary returns correct totals grouped by currency."""
         response = test_client.get("/api/v1/analytics/summary?year=2025&month=1")
 
         assert response.status_code == 200
         data = response.json()
+        # Test data uses EUR currency
+        assert len(data["totals_by_currency"]) == 1
+        assert data["totals_by_currency"][0]["currency"] == "EUR"
         # Total: 50 + 75 + 30 = 155
-        assert Decimal(data["total_spent"]) == Decimal("155.00")
+        assert Decimal(data["totals_by_currency"][0]["amount"]) == Decimal("155.00")
         assert data["receipt_count"] == 3
-        # Avg: 155 / 3 = 51.67
-        assert Decimal(data["avg_per_receipt"]) == Decimal("51.67")
 
     def test_summary_yearly(self, test_client: TestClient, analytics_test_data: dict):
         """Test summary for entire year (no month filter)."""
@@ -77,7 +81,7 @@ class TestTrendsEndpoint:
         assert data["period"] == "daily"
 
     def test_trends_with_data(self, test_client: TestClient, analytics_test_data: dict):
-        """Test trends returns time-series data."""
+        """Test trends returns time-series data grouped by currency."""
         response = test_client.get(
             "/api/v1/analytics/trends",
             params={
@@ -93,7 +97,7 @@ class TestTrendsEndpoint:
         # Each trend should have the required fields
         for trend in data["trends"]:
             assert "date" in trend
-            assert "total" in trend
+            assert "totals_by_currency" in trend
             assert "receipt_count" in trend
 
     def test_trends_monthly_period(
@@ -133,7 +137,7 @@ class TestTopStoresEndpoint:
     def test_top_stores_with_data(
         self, test_client: TestClient, analytics_test_data: dict
     ):
-        """Test top-stores returns ranked stores."""
+        """Test top-stores returns ranked stores with totals by currency."""
         response = test_client.get("/api/v1/analytics/top-stores?year=2025&month=1")
 
         assert response.status_code == 200
@@ -142,7 +146,10 @@ class TestTopStoresEndpoint:
 
         # Walmart should be first (50 + 30 = 80, vs Target's 75)
         assert data["stores"][0]["store_name"] == "Walmart"
-        assert Decimal(data["stores"][0]["total_spent"]) == Decimal("80.00")
+        assert len(data["stores"][0]["totals_by_currency"]) == 1
+        assert Decimal(data["stores"][0]["totals_by_currency"][0]["amount"]) == Decimal(
+            "80.00"
+        )
         assert data["stores"][0]["visit_count"] == 2
 
     def test_top_stores_limit(self, test_client: TestClient, analytics_test_data: dict):

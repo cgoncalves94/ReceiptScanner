@@ -1,4 +1,8 @@
-"""Unit tests for the analytics service."""
+"""Unit tests for the analytics service.
+
+Note: The service now returns data grouped by original currency.
+Frontend handles conversion to display currency.
+"""
 
 from datetime import datetime
 from decimal import Decimal
@@ -25,11 +29,12 @@ def analytics_service(mock_session: AsyncMock) -> AnalyticsService:
 async def test_get_summary_empty_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
-    """Test get_summary returns zeros when no data exists."""
-    # Arrange - mock exec() to return tuple results
+    """Test get_summary returns empty totals when no data exists."""
+    # Arrange - first query returns empty currency groups
     mock_result = MagicMock()
-    mock_result.one.return_value = (None, 0)  # (total_amount, receipt_count)
+    mock_result.all.return_value = []
 
+    # Category query returns no top category
     mock_category_result = MagicMock()
     mock_category_result.first.return_value = None
 
@@ -39,10 +44,10 @@ async def test_get_summary_empty_data(
     summary = await analytics_service.get_summary(year=2025, month=1)
 
     # Assert
-    assert summary.total_spent == Decimal("0")
+    assert summary.totals_by_currency == []
     assert summary.receipt_count == 0
-    assert summary.avg_per_receipt == Decimal("0")
     assert summary.top_category is None
+    assert summary.top_category_amounts is None
     assert summary.year == 2025
     assert summary.month == 1
 
@@ -51,11 +56,14 @@ async def test_get_summary_empty_data(
 async def test_get_summary_with_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
-    """Test get_summary returns correct calculations."""
-    # Arrange - tuples: (total_amount, receipt_count)
+    """Test get_summary returns correct totals grouped by currency."""
+    # Arrange - tuples: (currency, total_amount, receipt_count)
     mock_result = MagicMock()
-    mock_result.one.return_value = (Decimal("100.00"), 4)
+    mock_result.all.return_value = [
+        ("EUR", Decimal("100.00"), 4),
+    ]
 
+    # Category query returns no top category for simplicity
     mock_category_result = MagicMock()
     mock_category_result.first.return_value = None
 
@@ -65,9 +73,10 @@ async def test_get_summary_with_data(
     summary = await analytics_service.get_summary(year=2025, month=1)
 
     # Assert
-    assert summary.total_spent == Decimal("100.00")
+    assert len(summary.totals_by_currency) == 1
+    assert summary.totals_by_currency[0].currency == "EUR"
+    assert summary.totals_by_currency[0].amount == Decimal("100.00")
     assert summary.receipt_count == 4
-    assert summary.avg_per_receipt == Decimal("25.00")
 
 
 @pytest.mark.asyncio
@@ -75,9 +84,12 @@ async def test_get_summary_yearly(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
     """Test get_summary works for yearly data (no month filter)."""
-    # Arrange
+    # Arrange - multiple currencies
     mock_result = MagicMock()
-    mock_result.one.return_value = (Decimal("1200.00"), 24)
+    mock_result.all.return_value = [
+        ("EUR", Decimal("1000.00"), 20),
+        ("GBP", Decimal("200.00"), 4),
+    ]
 
     mock_category_result = MagicMock()
     mock_category_result.first.return_value = None
@@ -88,8 +100,8 @@ async def test_get_summary_yearly(
     summary = await analytics_service.get_summary(year=2025, month=None)
 
     # Assert
-    assert summary.total_spent == Decimal("1200.00")
-    assert summary.receipt_count == 24
+    assert len(summary.totals_by_currency) == 2
+    assert summary.receipt_count == 24  # 20 + 4
     assert summary.month is None
 
 
@@ -97,23 +109,38 @@ async def test_get_summary_yearly(
 async def test_get_summary_with_top_category(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
-    """Test get_summary returns top category when data exists."""
-    # Arrange
+    """Test get_summary returns top category with amounts by currency."""
+    # Arrange - main query
     mock_result = MagicMock()
-    mock_result.one.return_value = (Decimal("500.00"), 10)
+    mock_result.all.return_value = [
+        ("EUR", Decimal("500.00"), 10),
+    ]
 
-    mock_category_result = MagicMock()
-    # Tuple: (category_name, category_total)
-    mock_category_result.first.return_value = ("Groceries", Decimal("200.00"))
+    # Top category query returns category name
+    mock_top_cat_result = MagicMock()
+    mock_top_cat_result.first.return_value = ("Groceries", Decimal("200.00"))
 
-    mock_session.exec.side_effect = [mock_result, mock_category_result]
+    # Category currency breakdown query
+    mock_cat_currency_result = MagicMock()
+    mock_cat_currency_result.all.return_value = [
+        ("EUR", Decimal("200.00")),
+    ]
+
+    mock_session.exec.side_effect = [
+        mock_result,
+        mock_top_cat_result,
+        mock_cat_currency_result,
+    ]
 
     # Act
     summary = await analytics_service.get_summary(year=2025, month=1)
 
     # Assert
     assert summary.top_category == "Groceries"
-    assert summary.top_category_amount == Decimal("200.00")
+    assert summary.top_category_amounts is not None
+    assert len(summary.top_category_amounts) == 1
+    assert summary.top_category_amounts[0].currency == "EUR"
+    assert summary.top_category_amounts[0].amount == Decimal("200.00")
 
 
 @pytest.mark.asyncio
@@ -142,12 +169,13 @@ async def test_get_trends_empty_data(
 async def test_get_trends_with_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
-    """Test get_trends returns correct trend data."""
-    # Arrange - tuples: (period_date, total_amount, receipt_count)
+    """Test get_trends returns correct trend data grouped by currency."""
+    # Arrange - tuples: (period_date, currency, total_amount, receipt_count)
     mock_result = MagicMock()
     mock_result.all.return_value = [
-        ("2025-01-01", Decimal("50.00"), 2),
-        ("2025-01-02", Decimal("75.00"), 3),
+        ("2025-01-01", "EUR", Decimal("50.00"), 2),
+        ("2025-01-01", "GBP", Decimal("20.00"), 1),
+        ("2025-01-02", "EUR", Decimal("75.00"), 3),
     ]
     mock_session.exec.return_value = mock_result
 
@@ -157,11 +185,20 @@ async def test_get_trends_with_data(
     trends = await analytics_service.get_trends(start, end, period="daily")
 
     # Assert
-    assert len(trends.trends) == 2
-    assert trends.trends[0].date == "2025-01-01"
-    assert trends.trends[0].total == Decimal("50.00")
-    assert trends.trends[1].date == "2025-01-02"
-    assert trends.trends[1].total == Decimal("75.00")
+    assert len(trends.trends) == 2  # Two dates
+
+    # First date has EUR + GBP
+    day1 = trends.trends[0]
+    assert day1.date == "2025-01-01"
+    assert len(day1.totals_by_currency) == 2
+    assert day1.receipt_count == 3  # 2 + 1
+
+    # Second date has only EUR
+    day2 = trends.trends[1]
+    assert day2.date == "2025-01-02"
+    assert len(day2.totals_by_currency) == 1
+    assert day2.totals_by_currency[0].currency == "EUR"
+    assert day2.totals_by_currency[0].amount == Decimal("75.00")
 
 
 @pytest.mark.asyncio
@@ -186,14 +223,26 @@ async def test_get_top_stores_empty(
 async def test_get_top_stores_with_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
-    """Test get_top_stores returns ranked stores."""
-    # Arrange - tuples: (store_name, visit_count, total_spent)
-    mock_result = MagicMock()
-    mock_result.all.return_value = [
-        ("Store A", 5, Decimal("200.00")),
-        ("Store B", 3, Decimal("150.00")),
+    """Test get_top_stores returns stores with totals by currency."""
+    # Arrange - first query returns top stores
+    mock_top_stores_result = MagicMock()
+    mock_top_stores_result.all.return_value = [
+        ("Store A", Decimal("200.00")),
+        ("Store B", Decimal("150.00")),
     ]
-    mock_session.exec.return_value = mock_result
+
+    # Detail queries for each store: (currency, visit_count, total_spent)
+    mock_detail_a = MagicMock()
+    mock_detail_a.all.return_value = [("EUR", 5, Decimal("200.00"))]
+
+    mock_detail_b = MagicMock()
+    mock_detail_b.all.return_value = [("EUR", 3, Decimal("150.00"))]
+
+    mock_session.exec.side_effect = [
+        mock_top_stores_result,
+        mock_detail_a,
+        mock_detail_b,
+    ]
 
     # Act
     result = await analytics_service.get_top_stores(year=2025, limit=10)
@@ -201,9 +250,9 @@ async def test_get_top_stores_with_data(
     # Assert
     assert len(result.stores) == 2
     assert result.stores[0].store_name == "Store A"
-    assert result.stores[0].total_spent == Decimal("200.00")
-    assert result.stores[0].avg_per_visit == Decimal("40.00")
-    assert result.stores[1].store_name == "Store B"
+    assert result.stores[0].visit_count == 5
+    assert len(result.stores[0].totals_by_currency) == 1
+    assert result.stores[0].totals_by_currency[0].amount == Decimal("200.00")
 
 
 @pytest.mark.asyncio
@@ -213,9 +262,7 @@ async def test_get_top_stores_with_month_filter(
     """Test get_top_stores filters by month."""
     # Arrange
     mock_result = MagicMock()
-    mock_result.all.return_value = [
-        ("Monthly Store", 2, Decimal("80.00")),
-    ]
+    mock_result.all.return_value = []
     mock_session.exec.return_value = mock_result
 
     # Act
@@ -223,7 +270,7 @@ async def test_get_top_stores_with_month_filter(
 
     # Assert
     assert result.month == 1
-    assert len(result.stores) == 1
+    assert result.stores == []
 
 
 @pytest.mark.asyncio
@@ -241,19 +288,20 @@ async def test_get_category_breakdown_empty(
 
     # Assert
     assert result.categories == []
-    assert result.total_spent == Decimal("0")
+    assert result.totals_by_currency == []
 
 
 @pytest.mark.asyncio
 async def test_get_category_breakdown_with_data(
     analytics_service: AnalyticsService, mock_session: AsyncMock
 ) -> None:
-    """Test get_category_breakdown returns correct percentages."""
-    # Arrange - tuples: (category_id, category_name, item_count, category_total)
+    """Test get_category_breakdown returns categories grouped by currency."""
+    # Arrange - tuples: (category_id, category_name, currency, item_count, category_total)
     mock_result = MagicMock()
     mock_result.all.return_value = [
-        (1, "Groceries", 10, Decimal("100.00")),
-        (2, "Electronics", 5, Decimal("50.00")),
+        (1, "Groceries", "EUR", 8, Decimal("80.00")),
+        (1, "Groceries", "GBP", 2, Decimal("20.00")),
+        (2, "Electronics", "EUR", 5, Decimal("50.00")),
     ]
     mock_session.exec.return_value = mock_result
 
@@ -262,15 +310,18 @@ async def test_get_category_breakdown_with_data(
 
     # Assert
     assert len(result.categories) == 2
-    assert result.total_spent == Decimal("150.00")
 
-    # First category (Groceries) - 100/150 = 66.7%
-    assert result.categories[0].category_id == 1
-    assert result.categories[0].category_name == "Groceries"
-    assert result.categories[0].item_count == 10
-    assert result.categories[0].total_spent == Decimal("100.00")
-    assert result.categories[0].percentage == Decimal("66.7")
+    # Groceries has two currencies
+    groceries = result.categories[0]
+    assert groceries.category_id == 1
+    assert groceries.category_name == "Groceries"
+    assert groceries.item_count == 10  # 8 + 2
+    assert len(groceries.totals_by_currency) == 2
 
-    # Second category (Electronics) - 50/150 = 33.3%
-    assert result.categories[1].category_id == 2
-    assert result.categories[1].percentage == Decimal("33.3")
+    # Electronics has one currency
+    electronics = result.categories[1]
+    assert electronics.category_id == 2
+    assert electronics.item_count == 5
+
+    # Overall totals
+    assert len(result.totals_by_currency) == 2  # EUR and GBP
