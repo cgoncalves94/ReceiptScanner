@@ -79,6 +79,17 @@ export interface ApiError {
   detail: string;
 }
 
+// Receipt filter parameters for search/filtering
+export interface ReceiptFilters {
+  search?: string;
+  store?: string;
+  after?: string; // ISO 8601 date string
+  before?: string; // ISO 8601 date string
+  category_ids?: number[];
+  min_amount?: number;
+  max_amount?: number;
+}
+
 // Analytics Types - Multi-currency support
 // Backend returns amounts grouped by original currency
 // Frontend converts to display currency using exchange rates

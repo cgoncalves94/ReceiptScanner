@@ -76,6 +76,9 @@ async def test_list_items_by_category(
     assert data[0]["category_id"] == test_category.id
 
 
+# Item CRUD Tests
+
+
 @pytest.mark.asyncio
 async def test_create_receipt_item(
     test_client: TestClient,
@@ -190,3 +193,99 @@ async def test_delete_receipt_item_nonexistent_receipt(
     response = test_client.delete("/api/v1/receipts/999999/items/1")
 
     assert response.status_code == 404
+
+
+# Filter Tests
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_search_filter(
+    test_client: TestClient, test_receipt: Receipt
+) -> None:
+    """Test filtering receipts by search term."""
+    # Search for partial store name (case-insensitive)
+    store_partial = test_receipt.store_name[:4].lower()
+    response = test_client.get(f"/api/v1/receipts?search={store_partial}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert any(r["id"] == test_receipt.id for r in data)
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_store_filter(
+    test_client: TestClient, test_receipt: Receipt
+) -> None:
+    """Test filtering receipts by exact store name."""
+    response = test_client.get(f"/api/v1/receipts?store={test_receipt.store_name}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert all(r["store_name"] == test_receipt.store_name for r in data)
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_amount_filter(
+    test_client: TestClient, test_receipt: Receipt
+) -> None:
+    """Test filtering receipts by amount range."""
+    min_amount = float(test_receipt.total_amount) - 1
+    max_amount = float(test_receipt.total_amount) + 1
+
+    response = test_client.get(
+        f"/api/v1/receipts?min_amount={min_amount}&max_amount={max_amount}"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert any(r["id"] == test_receipt.id for r in data)
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_search_no_results(test_client: TestClient) -> None:
+    """Test search filter returns empty list for non-matching term."""
+    response = test_client.get("/api/v1/receipts?search=nonexistentstore12345")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 0
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_category_filter(
+    test_client: TestClient,
+    test_receipt: Receipt,
+    test_receipt_item: ReceiptItem,
+    test_category: Category,
+) -> None:
+    """Test filtering receipts by category ID."""
+    response = test_client.get(f"/api/v1/receipts?category_ids={test_category.id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    # Verify the receipt with the test item is in the results
+    assert any(r["id"] == test_receipt.id for r in data)
+
+
+@pytest.mark.asyncio
+async def test_list_stores(test_client: TestClient, test_receipt: Receipt) -> None:
+    """Test listing unique store names."""
+    response = test_client.get("/api/v1/receipts/stores")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    # The store names should be sorted
+    assert data == sorted(data)
+    # Our test receipt's store should be in the list
+    assert test_receipt.store_name in data

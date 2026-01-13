@@ -160,16 +160,13 @@ async def test_list_receipts(
         :2
     ]  # Return only first 2
 
-    # Mock the refresh method
-    mock_session.refresh = AsyncMock()
-
     # Act
     retrieved_receipts = await receipt_service.list(skip=0, limit=2)
 
     # Assert
     assert len(retrieved_receipts) == 2
     mock_session.exec.assert_called_once()
-    assert mock_session.refresh.call_count == 2  # Called once for each receipt
+    # With selectinload, no refresh calls are needed (N+1 optimization)
 
 
 @pytest.mark.asyncio
@@ -372,6 +369,9 @@ async def test_update_nonexistent_receipt_item(
     assert "not found" in str(exc_info.value)
 
 
+# Item CRUD Tests
+
+
 @pytest.mark.asyncio
 async def test_create_item(
     receipt_service: ReceiptService, mock_session: AsyncMock
@@ -532,3 +532,96 @@ async def test_create_item_currency_mismatch(
     with pytest.raises(BadRequestError) as exc_info:
         await receipt_service.create_item(receipt_id=1, item_in=item_data)
     assert "does not match" in str(exc_info.value)
+
+
+# Filter Tests
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_search_filter(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test listing receipts with search filter."""
+    # Arrange
+    receipts = [
+        Receipt(
+            id=1,
+            store_name="Grocery Store",
+            total_amount=Decimal("50.00"),
+            currency="$",
+            image_path="/path/1.jpg",
+        ),
+    ]
+
+    mock_exec_result = MagicMock()
+    mock_exec_result.all.return_value = receipts
+    mock_session.exec = AsyncMock(return_value=mock_exec_result)
+    mock_session.refresh = AsyncMock()
+
+    # Act
+    result = await receipt_service.list(filters={"search": "grocery"})
+
+    # Assert
+    assert len(result) == 1
+    mock_session.exec.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_amount_filters(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test listing receipts with min/max amount filters."""
+    # Arrange
+    receipts = [
+        Receipt(
+            id=1,
+            store_name="Store",
+            total_amount=Decimal("75.00"),
+            currency="$",
+            image_path="/path/1.jpg",
+        ),
+    ]
+
+    mock_exec_result = MagicMock()
+    mock_exec_result.all.return_value = receipts
+    mock_session.exec = AsyncMock(return_value=mock_exec_result)
+    mock_session.refresh = AsyncMock()
+
+    # Act
+    result = await receipt_service.list(
+        filters={"min_amount": Decimal("50.00"), "max_amount": Decimal("100.00")}
+    )
+
+    # Assert
+    assert len(result) == 1
+    mock_session.exec.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_with_no_filters(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test listing receipts without any filters returns all receipts."""
+    # Arrange
+    receipts = [
+        Receipt(
+            id=i,
+            store_name=f"Store {i}",
+            total_amount=Decimal(f"{10.00 * i}"),
+            currency="$",
+            image_path=f"/path/{i}.jpg",
+        )
+        for i in range(1, 4)
+    ]
+
+    mock_exec_result = MagicMock()
+    mock_exec_result.all.return_value = receipts
+    mock_session.exec = AsyncMock(return_value=mock_exec_result)
+    mock_session.refresh = AsyncMock()
+
+    # Act
+    result = await receipt_service.list(filters=None)
+
+    # Assert
+    assert len(result) == 3
+    mock_session.exec.assert_called_once()

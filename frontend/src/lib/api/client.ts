@@ -7,6 +7,7 @@ import type {
   ReceiptUpdate,
   ReceiptItemCreate,
   ReceiptItemUpdate,
+  ReceiptFilters,
   SpendingSummary,
   SpendingTrendsResponse,
   TopStoresResponse,
@@ -46,8 +47,29 @@ class ApiClient {
   // Receipts
   // ============================================================================
 
-  async getReceipts(): Promise<Receipt[]> {
-    return this.request<Receipt[]>("/receipts");
+  async getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      if (filters.search) params.append("search", filters.search);
+      if (filters.store) params.append("store", filters.store);
+      if (filters.after) params.append("after", filters.after);
+      if (filters.before) params.append("before", filters.before);
+      if (filters.min_amount !== undefined)
+        params.append("min_amount", filters.min_amount.toString());
+      if (filters.max_amount !== undefined)
+        params.append("max_amount", filters.max_amount.toString());
+      // category_ids needs to be added multiple times for array params
+      if (filters.category_ids) {
+        filters.category_ids.forEach((id) =>
+          params.append("category_ids", id.toString())
+        );
+      }
+    }
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/receipts?${queryString}` : "/receipts";
+    return this.request<Receipt[]>(endpoint);
   }
 
   async getReceipt(id: number): Promise<Receipt> {
@@ -82,6 +104,10 @@ class ApiClient {
     await this.request<void>(`/receipts/${id}`, {
       method: "DELETE",
     });
+  }
+
+  async getStores(): Promise<string[]> {
+    return this.request<string[]>("/receipts/stores");
   }
 
   // ============================================================================

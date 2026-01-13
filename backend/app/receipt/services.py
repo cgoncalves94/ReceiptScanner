@@ -1,12 +1,13 @@
 import os
 import uuid
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import TypedDict
 
 from fastapi import UploadFile
 from PIL import Image
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.category.models import CategoryCreate
@@ -25,6 +26,18 @@ from .models import (
     ReceiptItemUpdate,
     ReceiptUpdate,
 )
+
+
+class ReceiptFilters(TypedDict, total=False):
+    """Filter parameters for listing receipts."""
+
+    search: str | None
+    store: str | None
+    after: datetime | None
+    before: datetime | None
+    category_ids: list[int] | None
+    min_amount: Decimal | None
+    max_amount: Decimal | None
 
 
 class ReceiptService:
@@ -105,6 +118,11 @@ class ReceiptService:
                     "Failed to create receipt - ID not assigned"
                 )
 
+            # Ensure receipt has an ID after creation
+            if receipt.id is None:
+                raise ServiceUnavailableError("Failed to create receipt")
+            receipt_id = receipt.id
+
             # Process each item
             receipt_items: list[ReceiptItem] = []
             for item_data in receipt_data.items:
@@ -136,7 +154,7 @@ class ReceiptService:
                     total_price=Decimal(str(total_price)),
                     currency=item_data.currency,
                     category_id=category.id,
-                    receipt_id=receipt.id,
+                    receipt_id=receipt_id,
                 )
                 receipt_items.append(receipt_item)
 
@@ -146,9 +164,7 @@ class ReceiptService:
             await self.session.flush()
 
             # Get the updated receipt with items
-            if receipt.id is None:
-                raise ServiceUnavailableError("Failed to create receipt")
-            return await self.get(receipt.id)
+            return await self.get(receipt_id)
 
         except Exception as e:
             raise ServiceUnavailableError(f"Failed to analyze receipt: {str(e)}") from e
@@ -166,17 +182,89 @@ class ReceiptService:
 
         return receipt
 
-    async def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
-        """List all receipts with pagination."""
-        stmt = select(Receipt).offset(skip).limit(limit)
+    async def list(
+        self,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        filters: ReceiptFilters | None = None,
+    ) -> Sequence[Receipt]:
+        """List all receipts with pagination and optional filtering.
+
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            filters: Optional dictionary of filter parameters:
+                - search: ILIKE search on store_name
+                - store: Exact match on store_name
+                - after: Filter receipts on or after this date
+                - before: Filter receipts on or before this date
+                - category_ids: Filter by category IDs (receipts with items in these categories)
+                - min_amount: Minimum total_amount
+                - max_amount: Maximum total_amount
+
+        Returns:
+            List of receipts matching the filters
+        """
+        # Build base query (items are eagerly loaded via relationship's lazy="selectin")
+        stmt = select(Receipt)
+
+        # Apply filters if provided
+        if filters:
+            # Search filter (case-insensitive partial match on store_name)
+            if search := filters.get("search"):
+                # Escape SQL LIKE wildcards to prevent unexpected matches
+                escaped_search = (
+                    search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                )
+                stmt = stmt.where(
+                    col(Receipt.store_name).ilike(f"%{escaped_search}%", escape="\\")
+                )
+
+            # Exact store name match
+            if store := filters.get("store"):
+                stmt = stmt.where(col(Receipt.store_name) == store)
+
+            # Date range filters
+            if after := filters.get("after"):
+                stmt = stmt.where(col(Receipt.purchase_date) >= after)
+            if before := filters.get("before"):
+                # Add 1 day to include entire selected day (before comes as midnight)
+                stmt = stmt.where(
+                    col(Receipt.purchase_date) < before + timedelta(days=1)
+                )
+
+            # Amount range filters
+            if (min_amount := filters.get("min_amount")) is not None:
+                stmt = stmt.where(col(Receipt.total_amount) >= min_amount)
+            if (max_amount := filters.get("max_amount")) is not None:
+                stmt = stmt.where(col(Receipt.total_amount) <= max_amount)
+
+            # Category filter (join with items table)
+            if category_ids := filters.get("category_ids"):
+                stmt = (
+                    stmt.join(ReceiptItem)
+                    .where(col(ReceiptItem.category_id).in_(category_ids))
+                    .distinct()
+                )
+
+        # Apply pagination and ordering (newest first)
+        stmt = (
+            stmt.order_by(col(Receipt.purchase_date).desc()).offset(skip).limit(limit)
+        )
+
         results = await self.session.exec(stmt)
-        receipts = results.all()
+        return results.all()
 
-        # Ensure items are loaded for each receipt
-        for receipt in receipts:
-            await self.session.refresh(receipt, ["items"])
+    async def list_stores(self) -> Sequence[str]:
+        """Get a list of unique store names.
 
-        return receipts
+        Returns:
+            Sorted list of unique store names from all receipts.
+        """
+        stmt = select(Receipt.store_name).distinct().order_by(Receipt.store_name)
+        results = await self.session.exec(stmt)
+        return results.all()
 
     async def update(self, receipt_id: int, receipt_in: ReceiptUpdate) -> Receipt:
         """Update a receipt."""
