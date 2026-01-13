@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "001-extract-reusable-components-from-large-analytics-p",
+  "state": "building",
+  "subtasks": {
+    "completed": 1,
+    "total": 14,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Add New Components",
+    "id": null,
+    "total": 8
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 3,
+    "started_at": "2026-01-13T18:34:15.832311"
+  },
+  "last_update": "2026-01-13T18:40:05.367661"
+}

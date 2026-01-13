@@ -1,0 +1,39 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read(./**)",
+      "Write(./**)",
+      "Edit(./**)",
+      "Glob(./**)",
+      "Grep(./**)",
+      "Read(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/worktrees/tasks/001-extract-reusable-components-from-large-analytics-p/**)",
+      "Write(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/worktrees/tasks/001-extract-reusable-components-from-large-analytics-p/**)",
+      "Edit(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/worktrees/tasks/001-extract-reusable-components-from-large-analytics-p/**)",
+      "Glob(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/worktrees/tasks/001-extract-reusable-components-from-large-analytics-p/**)",
+      "Grep(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/worktrees/tasks/001-extract-reusable-components-from-large-analytics-p/**)",
+      "Read(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/worktrees/tasks/001-extract-reusable-components-from-large-analytics-p/.auto-claude/specs/001-extract-reusable-components-from-large-analytics-p/**)",
+      "Write(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/worktrees/tasks/001-extract-reusable-components-from-large-analytics-p/.auto-claude/specs/001-extract-reusable-components-from-large-analytics-p/**)",
+      "Edit(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/worktrees/tasks/001-extract-reusable-components-from-large-analytics-p/.auto-claude/specs/001-extract-reusable-components-from-large-analytics-p/**)",
+      "Read(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/**)",
+      "Write(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/**)",
+      "Edit(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/**)",
+      "Glob(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/**)",
+      "Grep(/Users/cesar.goncalves/Coding/PersonalProjects/ReceiptScanner/.auto-claude/**)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "mcp__context7__resolve-library-id(*)",
+      "mcp__context7__get-library-docs(*)",
+      "mcp__graphiti-memory__search_nodes(*)",
+      "mcp__graphiti-memory__search_facts(*)",
+      "mcp__graphiti-memory__add_episode(*)",
+      "mcp__graphiti-memory__get_episodes(*)",
+      "mcp__graphiti-memory__get_entity_edge(*)"
+    ]
+  }
+}
