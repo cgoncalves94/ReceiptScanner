@@ -1,4 +1,4 @@
-.PHONY: help dev dev-backend dev-frontend build up down logs test clean db-up db-down
+.PHONY: help dev dev-backend dev-frontend build up down logs test clean db-up db-down init
 
 # Default target
 help:
@@ -24,6 +24,7 @@ help:
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean          Remove cache and build files"
+	@echo "  make init           Start backend + frontend"
 	@echo "  make setup          Initial setup (install deps, create .env)"
 
 # ============================================================================
@@ -79,6 +80,11 @@ test-frontend:
 # ============================================================================
 # Setup
 # ============================================================================
+
+init:
+	@echo "Starting backend and frontend..."
+	@echo "   (use Ctrl+C to stop both)"
+	@$(MAKE) -j2 dev dev-frontend
 
 setup:
 	@echo "Setting up Receipt Scanner..."
