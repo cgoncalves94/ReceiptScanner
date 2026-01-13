@@ -235,7 +235,9 @@ class ReceiptService:
                 )
 
         # Apply pagination and ordering (newest first)
-        stmt = stmt.order_by(col(Receipt.purchase_date).desc()).offset(skip).limit(limit)
+        stmt = (
+            stmt.order_by(col(Receipt.purchase_date).desc()).offset(skip).limit(limit)
+        )
 
         results = await self.session.scalars(stmt)
         receipts = results.all()

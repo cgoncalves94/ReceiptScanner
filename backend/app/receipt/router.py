@@ -58,7 +58,9 @@ async def list_receipts(
     ] = None,
     category_ids: Annotated[
         list[int] | None,
-        Query(description="Filter by category IDs (receipts with items in these categories)"),
+        Query(
+            description="Filter by category IDs (receipts with items in these categories)"
+        ),
     ] = None,
     min_amount: Annotated[
         Decimal | None,
