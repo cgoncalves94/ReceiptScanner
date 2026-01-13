@@ -100,7 +100,9 @@ class ReceiptService:
 
             receipt = await self.create(receipt_create)
             if receipt.id is None:
-                raise ServiceUnavailableError("Failed to create receipt - ID not assigned")
+                raise ServiceUnavailableError(
+                    "Failed to create receipt - ID not assigned"
+                )
 
             # Process each item
             receipt_items: list[ReceiptItem] = []
