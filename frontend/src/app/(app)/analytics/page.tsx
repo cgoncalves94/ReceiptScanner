@@ -15,26 +15,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Tooltip as UITooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { BarChart3, TrendingUp, FolderOpen, ChevronLeft, ChevronRight, Receipt, Store, Info } from "lucide-react";
+import { BarChart3, TrendingUp, FolderOpen, Receipt, Store } from "lucide-react";
 import {
   useAnalyticsSummary,
   useAnalyticsTrends,
@@ -49,6 +36,7 @@ import {
   codeToSymbol,
   SUPPORTED_CURRENCIES,
 } from "@/hooks";
+import { DateNavigator, CurrencySelector } from "@/components/analytics";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -152,6 +140,12 @@ export default function AnalyticsPage() {
 
   const isCurrentPeriod = selectedMonth === currentMonth.toString() && selectedYear === currentYear;
 
+  // Handler for "Today" button
+  const handleToday = () => {
+    setSelectedMonth(currentMonth.toString());
+    setSelectedYear(currentYear);
+  };
+
   // Filter category items by selected period using receipt purchase dates
   const filteredCategoryItems = (categoryItems ?? []).filter((item) => {
     const receipt = receipts?.find((r) => r.id === item.receipt_id);
@@ -185,87 +179,21 @@ export default function AnalyticsPage() {
     <div className="space-y-6">
       {/* Controls Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Month/Year Navigation */}
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={goToPrevMonth}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-2">
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Months</SelectItem>
-                {MONTHS.map((month, index) => (
-                  <SelectItem key={index} value={index.toString()}>
-                    {month}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-              <SelectTrigger className="w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button variant="outline" size="icon" onClick={goToNextMonth}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          {!isCurrentPeriod && selectedMonth !== "all" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedMonth(currentMonth.toString());
-                setSelectedYear(currentYear);
-              }}
-            >
-              Today
-            </Button>
-          )}
-        </div>
-
-        {/* Currency Selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Display in:</span>
-          <Select value={displayCurrency} onValueChange={setDisplayCurrency}>
-            <SelectTrigger className="w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SUPPORTED_CURRENCIES.map((curr) => (
-                <SelectItem key={curr.code} value={curr.code}>
-                  {curr.symbol} {curr.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <TooltipProvider>
-            <UITooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Currency conversion info"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Info className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Converted using live rates from Frankfurter API</p>
-              </TooltipContent>
-            </UITooltip>
-          </TooltipProvider>
-        </div>
+        <DateNavigator
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+          onMonthChange={setSelectedMonth}
+          onYearChange={setSelectedYear}
+          onPrevious={goToPrevMonth}
+          onNext={goToNextMonth}
+          availableYears={availableYears}
+          showTodayButton={!isCurrentPeriod && selectedMonth !== "all"}
+          onToday={handleToday}
+        />
+        <CurrencySelector
+          value={displayCurrency}
+          onChange={setDisplayCurrency}
+        />
       </div>
 
       {/* Stats */}
