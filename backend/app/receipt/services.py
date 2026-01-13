@@ -7,21 +7,8 @@ from typing import TypedDict
 
 from fastapi import UploadFile
 from PIL import Image
-from sqlalchemy import distinct
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-
-class ReceiptFilters(TypedDict, total=False):
-    """Filter parameters for listing receipts."""
-
-    search: str | None
-    store: str | None
-    after: datetime | None
-    before: datetime | None
-    category_ids: list[int] | None
-    min_amount: Decimal | None
-    max_amount: Decimal | None
 
 from app.category.models import CategoryCreate
 from app.category.services import CategoryService
@@ -38,6 +25,18 @@ from .models import (
     ReceiptItemUpdate,
     ReceiptUpdate,
 )
+
+
+class ReceiptFilters(TypedDict, total=False):
+    """Filter parameters for listing receipts."""
+
+    search: str | None
+    store: str | None
+    after: datetime | None
+    before: datetime | None
+    category_ids: list[int] | None
+    min_amount: Decimal | None
+    max_amount: Decimal | None
 
 
 class ReceiptService:
@@ -114,6 +113,11 @@ class ReceiptService:
 
             receipt = await self.create(receipt_create)
 
+            # Ensure receipt has an ID after creation
+            if receipt.id is None:
+                raise ServiceUnavailableError("Failed to create receipt")
+            receipt_id = receipt.id
+
             # Process each item
             receipt_items: list[ReceiptItem] = []
             for item_data in receipt_data.items:
@@ -145,7 +149,7 @@ class ReceiptService:
                     total_price=Decimal(str(total_price)),
                     currency=item_data.currency,
                     category_id=category.id,
-                    receipt_id=receipt.id,
+                    receipt_id=receipt_id,
                 )
                 receipt_items.append(receipt_item)
 
@@ -155,9 +159,7 @@ class ReceiptService:
             await self.session.flush()
 
             # Get the updated receipt with items
-            if receipt.id is None:
-                raise ServiceUnavailableError("Failed to create receipt")
-            return await self.get(receipt.id)
+            return await self.get(receipt_id)
 
         except Exception as e:
             raise ServiceUnavailableError(f"Failed to analyze receipt: {str(e)}") from e
@@ -205,35 +207,35 @@ class ReceiptService:
         # Apply filters if provided
         if filters:
             # Search filter (case-insensitive partial match on store_name)
-            if filters.get("search"):
-                stmt = stmt.where(Receipt.store_name.ilike(f"%{filters['search']}%"))
+            if search := filters.get("search"):
+                stmt = stmt.where(col(Receipt.store_name).ilike(f"%{search}%"))
 
             # Exact store name match
-            if filters.get("store"):
-                stmt = stmt.where(Receipt.store_name == filters["store"])
+            if store := filters.get("store"):
+                stmt = stmt.where(col(Receipt.store_name) == store)
 
             # Date range filters
-            if filters.get("after"):
-                stmt = stmt.where(Receipt.purchase_date >= filters["after"])
-            if filters.get("before"):
-                stmt = stmt.where(Receipt.purchase_date <= filters["before"])
+            if after := filters.get("after"):
+                stmt = stmt.where(col(Receipt.purchase_date) >= after)
+            if before := filters.get("before"):
+                stmt = stmt.where(col(Receipt.purchase_date) <= before)
 
             # Amount range filters
-            if filters.get("min_amount") is not None:
-                stmt = stmt.where(Receipt.total_amount >= filters["min_amount"])
-            if filters.get("max_amount") is not None:
-                stmt = stmt.where(Receipt.total_amount <= filters["max_amount"])
+            if (min_amount := filters.get("min_amount")) is not None:
+                stmt = stmt.where(col(Receipt.total_amount) >= min_amount)
+            if (max_amount := filters.get("max_amount")) is not None:
+                stmt = stmt.where(col(Receipt.total_amount) <= max_amount)
 
             # Category filter (join with items table)
-            if filters.get("category_ids"):
+            if category_ids := filters.get("category_ids"):
                 stmt = (
                     stmt.join(ReceiptItem)
-                    .where(ReceiptItem.category_id.in_(filters["category_ids"]))
+                    .where(col(ReceiptItem.category_id).in_(category_ids))
                     .distinct()
                 )
 
         # Apply pagination and ordering (newest first)
-        stmt = stmt.order_by(Receipt.purchase_date.desc()).offset(skip).limit(limit)
+        stmt = stmt.order_by(col(Receipt.purchase_date).desc()).offset(skip).limit(limit)
 
         results = await self.session.scalars(stmt)
         receipts = results.all()
