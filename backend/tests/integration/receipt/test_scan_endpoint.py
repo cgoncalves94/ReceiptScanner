@@ -46,7 +46,7 @@ async def test_scan_receipt_creates_receipt_and_items(
 
     assert data["store_name"] == "Test Grocery Store"
     assert float(data["total_amount"]) == pytest.approx(25.98)
-    assert data["currency"] == "€"
+    assert data["currency"] == "EUR"  # Symbol € is standardized to ISO code
     assert len(data["items"]) == 3
 
     # Verify items were created with correct data

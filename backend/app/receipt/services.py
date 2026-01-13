@@ -99,6 +99,10 @@ class ReceiptService:
             )
 
             receipt = await self.create(receipt_create)
+            if receipt.id is None:
+                raise ServiceUnavailableError(
+                    "Failed to create receipt - ID not assigned"
+                )
 
             # Process each item
             receipt_items: list[ReceiptItem] = []
@@ -164,7 +168,7 @@ class ReceiptService:
     async def list(self, *, skip: int = 0, limit: int = 100) -> Sequence[Receipt]:
         """List all receipts with pagination."""
         stmt = select(Receipt).offset(skip).limit(limit)
-        results = await self.session.scalars(stmt)
+        results = await self.session.exec(stmt)
         receipts = results.all()
 
         # Ensure items are loaded for each receipt
@@ -252,5 +256,5 @@ class ReceiptService:
             .offset(skip)
             .limit(limit)
         )
-        results = await self.session.scalars(stmt)
+        results = await self.session.exec(stmt)
         return results.all()
