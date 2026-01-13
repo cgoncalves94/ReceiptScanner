@@ -1,5 +1,6 @@
 export {
   useReceipts,
+  useStores,
   useReceipt,
   useScanReceipt,
   useUpdateReceipt,

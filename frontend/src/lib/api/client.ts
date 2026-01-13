@@ -106,6 +106,10 @@ class ApiClient {
     });
   }
 
+  async getStores(): Promise<string[]> {
+    return this.request<string[]>("/receipts/stores");
+  }
+
   // ============================================================================
   // Receipt Items
   // ============================================================================
