@@ -193,7 +193,12 @@ class AnalyticsService:
         # Group rows by date
         date_data: dict[str, dict[str, Any]] = {}
         for period_date, currency, total_amount, receipt_count in rows:
-            date_str = str(period_date)
+            # Convert to ISO 8601 format for Safari compatibility
+            date_str = (
+                period_date.isoformat()
+                if hasattr(period_date, "isoformat")
+                else str(period_date).replace(" ", "T")
+            )
             if date_str not in date_data:
                 date_data[date_str] = {"totals": [], "receipt_count": 0}
 

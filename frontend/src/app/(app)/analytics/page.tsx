@@ -41,6 +41,7 @@ import {
   useCategoryBreakdown,
   useCategoryItems,
   useTopStores,
+  useReceipts,
   useExchangeRates,
   convertAmount,
   convertAndSum,
@@ -66,13 +67,16 @@ export default function AnalyticsPage() {
 
   // Category detail modal
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const { data: categoryItems, isLoading: itemsLoading } = useCategoryItems(selectedCategoryId);
 
   // Fetch exchange rates for currency conversion
   const { data: exchangeRates } = useExchangeRates(displayCurrency);
 
   // Parse month for API calls
   const monthForApi = selectedMonth === "all" ? undefined : parseInt(selectedMonth);
+
+  // Fetch category items and receipts for client-side period filtering
+  const { data: categoryItems, isLoading: itemsLoading } = useCategoryItems(selectedCategoryId);
+  const { data: receipts } = useReceipts();
 
   // Backend analytics hooks - no currency filter, backend returns all currencies
   const { data: summary, isLoading: summaryLoading } = useAnalyticsSummary(
@@ -148,8 +152,15 @@ export default function AnalyticsPage() {
 
   const isCurrentPeriod = selectedMonth === currentMonth.toString() && selectedYear === currentYear;
 
-  // Filter category items by selected period for modal
-  const filteredCategoryItems = categoryItems ?? [];
+  // Filter category items by selected period using receipt purchase dates
+  const filteredCategoryItems = (categoryItems ?? []).filter((item) => {
+    const receipt = receipts?.find((r) => r.id === item.receipt_id);
+    if (!receipt) return false;
+    const date = new Date(receipt.purchase_date);
+    if (date.getFullYear() !== selectedYear) return false;
+    if (monthForApi !== undefined && date.getMonth() !== monthForApi) return false;
+    return true;
+  });
 
   const selectedCategory = categoryBreakdown?.categories.find(
     (c) => c.category_id === selectedCategoryId
