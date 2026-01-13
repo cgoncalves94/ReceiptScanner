@@ -160,9 +160,7 @@ async def test_delete_receipt_item(
     total_after_create = float(created_data["total_amount"])
 
     # Now delete the item
-    response = test_client.delete(
-        f"/api/v1/receipts/{test_receipt.id}/items/{item_id}"
-    )
+    response = test_client.delete(f"/api/v1/receipts/{test_receipt.id}/items/{item_id}")
 
     assert response.status_code == 200
     data = response.json()
@@ -179,9 +177,7 @@ async def test_delete_receipt_item_nonexistent_item(
     test_receipt: Receipt,
 ) -> None:
     """Test deleting an item that doesn't exist."""
-    response = test_client.delete(
-        f"/api/v1/receipts/{test_receipt.id}/items/999999"
-    )
+    response = test_client.delete(f"/api/v1/receipts/{test_receipt.id}/items/999999")
 
     assert response.status_code == 404
 
@@ -191,8 +187,6 @@ async def test_delete_receipt_item_nonexistent_receipt(
     test_client: TestClient,
 ) -> None:
     """Test deleting an item from a receipt that doesn't exist."""
-    response = test_client.delete(
-        "/api/v1/receipts/999999/items/1"
-    )
+    response = test_client.delete("/api/v1/receipts/999999/items/1")
 
     assert response.status_code == 404

@@ -396,9 +396,7 @@ async def test_create_item(
     )
 
     # Act
-    updated_receipt = await receipt_service.create_item(
-        receipt_id=1, item_in=item_data
-    )
+    updated_receipt = await receipt_service.create_item(receipt_id=1, item_in=item_data)
 
     # Assert
     # Total should be original (10.00) + new item total (2 * 5.50 = 11.00) = 21.00
