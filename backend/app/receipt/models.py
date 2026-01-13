@@ -52,7 +52,7 @@ class Receipt(ReceiptBase, table=True):
     # Relationships
     items: list[ReceiptItem] = Relationship(
         back_populates="receipt",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "lazy": "selectin"},
     )
 
 

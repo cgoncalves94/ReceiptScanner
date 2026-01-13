@@ -206,14 +206,20 @@ class ReceiptService:
         Returns:
             List of receipts matching the filters
         """
-        # Build base query
+        # Build base query (items are eagerly loaded via relationship's lazy="selectin")
         stmt = select(Receipt)
 
         # Apply filters if provided
         if filters:
             # Search filter (case-insensitive partial match on store_name)
             if search := filters.get("search"):
-                stmt = stmt.where(col(Receipt.store_name).ilike(f"%{search}%"))
+                # Escape SQL LIKE wildcards to prevent unexpected matches
+                escaped_search = (
+                    search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                )
+                stmt = stmt.where(
+                    col(Receipt.store_name).ilike(f"%{escaped_search}%", escape="\\")
+                )
 
             # Exact store name match
             if store := filters.get("store"):
@@ -245,13 +251,17 @@ class ReceiptService:
         )
 
         results = await self.session.exec(stmt)
-        receipts = results.all()
+        return results.all()
 
-        # Ensure items are loaded for each receipt
-        for receipt in receipts:
-            await self.session.refresh(receipt, ["items"])
+    async def list_stores(self) -> Sequence[str]:
+        """Get a list of unique store names.
 
-        return receipts
+        Returns:
+            Sorted list of unique store names from all receipts.
+        """
+        stmt = select(Receipt.store_name).distinct().order_by(Receipt.store_name)
+        results = await self.session.exec(stmt)
+        return results.all()
 
     async def update(self, receipt_id: int, receipt_in: ReceiptUpdate) -> Receipt:
         """Update a receipt."""

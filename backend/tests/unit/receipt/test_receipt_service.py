@@ -160,16 +160,13 @@ async def test_list_receipts(
         :2
     ]  # Return only first 2
 
-    # Mock the refresh method
-    mock_session.refresh = AsyncMock()
-
     # Act
     retrieved_receipts = await receipt_service.list(skip=0, limit=2)
 
     # Assert
     assert len(retrieved_receipts) == 2
     mock_session.exec.assert_called_once()
-    assert mock_session.refresh.call_count == 2  # Called once for each receipt
+    # With selectinload, no refresh calls are needed (N+1 optimization)
 
 
 @pytest.mark.asyncio
