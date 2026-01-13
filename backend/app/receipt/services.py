@@ -1,7 +1,7 @@
 import os
 import uuid
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import TypedDict
 
@@ -229,7 +229,8 @@ class ReceiptService:
             if after := filters.get("after"):
                 stmt = stmt.where(col(Receipt.purchase_date) >= after)
             if before := filters.get("before"):
-                stmt = stmt.where(col(Receipt.purchase_date) <= before)
+                # Add 1 day to include entire selected day (before comes as midnight)
+                stmt = stmt.where(col(Receipt.purchase_date) < before + timedelta(days=1))
 
             # Amount range filters
             if (min_amount := filters.get("min_amount")) is not None:
