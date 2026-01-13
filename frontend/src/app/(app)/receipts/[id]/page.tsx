@@ -82,6 +82,8 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<ReceiptItem | null>(null);
+  const [isDeleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
 
@@ -126,15 +128,19 @@ export default function ReceiptDetailPage({ params }: PageProps) {
     }
   };
 
-  const handleDeleteItem = async (itemId: number) => {
+  const handleDeleteItem = async () => {
+    if (!itemToDelete) return;
+
     try {
-      await deleteItemMutation.mutateAsync({ receiptId, itemId });
+      await deleteItemMutation.mutateAsync({ receiptId, itemId: itemToDelete.id });
       toast.success("Item deleted");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to delete item"
       );
       deleteItemMutation.reset();
+    } finally {
+      setDeleteConfirmationOpen(false);
     }
   };
 
@@ -280,8 +286,10 @@ export default function ReceiptDetailPage({ params }: PageProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteItem(item.id)}
-                        disabled={deleteItemMutation.isPending}
+                        onClick={() => {
+                          setItemToDelete(item);
+                          setDeleteConfirmationOpen(true);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -492,6 +500,31 @@ export default function ReceiptDetailPage({ params }: PageProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Item Confirmation Dialog */}
+      <AlertDialog
+        open={isDeleteConfirmationOpen}
+        onOpenChange={setDeleteConfirmationOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Item</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{itemToDelete?.name}&quot;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteItem}
+              disabled={deleteItemMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteItemMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit Metadata Dialog */}
       <MetadataForm
