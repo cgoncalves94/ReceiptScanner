@@ -230,7 +230,9 @@ class ReceiptService:
                 stmt = stmt.where(col(Receipt.purchase_date) >= after)
             if before := filters.get("before"):
                 # Add 1 day to include entire selected day (before comes as midnight)
-                stmt = stmt.where(col(Receipt.purchase_date) < before + timedelta(days=1))
+                stmt = stmt.where(
+                    col(Receipt.purchase_date) < before + timedelta(days=1)
+                )
 
             # Amount range filters
             if (min_amount := filters.get("min_amount")) is not None:
