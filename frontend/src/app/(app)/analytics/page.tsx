@@ -22,11 +22,7 @@ import {
   TopStoresList,
   CategoryItemsModal,
 } from "@/components/analytics";
-
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
+import { MONTHS } from "@/lib/constants";
 
 export default function AnalyticsPage() {
   // Month/Year selector - "all" means all months in the year

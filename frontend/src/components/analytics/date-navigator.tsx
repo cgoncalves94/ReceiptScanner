@@ -9,11 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
+import { MONTHS } from "@/lib/constants";
 
 interface DateNavigatorProps {
   selectedMonth: string;
