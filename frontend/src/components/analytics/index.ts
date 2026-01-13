@@ -7,3 +7,4 @@ export { StatCard } from "./stat-card";
 export { SpendingTrendsChart } from "./spending-trends-chart";
 export { CategoryBreakdownList } from "./category-breakdown-list";
 export { TopStoresList } from "./top-stores-list";
+export { CategoryItemsModal } from "./category-items-modal";
