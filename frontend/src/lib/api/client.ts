@@ -149,16 +149,16 @@ class ApiClient {
 
   // ============================================================================
   // Analytics
+  // Note: Backend returns data grouped by original currency.
+  // Frontend converts to display currency using exchange rates.
   // ============================================================================
 
   async getAnalyticsSummary(
     year: number,
-    month?: number,
-    currency = "EUR"
+    month?: number
   ): Promise<SpendingSummary> {
     const params = new URLSearchParams({
       year: year.toString(),
-      currency,
     });
     if (month !== undefined) {
       params.set("month", (month + 1).toString()); // Convert 0-indexed to 1-indexed
@@ -169,14 +169,12 @@ class ApiClient {
   async getAnalyticsTrends(
     start: Date,
     end: Date,
-    period: "daily" | "weekly" | "monthly" = "monthly",
-    currency = "EUR"
+    period: "daily" | "weekly" | "monthly" = "monthly"
   ): Promise<SpendingTrendsResponse> {
     const params = new URLSearchParams({
       start: start.toISOString(),
       end: end.toISOString(),
       period,
-      currency,
     });
     return this.request<SpendingTrendsResponse>(`/analytics/trends?${params}`);
   }
@@ -184,13 +182,11 @@ class ApiClient {
   async getTopStores(
     year: number,
     month?: number,
-    limit = 10,
-    currency = "EUR"
+    limit = 10
   ): Promise<TopStoresResponse> {
     const params = new URLSearchParams({
       year: year.toString(),
       limit: limit.toString(),
-      currency,
     });
     if (month !== undefined) {
       params.set("month", (month + 1).toString()); // Convert 0-indexed to 1-indexed
@@ -200,12 +196,10 @@ class ApiClient {
 
   async getCategoryBreakdown(
     year: number,
-    month?: number,
-    currency = "EUR"
+    month?: number
   ): Promise<CategoryBreakdownResponse> {
     const params = new URLSearchParams({
       year: year.toString(),
-      currency,
     });
     if (month !== undefined) {
       params.set("month", (month + 1).toString()); // Convert 0-indexed to 1-indexed

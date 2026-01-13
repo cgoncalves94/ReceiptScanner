@@ -28,7 +28,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BarChart3, TrendingUp, FolderOpen, ChevronLeft, ChevronRight, Receipt, Store } from "lucide-react";
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { BarChart3, TrendingUp, FolderOpen, ChevronLeft, ChevronRight, Receipt, Store, Info } from "lucide-react";
 import {
   useAnalyticsSummary,
   useAnalyticsTrends,
@@ -38,8 +44,8 @@ import {
   useExchangeRates,
   convertAmount,
   convertAndSum,
+  convertCurrencyAmounts,
   codeToSymbol,
-  symbolToCode,
   SUPPORTED_CURRENCIES,
 } from "@/hooks";
 
@@ -55,37 +61,34 @@ export default function AnalyticsPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth.toString());
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  // Currency selector
+  // Currency selector - for display conversion only
   const [displayCurrency, setDisplayCurrency] = useState<string>("EUR");
 
   // Category detail modal
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const { data: categoryItems, isLoading: itemsLoading } = useCategoryItems(selectedCategoryId);
 
-  // Fetch exchange rates for category items display (still needed for modal)
+  // Fetch exchange rates for currency conversion
   const { data: exchangeRates } = useExchangeRates(displayCurrency);
 
   // Parse month for API calls
   const monthForApi = selectedMonth === "all" ? undefined : parseInt(selectedMonth);
 
-  // Backend analytics hooks
+  // Backend analytics hooks - no currency filter, backend returns all currencies
   const { data: summary, isLoading: summaryLoading } = useAnalyticsSummary(
     selectedYear,
-    monthForApi,
-    displayCurrency
+    monthForApi
   );
 
   const { data: categoryBreakdown, isLoading: breakdownLoading } = useCategoryBreakdown(
     selectedYear,
-    monthForApi,
-    displayCurrency
+    monthForApi
   );
 
   const { data: topStores, isLoading: topStoresLoading } = useTopStores(
     selectedYear,
     monthForApi,
-    10,
-    displayCurrency
+    10
   );
 
   // Calculate date range for trends
@@ -109,8 +112,7 @@ export default function AnalyticsPage() {
   const { data: trends, isLoading: trendsLoading } = useAnalyticsTrends(
     startDate,
     endDate,
-    trendPeriod,
-    displayCurrency
+    trendPeriod
   );
 
   const isLoading = summaryLoading || breakdownLoading || topStoresLoading || trendsLoading;
@@ -147,7 +149,6 @@ export default function AnalyticsPage() {
   const isCurrentPeriod = selectedMonth === currentMonth.toString() && selectedYear === currentYear;
 
   // Filter category items by selected period for modal
-  // Note: Currently showing all items; period filtering would need backend support
   const filteredCategoryItems = categoryItems ?? [];
 
   const selectedCategory = categoryBreakdown?.categories.find(
@@ -160,11 +161,14 @@ export default function AnalyticsPage() {
     ? `${selectedYear}`
     : `${MONTHS[parseInt(selectedMonth)]} ${selectedYear}`;
 
-  // Stats from backend
-  const totalSpent = summary?.total_spent ?? 0;
+  // Convert backend data to display currency
+  const totalSpent = convertCurrencyAmounts(summary?.totals_by_currency, displayCurrency, exchangeRates);
   const receiptCount = summary?.receipt_count ?? 0;
-  const avgPerReceipt = summary?.avg_per_receipt ?? 0;
+  const avgPerReceipt = receiptCount > 0 ? totalSpent / receiptCount : 0;
   const categoriesCount = categoryBreakdown?.categories.length ?? 0;
+
+  // Calculate total for category breakdown (for percentage calculation)
+  const categoryTotalSpent = convertCurrencyAmounts(categoryBreakdown?.totals_by_currency, displayCurrency, exchangeRates);
 
   return (
     <div className="space-y-6">
@@ -234,6 +238,22 @@ export default function AnalyticsPage() {
               ))}
             </SelectContent>
           </Select>
+          <TooltipProvider>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Currency conversion info"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Converted using live rates from Frankfurter API</p>
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -251,7 +271,7 @@ export default function AnalyticsPage() {
               <Skeleton className="h-8 w-24" />
             ) : (
               <div className="text-2xl font-bold text-amber-500">
-                {currencySymbol}{Number(totalSpent).toFixed(2)}
+                {currencySymbol}{totalSpent.toFixed(2)}
               </div>
             )}
           </CardContent>
@@ -285,7 +305,7 @@ export default function AnalyticsPage() {
               <Skeleton className="h-8 w-20" />
             ) : (
               <div className="text-2xl font-bold">
-                {currencySymbol}{Number(avgPerReceipt).toFixed(2)}
+                {currencySymbol}{avgPerReceipt.toFixed(2)}
               </div>
             )}
           </CardContent>
@@ -337,7 +357,7 @@ export default function AnalyticsPage() {
                       month: "short",
                       day: selectedMonth === "all" ? undefined : "numeric",
                     }),
-                    total: Number(t.total),
+                    total: convertCurrencyAmounts(t.totals_by_currency, displayCurrency, exchangeRates),
                     receipts: t.receipt_count,
                   }))}
                   margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
@@ -406,39 +426,44 @@ export default function AnalyticsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {categoryBreakdown.categories.map((cat) => (
-                <button
-                  key={cat.category_id}
-                  onClick={() => setSelectedCategoryId(cat.category_id)}
-                  className="w-full text-left"
-                >
-                  <div className="flex items-center justify-between p-4 rounded-lg bg-accent/50 hover:bg-accent transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                        <FolderOpen className="h-5 w-5 text-amber-500" />
+              {categoryBreakdown.categories.map((cat) => {
+                const catTotal = convertCurrencyAmounts(cat.totals_by_currency, displayCurrency, exchangeRates);
+                const percentage = categoryTotalSpent > 0 ? (catTotal / categoryTotalSpent) * 100 : 0;
+                return (
+                  <button
+                    type="button"
+                    key={cat.category_id}
+                    onClick={() => setSelectedCategoryId(cat.category_id)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-accent/50 hover:bg-accent transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                          <FolderOpen className="h-5 w-5 text-amber-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{cat.category_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {cat.item_count} item{cat.item_count !== 1 ? "s" : ""} • {percentage.toFixed(1)}%
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{cat.category_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {cat.item_count} item{cat.item_count !== 1 ? "s" : ""} • {Number(cat.percentage).toFixed(1)}%
+                      <div className="text-right">
+                        <p className="font-semibold text-amber-500">
+                          {currencySymbol}{catTotal.toFixed(2)}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-amber-500">
-                        {currencySymbol}{Number(cat.total_spent).toFixed(2)}
-                      </p>
+                    {/* Progress bar */}
+                    <div className="h-1 mt-1 bg-accent rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-500 rounded-full transition-all"
+                        style={{ width: `${percentage}%` }}
+                      />
                     </div>
-                  </div>
-                  {/* Progress bar */}
-                  <div className="h-1 mt-1 bg-accent rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-500 rounded-full transition-all"
-                      style={{ width: `${cat.percentage}%` }}
-                    />
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -468,32 +493,36 @@ export default function AnalyticsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {topStores.stores.map((store, index) => (
-                <div
-                  key={store.store_name}
-                  className="flex items-center justify-between p-4 rounded-lg bg-accent/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                      <span className="text-amber-500 font-bold">#{index + 1}</span>
+              {topStores.stores.map((store, index) => {
+                const storeTotal = convertCurrencyAmounts(store.totals_by_currency, displayCurrency, exchangeRates);
+                const avgPerVisit = store.visit_count > 0 ? storeTotal / store.visit_count : 0;
+                return (
+                  <div
+                    key={store.store_name}
+                    className="flex items-center justify-between p-4 rounded-lg bg-accent/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                        <span className="text-amber-500 font-bold">#{index + 1}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">{store.store_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {store.visit_count} visit{store.visit_count !== 1 ? "s" : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{store.store_name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {store.visit_count} visit{store.visit_count !== 1 ? "s" : ""}
+                    <div className="text-right">
+                      <p className="font-semibold text-amber-500">
+                        {currencySymbol}{storeTotal.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        avg {currencySymbol}{avgPerVisit.toFixed(2)}/visit
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-amber-500">
-                      {currencySymbol}{Number(store.total_spent).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      avg {currencySymbol}{Number(store.avg_per_visit).toFixed(2)}/visit
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -527,7 +556,7 @@ export default function AnalyticsPage() {
                   displayCurrency,
                   exchangeRates
                 );
-                const isConverted = symbolToCode(item.currency) !== displayCurrency;
+                const isConverted = item.currency !== displayCurrency;
                 return (
                   <div
                     key={item.id}
@@ -536,7 +565,7 @@ export default function AnalyticsPage() {
                     <div>
                       <p className="font-medium">{item.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        Qty: {item.quantity} × {item.currency}{Number(item.unit_price).toFixed(2)}
+                        Qty: {item.quantity} × {codeToSymbol(item.currency)}{Number(item.unit_price).toFixed(2)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -545,7 +574,7 @@ export default function AnalyticsPage() {
                       </Badge>
                       {isConverted && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          ({item.currency}{Number(item.total_price).toFixed(2)})
+                          ({codeToSymbol(item.currency)}{Number(item.total_price).toFixed(2)})
                         </p>
                       )}
                     </div>

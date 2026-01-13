@@ -7,46 +7,42 @@ const ANALYTICS_KEY = ["analytics"];
 
 export function useAnalyticsSummary(
   year: number,
-  month: number | undefined,
-  currency: string
+  month: number | undefined
 ) {
   return useQuery({
-    queryKey: [...ANALYTICS_KEY, "summary", year, month, currency],
-    queryFn: () => api.getAnalyticsSummary(year, month, currency),
+    queryKey: [...ANALYTICS_KEY, "summary", year, month],
+    queryFn: () => api.getAnalyticsSummary(year, month),
   });
 }
 
 export function useAnalyticsTrends(
   start: Date,
   end: Date,
-  period: "daily" | "weekly" | "monthly",
-  currency: string
+  period: "daily" | "weekly" | "monthly"
 ) {
   return useQuery({
-    queryKey: [...ANALYTICS_KEY, "trends", start.toISOString(), end.toISOString(), period, currency],
-    queryFn: () => api.getAnalyticsTrends(start, end, period, currency),
+    queryKey: [...ANALYTICS_KEY, "trends", start.toISOString(), end.toISOString(), period],
+    queryFn: () => api.getAnalyticsTrends(start, end, period),
   });
 }
 
 export function useTopStores(
   year: number,
   month: number | undefined,
-  limit: number,
-  currency: string
+  limit: number
 ) {
   return useQuery({
-    queryKey: [...ANALYTICS_KEY, "top-stores", year, month, limit, currency],
-    queryFn: () => api.getTopStores(year, month, limit, currency),
+    queryKey: [...ANALYTICS_KEY, "top-stores", year, month, limit],
+    queryFn: () => api.getTopStores(year, month, limit),
   });
 }
 
 export function useCategoryBreakdown(
   year: number,
-  month: number | undefined,
-  currency: string
+  month: number | undefined
 ) {
   return useQuery({
-    queryKey: [...ANALYTICS_KEY, "category-breakdown", year, month, currency],
-    queryFn: () => api.getCategoryBreakdown(year, month, currency),
+    queryKey: [...ANALYTICS_KEY, "category-breakdown", year, month],
+    queryFn: () => api.getCategoryBreakdown(year, month),
   });
 }

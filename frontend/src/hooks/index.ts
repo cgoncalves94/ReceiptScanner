@@ -20,6 +20,7 @@ export {
   useExchangeRates,
   convertAmount,
   convertAndSum,
+  convertCurrencyAmounts,
   symbolToCode,
   codeToSymbol,
   SUPPORTED_CURRENCIES,
