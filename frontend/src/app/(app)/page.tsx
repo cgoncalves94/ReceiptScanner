@@ -11,9 +11,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Receipt, TrendingUp, ShoppingCart, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Receipt, TrendingUp, ShoppingCart, CalendarDays, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import Link from "next/link";
-import { useReceipts } from "@/hooks";
+import {
+  useReceipts,
+  useExchangeRates,
+  convertAndSum,
+  codeToSymbol,
+  SUPPORTED_CURRENCIES,
+} from "@/hooks";
 import { formatDistanceToNow } from "@/lib/format";
 
 const MONTHS = [
@@ -21,26 +33,13 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-// Group amounts by currency
-function groupByCurrency(receipts: { total_amount: number; currency: string }[]) {
-  const groups = new Map<string, number>();
-  receipts.forEach((r) => {
-    const current = groups.get(r.currency) ?? 0;
-    groups.set(r.currency, current + Number(r.total_amount));
-  });
-  return groups;
-}
-
-// Format currency totals as string
-function formatCurrencyTotals(groups: Map<string, number>) {
-  if (groups.size === 0) return "0.00";
-  return Array.from(groups.entries())
-    .map(([currency, amount]) => `${currency}${amount.toFixed(2)}`)
-    .join(" • ");
-}
-
 export default function Dashboard() {
   const { data: receipts, isLoading } = useReceipts();
+
+  // Currency selector for display conversion
+  const [displayCurrency, setDisplayCurrency] = useState<string>("EUR");
+  const { data: exchangeRates } = useExchangeRates(displayCurrency);
+  const currencySymbol = codeToSymbol(displayCurrency);
 
   // Month/Year selector state - default to current month
   // Using "all" for all months view, or month index as string
@@ -65,9 +64,14 @@ export default function Dashboard() {
     }) ?? [];
   }, [receipts, selectedMonth, selectedYear]);
 
-  // Stats for selected month (grouped by currency)
-  const monthTotals = groupByCurrency(monthReceipts);
+  // Stats for selected month (converted to display currency)
+  const totalSpent = convertAndSum(
+    monthReceipts.map((r) => ({ amount: Number(r.total_amount), currency: r.currency })),
+    displayCurrency,
+    exchangeRates
+  );
   const receiptCount = monthReceipts.length;
+  const avgPerReceipt = receiptCount > 0 ? totalSpent / receiptCount : 0;
   const recentReceipts = monthReceipts.slice(0, 5);
 
   // Navigation helpers
@@ -97,8 +101,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Month Selector */}
-      <div className="flex items-center justify-between">
+      {/* Controls Row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Month/Year Navigation */}
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={goToPrevMonth}>
             <ChevronLeft className="h-4 w-4" />
@@ -146,6 +151,39 @@ export default function Dashboard() {
             </Button>
           )}
         </div>
+
+        {/* Currency Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Display in:</span>
+          <Select value={displayCurrency} onValueChange={setDisplayCurrency}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_CURRENCIES.map((curr) => (
+                <SelectItem key={curr.code} value={curr.code}>
+                  {curr.symbol} {curr.code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <TooltipProvider>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Currency conversion info"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Converted using live rates from Frankfurter API</p>
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -178,7 +216,7 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-24" />
             ) : (
               <div className="text-2xl font-bold text-amber-500">
-                {formatCurrencyTotals(monthTotals)}
+                {currencySymbol}{totalSpent.toFixed(2)}
               </div>
             )}
           </CardContent>
@@ -197,14 +235,7 @@ export default function Dashboard() {
             ) : (
               <div className="text-2xl font-bold">
                 {receiptCount > 0
-                  ? formatCurrencyTotals(
-                      new Map(
-                        Array.from(monthTotals.entries()).map(([currency, total]) => [
-                          currency,
-                          total / receiptCount,
-                        ])
-                      )
-                    )
+                  ? `${currencySymbol}${avgPerReceipt.toFixed(2)}`
                   : "—"}
               </div>
             )}
@@ -263,7 +294,7 @@ export default function Dashboard() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">
-                      {receipt.currency}{Number(receipt.total_amount).toFixed(2)}
+                      {codeToSymbol(receipt.currency)}{Number(receipt.total_amount).toFixed(2)}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {receipt.items.length} items
