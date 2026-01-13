@@ -6,3 +6,4 @@ export { CurrencySelector } from "./currency-selector";
 export { StatCard } from "./stat-card";
 export { SpendingTrendsChart } from "./spending-trends-chart";
 export { CategoryBreakdownList } from "./category-breakdown-list";
+export { TopStoresList } from "./top-stores-list";
