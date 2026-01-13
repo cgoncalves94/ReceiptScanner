@@ -43,27 +43,25 @@ export default function Dashboard() {
   const { data: receipts, isLoading } = useReceipts();
 
   // Month/Year selector state - default to current month
-  // Using primitives to avoid memoization issues with Date objects
+  // Using "all" for all months view, or month index as string
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth.toString());
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  // Get available years from receipts
-  const availableYears = useMemo(() => {
-    if (!receipts?.length) return [currentYear];
-    const years = new Set(
-      receipts.map((r) => new Date(r.purchase_date).getFullYear())
-    );
-    years.add(currentYear); // Always include current year
-    return Array.from(years).sort((a, b) => b - a);
-  }, [receipts, currentYear]);
+  // Available years - go back 30 years to cover historical receipts (consistent with Analytics)
+  const availableYears = Array.from(
+    { length: 30 },
+    (_, i) => currentYear - i
+  );
 
   // Filter receipts for selected month
   const monthReceipts = useMemo(() => {
     return receipts?.filter((r) => {
       const purchaseDate = new Date(r.purchase_date);
-      return purchaseDate.getMonth() === selectedMonth && purchaseDate.getFullYear() === selectedYear;
+      const yearMatches = purchaseDate.getFullYear() === selectedYear;
+      if (selectedMonth === "all") return yearMatches;
+      return yearMatches && purchaseDate.getMonth() === parseInt(selectedMonth);
     }) ?? [];
   }, [receipts, selectedMonth, selectedYear]);
 
@@ -74,24 +72,28 @@ export default function Dashboard() {
 
   // Navigation helpers
   const goToPrevMonth = () => {
-    if (selectedMonth === 0) {
-      setSelectedMonth(11);
+    if (selectedMonth === "all") {
+      setSelectedYear(selectedYear - 1);
+    } else if (selectedMonth === "0") {
+      setSelectedMonth("11");
       setSelectedYear(selectedYear - 1);
     } else {
-      setSelectedMonth(selectedMonth - 1);
+      setSelectedMonth((parseInt(selectedMonth) - 1).toString());
     }
   };
 
   const goToNextMonth = () => {
-    if (selectedMonth === 11) {
-      setSelectedMonth(0);
+    if (selectedMonth === "all") {
+      setSelectedYear(selectedYear + 1);
+    } else if (selectedMonth === "11") {
+      setSelectedMonth("0");
       setSelectedYear(selectedYear + 1);
     } else {
-      setSelectedMonth(selectedMonth + 1);
+      setSelectedMonth((parseInt(selectedMonth) + 1).toString());
     }
   };
 
-  const isCurrentMonth = selectedMonth === currentMonth && selectedYear === currentYear;
+  const isCurrentMonth = selectedMonth === currentMonth.toString() && selectedYear === currentYear;
 
   return (
     <div className="space-y-6">
@@ -102,11 +104,12 @@ export default function Dashboard() {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2">
-            <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Months</SelectItem>
                 {MONTHS.map((month, index) => (
                   <SelectItem key={index} value={index.toString()}>
                     {month}
@@ -130,19 +133,19 @@ export default function Dashboard() {
           <Button variant="outline" size="icon" onClick={goToNextMonth}>
             <ChevronRight className="h-4 w-4" />
           </Button>
+          {!isCurrentMonth && selectedMonth !== "all" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedMonth(currentMonth.toString());
+                setSelectedYear(currentYear);
+              }}
+            >
+              Today
+            </Button>
+          )}
         </div>
-        {!isCurrentMonth && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSelectedMonth(currentMonth);
-              setSelectedYear(currentYear);
-            }}
-          >
-            Today
-          </Button>
-        )}
       </div>
 
       {/* Stats Grid */}
@@ -214,15 +217,15 @@ export default function Dashboard() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{MONTHS[selectedMonth]} Receipts</CardTitle>
+              <CardTitle>{selectedMonth === "all" ? `${selectedYear}` : MONTHS[parseInt(selectedMonth)]} Receipts</CardTitle>
               <CardDescription>
                 {receiptCount === 0
-                  ? "No receipts this month"
-                  : `${receiptCount} receipt${receiptCount !== 1 ? "s" : ""} in ${MONTHS[selectedMonth]} ${selectedYear}`}
+                  ? `No receipts ${selectedMonth === "all" ? "this year" : "this month"}`
+                  : `${receiptCount} receipt${receiptCount !== 1 ? "s" : ""} in ${selectedMonth === "all" ? selectedYear : `${MONTHS[parseInt(selectedMonth)]} ${selectedYear}`}`}
               </CardDescription>
             </div>
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/receipts?year=${selectedYear}&month=${selectedMonth}`}>View All</Link>
+              <Link href={`/receipts?year=${selectedYear}${selectedMonth !== "all" ? `&month=${selectedMonth}` : ""}`}>View All</Link>
             </Button>
           </div>
         </CardHeader>
@@ -236,7 +239,7 @@ export default function Dashboard() {
           ) : recentReceipts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <CalendarDays className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No receipts in {MONTHS[selectedMonth]}</p>
+              <p>No receipts in {selectedMonth === "all" ? selectedYear : MONTHS[parseInt(selectedMonth)]}</p>
               <p className="text-sm">Scan a receipt to get started</p>
             </div>
           ) : (
