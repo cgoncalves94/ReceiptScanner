@@ -36,7 +36,7 @@ import {
   codeToSymbol,
   SUPPORTED_CURRENCIES,
 } from "@/hooks";
-import { DateNavigator, CurrencySelector } from "@/components/analytics";
+import { DateNavigator, CurrencySelector, StatCard } from "@/components/analytics";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -198,73 +198,35 @@ export default function AnalyticsPage() {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card/50 border-border/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Spent
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <div className="text-2xl font-bold text-amber-500">
-                {currencySymbol}{totalSpent.toFixed(2)}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Total Spent"
+          value={`${currencySymbol}${totalSpent.toFixed(2)}`}
+          icon={<TrendingUp className="h-4 w-4 text-amber-500" />}
+          isLoading={isLoading}
+          iconClassName="h-4 w-4 text-amber-500"
+          valueClassName="text-2xl font-bold text-amber-500"
+        />
 
-        <Card className="bg-card/50 border-border/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Receipts
-            </CardTitle>
-            <Receipt className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{receiptCount}</div>
-            )}
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Receipts"
+          value={receiptCount}
+          icon={<Receipt className="h-4 w-4 text-muted-foreground" />}
+          isLoading={isLoading}
+        />
 
-        <Card className="bg-card/50 border-border/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Avg per Receipt
-            </CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-2xl font-bold">
-                {currencySymbol}{avgPerReceipt.toFixed(2)}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Avg per Receipt"
+          value={`${currencySymbol}${avgPerReceipt.toFixed(2)}`}
+          icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
+          isLoading={isLoading}
+        />
 
-        <Card className="bg-card/50 border-border/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Categories Used
-            </CardTitle>
-            <FolderOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{categoriesCount}</div>
-            )}
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Categories Used"
+          value={categoriesCount}
+          icon={<FolderOpen className="h-4 w-4 text-muted-foreground" />}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Spending Trends Chart */}
