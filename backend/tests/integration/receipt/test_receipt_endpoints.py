@@ -158,7 +158,6 @@ async def test_update_receipt_clear_metadata(
     assert data["tax_amount"] is None
 
 
-
 # Item CRUD Tests
 
 

@@ -444,7 +444,6 @@ def test_payment_method_enum_values():
     assert PaymentMethod.OTHER.value == "other"
 
 
-
 # Item CRUD Tests
 
 
