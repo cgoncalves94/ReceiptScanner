@@ -1,17 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BarChart3, TrendingUp, FolderOpen, Receipt, Store } from "lucide-react";
+import { BarChart3, TrendingUp, FolderOpen, Receipt } from "lucide-react";
 import {
   useAnalyticsSummary,
   useAnalyticsTrends,
@@ -34,9 +23,8 @@ import {
   convertAndSum,
   convertCurrencyAmounts,
   codeToSymbol,
-  SUPPORTED_CURRENCIES,
 } from "@/hooks";
-import { DateNavigator, CurrencySelector, StatCard } from "@/components/analytics";
+import { DateNavigator, CurrencySelector, StatCard, SpendingTrendsChart, CategoryBreakdownList, TopStoresList } from "@/components/analytics";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -230,204 +218,42 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Spending Trends Chart */}
-      <Card className="bg-card/50 border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Spending Trends
-          </CardTitle>
-          <CardDescription>
-            {selectedMonth === "all" ? "Monthly" : "Daily"} spending in {periodLabel}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-75 w-full" />
-          ) : !trends?.trends.length ? (
-            <div className="h-75 flex flex-col items-center justify-center text-muted-foreground">
-              <TrendingUp className="h-12 w-12 mb-3 opacity-50" />
-              <p>No spending data for {periodLabel}</p>
-              <p className="text-sm">Scan receipts to see trends</p>
-            </div>
-          ) : (
-            <div className="h-75">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={trends.trends.map((t) => ({
-                    date: new Date(t.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: selectedMonth === "all" ? undefined : "numeric",
-                    }),
-                    total: convertCurrencyAmounts(t.totals_by_currency, displayCurrency, exchangeRates),
-                    receipts: t.receipt_count,
-                  }))}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: "#f59e0b", fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: "#f59e0b", fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${currencySymbol}${value}`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid #f59e0b",
-                      borderRadius: "8px",
-                    }}
-                    labelStyle={{ color: "#f59e0b" }}
-                    formatter={(value) => [`${currencySymbol}${Number(value).toFixed(2)}`, "Spent"]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="total"
-                    stroke="#f59e0b"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorTotal)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <SpendingTrendsChart
+        trends={trends ? {
+          trends: trends.trends.map((t) => ({
+            period_label: new Date(t.date).toLocaleDateString("en-US", {
+              month: "short",
+              day: selectedMonth === "all" ? undefined : "numeric",
+            }),
+            totals_by_currency: t.totals_by_currency,
+          })),
+        } : undefined}
+        isLoading={isLoading}
+        displayCurrency={displayCurrency}
+        currencySymbol={currencySymbol}
+        exchangeRates={exchangeRates}
+        isMonthlyView={selectedMonth === "all"}
+      />
 
       {/* Category Breakdown */}
-      <Card className="bg-card/50 border-border/50">
-        <CardHeader>
-          <CardTitle>Spending by Category</CardTitle>
-          <CardDescription>{periodLabel} breakdown</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : !categoryBreakdown?.categories.length ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No category data for {periodLabel}</p>
-              <p className="text-sm">Scan receipts to see breakdown</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {categoryBreakdown.categories.map((cat) => {
-                const catTotal = convertCurrencyAmounts(cat.totals_by_currency, displayCurrency, exchangeRates);
-                const percentage = categoryTotalSpent > 0 ? (catTotal / categoryTotalSpent) * 100 : 0;
-                return (
-                  <button
-                    type="button"
-                    key={cat.category_id}
-                    onClick={() => setSelectedCategoryId(cat.category_id)}
-                    className="w-full text-left"
-                  >
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-accent/50 hover:bg-accent transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                          <FolderOpen className="h-5 w-5 text-amber-500" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{cat.category_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {cat.item_count} item{cat.item_count !== 1 ? "s" : ""} • {percentage.toFixed(1)}%
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-amber-500">
-                          {currencySymbol}{catTotal.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Progress bar */}
-                    <div className="h-1 mt-1 bg-accent rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-amber-500 rounded-full transition-all"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <CategoryBreakdownList
+        categories={categoryBreakdown?.categories ?? []}
+        isLoading={isLoading}
+        displayCurrency={displayCurrency}
+        exchangeRates={exchangeRates}
+        periodLabel={periodLabel}
+        categoryTotalSpent={categoryTotalSpent}
+        onCategoryClick={setSelectedCategoryId}
+      />
 
       {/* Top Stores */}
-      <Card className="bg-card/50 border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Store className="h-5 w-5" />
-            Top Stores
-          </CardTitle>
-          <CardDescription>Where you spend the most in {periodLabel}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full" />
-              ))}
-            </div>
-          ) : !topStores?.stores.length ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Store className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No store data for {periodLabel}</p>
-              <p className="text-sm">Scan receipts to see your top stores</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {topStores.stores.map((store, index) => {
-                const storeTotal = convertCurrencyAmounts(store.totals_by_currency, displayCurrency, exchangeRates);
-                const avgPerVisit = store.visit_count > 0 ? storeTotal / store.visit_count : 0;
-                return (
-                  <div
-                    key={store.store_name}
-                    className="flex items-center justify-between p-4 rounded-lg bg-accent/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                        <span className="text-amber-500 font-bold">#{index + 1}</span>
-                      </div>
-                      <div>
-                        <p className="font-medium">{store.store_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {store.visit_count} visit{store.visit_count !== 1 ? "s" : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-amber-500">
-                        {currencySymbol}{storeTotal.toFixed(2)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        avg {currencySymbol}{avgPerVisit.toFixed(2)}/visit
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <TopStoresList
+        stores={topStores?.stores}
+        isLoading={isLoading}
+        displayCurrency={displayCurrency}
+        exchangeRates={exchangeRates}
+        periodLabel={periodLabel}
+      />
 
       {/* Category Items Modal */}
       <Dialog open={selectedCategoryId !== null} onOpenChange={(open) => !open && setSelectedCategoryId(null)}>
