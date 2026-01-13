@@ -132,8 +132,9 @@ export function useDeleteReceiptItem() {
       // Optimistically update the receipt by removing the item
       if (previousReceipt) {
         const deletedItem = previousReceipt.items.find((i) => i.id === itemId);
+        // Round to 2 decimal places to avoid floating-point precision issues
         const newTotal = deletedItem
-          ? Number(previousReceipt.total_amount) - Number(deletedItem.total_price)
+          ? Math.round((previousReceipt.total_amount - deletedItem.total_price) * 100) / 100
           : previousReceipt.total_amount;
 
         const updatedReceipt: Receipt = {

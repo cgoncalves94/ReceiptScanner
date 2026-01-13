@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.category.services import CategoryService
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import BadRequestError, NotFoundError
 from app.receipt.models import (
     Receipt,
     ReceiptCreate,
@@ -502,3 +502,33 @@ async def test_delete_item_nonexistent_receipt(
     with pytest.raises(NotFoundError) as exc_info:
         await receipt_service.delete_item(receipt_id=999, item_id=1)
     assert "not found" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_create_item_currency_mismatch(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test creating an item with currency that doesn't match the receipt."""
+    # Arrange
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("10.00"),
+        currency="$",  # Receipt uses dollars
+        image_path="/path/to/image.jpg",
+        items=[],
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.refresh = AsyncMock()
+
+    item_data = ReceiptItemCreateRequest(
+        name="New Item",
+        quantity=1,
+        unit_price=Decimal("5.00"),
+        currency="€",  # Item uses euros - mismatch!
+    )
+
+    # Act & Assert
+    with pytest.raises(BadRequestError) as exc_info:
+        await receipt_service.create_item(receipt_id=1, item_in=item_data)
+    assert "does not match" in str(exc_info.value)

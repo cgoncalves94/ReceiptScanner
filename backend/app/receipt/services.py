@@ -275,6 +275,13 @@ class ReceiptService:
         # Get the receipt to verify it exists
         receipt = await self.get(receipt_id)
 
+        # Validate currency matches the receipt
+        if item_in.currency != receipt.currency:
+            raise BadRequestError(
+                f"Item currency '{item_in.currency}' does not match "
+                f"receipt currency '{receipt.currency}'"
+            )
+
         # Calculate total_price from quantity and unit_price
         total_price = item_in.quantity * item_in.unit_price
 
