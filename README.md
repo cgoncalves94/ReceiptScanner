@@ -45,23 +45,6 @@ make dev-frontend     # Terminal 2: Frontend
 - **Backend API**: <http://localhost:8000>
 - **API Docs**: <http://localhost:8000/docs>
 
-## API Endpoints
-
-| Method | Endpoint | Description |
-| ------ | -------- | ----------- |
-| `POST` | `/api/v1/receipts/scan` | Upload and analyze receipt |
-| `GET` | `/api/v1/receipts` | List receipts (with filtering) |
-| `GET` | `/api/v1/receipts/{id}` | Get receipt details |
-| `PATCH` | `/api/v1/receipts/{id}` | Update receipt |
-| `DELETE` | `/api/v1/receipts/{id}` | Delete receipt |
-| `GET` | `/api/v1/categories` | List categories |
-| `POST` | `/api/v1/categories` | Create category |
-| `DELETE` | `/api/v1/categories/{id}` | Delete category |
-| `GET` | `/api/v1/analytics/summary` | Spending summary |
-| `GET` | `/api/v1/analytics/trends` | Spending trends |
-
-See full API documentation at <http://localhost:8000/docs>
-
 ## Development
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed setup, commands, and architecture guide.
