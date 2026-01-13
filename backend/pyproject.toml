@@ -119,6 +119,13 @@ strict = true
 exclude = ["venv", ".venv", "alembic"]
 disable_error_code = ["prop-decorator"]
 
+[tool.pyright]
+# Use basic mode - SQLAlchemy/SQLModel have dynamic types that Pylance strict mode doesn't understand
+typeCheckingMode = "basic"
+# Ignore SQLAlchemy ORM attribute false positives
+reportArgumentType = "warning"
+reportAttributeAccessIssue = "warning"
+
 [tool.logfire]
 ignore_no_config = true
 

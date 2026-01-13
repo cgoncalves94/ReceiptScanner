@@ -57,6 +57,14 @@ export interface ReceiptItemUpdate {
   category_id?: number | null;
 }
 
+export interface ReceiptItemCreate {
+  name: string;
+  quantity: number;
+  unit_price: number;
+  currency: string;
+  category_id?: number | null;
+}
+
 export interface Receipt {
   id: number;
   store_name: string;
@@ -95,4 +103,72 @@ export interface ScanResult {
 // API Error response
 export interface ApiError {
   detail: string;
+}
+
+// Receipt filter parameters for search/filtering
+export interface ReceiptFilters {
+  search?: string;
+  store?: string;
+  after?: string; // ISO 8601 date string
+  before?: string; // ISO 8601 date string
+  category_ids?: number[];
+  min_amount?: number;
+  max_amount?: number;
+}
+
+// Analytics Types - Multi-currency support
+// Backend returns amounts grouped by original currency
+// Frontend converts to display currency using exchange rates
+
+export interface CurrencyAmount {
+  currency: string;
+  amount: string; // Decimal serialized as string
+}
+
+export interface SpendingSummary {
+  totals_by_currency: CurrencyAmount[];
+  receipt_count: number;
+  top_category: string | null;
+  top_category_amounts: CurrencyAmount[] | null;
+  year: number;
+  month: number | null;
+}
+
+export interface SpendingTrend {
+  date: string;
+  totals_by_currency: CurrencyAmount[];
+  receipt_count: number;
+}
+
+export interface SpendingTrendsResponse {
+  trends: SpendingTrend[];
+  period: "daily" | "weekly" | "monthly";
+  start_date: string;
+  end_date: string;
+}
+
+export interface StoreVisit {
+  store_name: string;
+  visit_count: number;
+  totals_by_currency: CurrencyAmount[];
+}
+
+export interface TopStoresResponse {
+  stores: StoreVisit[];
+  year: number;
+  month: number | null;
+}
+
+export interface CategorySpending {
+  category_id: number;
+  category_name: string;
+  item_count: number;
+  totals_by_currency: CurrencyAmount[];
+}
+
+export interface CategoryBreakdownResponse {
+  categories: CategorySpending[];
+  totals_by_currency: CurrencyAmount[];
+  year: number;
+  month: number | null;
 }
