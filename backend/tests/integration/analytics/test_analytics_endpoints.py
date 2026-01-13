@@ -3,7 +3,6 @@
 from datetime import datetime
 from decimal import Decimal
 
-import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -46,6 +45,12 @@ async def analytics_test_data(test_session: AsyncSession):
     )
     test_session.add_all([receipt1, receipt2, receipt3])
     await test_session.flush()
+
+    # Assert IDs are set after flush (for type checker)
+    assert receipt1.id is not None
+    assert receipt2.id is not None
+    assert groceries.id is not None
+    assert electronics.id is not None
 
     # Create receipt items
     item1 = ReceiptItem(

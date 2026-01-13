@@ -4,7 +4,12 @@ from typing import Literal
 from fastapi import APIRouter, Query, status
 
 from .deps import AnalyticsDeps
-from .models import CategoryBreakdownResponse, SpendingSummary, SpendingTrendsResponse, TopStoresResponse
+from .models import (
+    CategoryBreakdownResponse,
+    SpendingSummary,
+    SpendingTrendsResponse,
+    TopStoresResponse,
+)
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
