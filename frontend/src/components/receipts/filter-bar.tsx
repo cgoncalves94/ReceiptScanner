@@ -149,7 +149,7 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
   return (
     <div className="space-y-4">
       {/* Main filter row */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         {/* Search input */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -201,7 +201,6 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
         <div className="flex gap-2">
           <Button
             variant="outline"
-            size="sm"
             onClick={() => setShowAdvanced(!showAdvanced)}
             className={showAdvanced ? "bg-accent" : ""}
           >
@@ -214,7 +213,7 @@ export function FilterBar({ filters, onFiltersChange, stores = [] }: FilterBarPr
           </Button>
 
           {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
+            <Button variant="ghost" onClick={clearFilters}>
               <X className="h-4 w-4 mr-1" />
               Clear
               {activeFilterCount > 0 && (
