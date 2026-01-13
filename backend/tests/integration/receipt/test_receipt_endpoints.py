@@ -76,6 +76,125 @@ async def test_list_items_by_category(
     assert data[0]["category_id"] == test_category.id
 
 
+# Item CRUD Tests
+
+
+@pytest.mark.asyncio
+async def test_create_receipt_item(
+    test_client: TestClient,
+    test_receipt: Receipt,
+    test_category: Category,
+) -> None:
+    """Test creating a receipt item."""
+    original_total = float(test_receipt.total_amount)
+    item_data = {
+        "name": "New Item",
+        "quantity": 2,
+        "unit_price": 5.50,
+        "currency": "$",
+        "category_id": test_category.id,
+    }
+
+    response = test_client.post(
+        f"/api/v1/receipts/{test_receipt.id}/items",
+        content=json.dumps(item_data),
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    # Check the item was added
+    assert len(data["items"]) == 1
+    assert data["items"][0]["name"] == "New Item"
+    assert data["items"][0]["quantity"] == 2
+    assert float(data["items"][0]["unit_price"]) == 5.50
+    assert float(data["items"][0]["total_price"]) == 11.00  # 2 * 5.50
+    assert data["items"][0]["category_id"] == test_category.id
+    # Check the receipt total was updated (use approx due to floating point)
+    expected_total = original_total + 11.00
+    assert abs(float(data["total_amount"]) - expected_total) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_create_receipt_item_nonexistent_receipt(
+    test_client: TestClient,
+) -> None:
+    """Test creating an item on a receipt that doesn't exist."""
+    item_data = {
+        "name": "New Item",
+        "quantity": 1,
+        "unit_price": 5.00,
+        "currency": "$",
+    }
+
+    response = test_client.post(
+        "/api/v1/receipts/999999/items",
+        content=json.dumps(item_data),
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_receipt_item(
+    test_client: TestClient,
+    test_receipt: Receipt,
+    test_category: Category,
+) -> None:
+    """Test deleting a receipt item.
+
+    We first create an item via the API (which updates the total),
+    then delete it and verify the total is adjusted back.
+    """
+    # Create an item first via API to ensure totals are correctly tracked
+    item_data = {
+        "name": "Item to Delete",
+        "quantity": 1,
+        "unit_price": 5.00,
+        "currency": "$",
+        "category_id": test_category.id,
+    }
+    create_response = test_client.post(
+        f"/api/v1/receipts/{test_receipt.id}/items",
+        content=json.dumps(item_data),
+    )
+    assert create_response.status_code == 201
+    created_data = create_response.json()
+    item_id = created_data["items"][0]["id"]
+    total_after_create = float(created_data["total_amount"])
+
+    # Now delete the item
+    response = test_client.delete(f"/api/v1/receipts/{test_receipt.id}/items/{item_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    # Check the item was removed
+    assert len(data["items"]) == 0
+    # Check the receipt total was updated (reduced by the item total)
+    expected_total = total_after_create - 5.00
+    assert abs(float(data["total_amount"]) - expected_total) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_delete_receipt_item_nonexistent_item(
+    test_client: TestClient,
+    test_receipt: Receipt,
+) -> None:
+    """Test deleting an item that doesn't exist."""
+    response = test_client.delete(f"/api/v1/receipts/{test_receipt.id}/items/999999")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_receipt_item_nonexistent_receipt(
+    test_client: TestClient,
+) -> None:
+    """Test deleting an item from a receipt that doesn't exist."""
+    response = test_client.delete("/api/v1/receipts/999999/items/1")
+
+    assert response.status_code == 404
+
+
 # Filter Tests
 
 

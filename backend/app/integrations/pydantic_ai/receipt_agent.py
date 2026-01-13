@@ -3,24 +3,70 @@ from dataclasses import dataclass
 from functools import cache
 from io import BytesIO
 
+import httpx
+from google.genai.types import ThinkingLevel
 from PIL import Image
-from pydantic_ai import Agent, ModelSettings, RunContext
+from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import BinaryContent
-from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
 from pydantic_ai.models.instrumented import InstrumentationSettings
 from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig, wait_retry_after
+from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.core.config import settings
 from app.core.exceptions import ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_prompt import RECEIPT_SYSTEM_PROMPT
-from app.integrations.pydantic_ai.receipt_schema import CurrencySymbol, ReceiptAnalysis
+from app.integrations.pydantic_ai.receipt_schema import CurrencyCode, ReceiptAnalysis
 
 # Model configuration - use Gemini 3 Flash by default (faster + cheaper than Pro)
 # Set GEMINI_MODEL env var to override (e.g., "gemini-3-pro-preview" for higher quality)
 DEFAULT_MODEL = "gemini-3-flash-preview"
 
-# Default model settings with timeout (60 seconds for receipt analysis)
-DEFAULT_MODEL_SETTINGS = ModelSettings(timeout=60)
+# Default model settings:
+# - timeout: 120 seconds (increased from 60 to handle image processing + thinking)
+# - thinking_level: LOW to minimize latency (receipt scanning is straightforward)
+#   Per Google docs: LOW = "Minimizes latency and cost. Best for simple instruction
+#   following, chat, or high-throughput applications"
+# Note: GoogleModelSettings expects ThinkingConfigDict but ThinkingConfig works at runtime
+DEFAULT_MODEL_SETTINGS = GoogleModelSettings(
+    timeout=120,
+    google_thinking_config={"thinking_level": ThinkingLevel.LOW},
+)
+
+
+def _create_retrying_http_client() -> httpx.AsyncClient:
+    """Create an HTTP client with smart retry handling for transient errors.
+
+    Handles HTTP 429 (rate limit), 502, 503, 504 (server errors) with
+    exponential backoff and Retry-After header support.
+
+    Per Google's troubleshooting docs, 504 DEADLINE_EXCEEDED errors should be
+    retried as they're often transient.
+    """
+
+    def should_retry_status(response: httpx.Response) -> None:
+        """Raise exceptions for retryable HTTP status codes."""
+        if response.status_code in (429, 502, 503, 504):
+            response.raise_for_status()  # This will raise HTTPStatusError
+
+    transport = AsyncTenacityTransport(
+        config=RetryConfig(
+            # Retry on HTTP errors (from validate_response) and connection issues
+            retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError)),
+            # Smart waiting: respects Retry-After headers, falls back to exponential backoff
+            wait=wait_retry_after(
+                fallback_strategy=wait_exponential(multiplier=2, max=30),
+                max_wait=120,
+            ),
+            # Stop after 3 attempts (1 initial + 2 retries)
+            stop=stop_after_attempt(3),
+            # Re-raise the last exception if all retries fail
+            reraise=True,
+        ),
+        validate_response=should_retry_status,
+    )
+    return httpx.AsyncClient(transport=transport, timeout=120)
 
 
 @dataclass
@@ -40,8 +86,14 @@ def get_receipt_agent() -> Agent[ReceiptDependencies, ReceiptAnalysis]:
     """
     model_name = os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
 
-    # Configure Google provider with API key
-    google_provider = GoogleProvider(api_key=settings.GEMINI_API_KEY)
+    # Create HTTP client with retry logic for transient errors (429, 502, 503, 504)
+    http_client = _create_retrying_http_client()
+
+    # Configure Google provider with API key and retrying HTTP client
+    google_provider = GoogleProvider(
+        api_key=settings.GEMINI_API_KEY,
+        http_client=http_client,
+    )
     google_model = GoogleModel(model_name, provider=google_provider)
 
     # Instrumentation settings for fine-grained Logfire tracing
@@ -89,11 +141,11 @@ Note:
     # Register output validator
     @agent.output_validator
     def validate_currencies(result: ReceiptAnalysis) -> ReceiptAnalysis:
-        """Validate and standardize currencies in the receipt analysis."""
-        result.currency = CurrencySymbol.standardize(result.currency)
+        """Validate and standardize currencies to ISO codes in the receipt analysis."""
+        result.currency = CurrencyCode.standardize(result.currency)
 
         for item in result.items:
-            item.currency = CurrencySymbol.standardize(item.currency)
+            item.currency = CurrencyCode.standardize(item.currency)
             if item.currency != result.currency:
                 item.currency = result.currency
 

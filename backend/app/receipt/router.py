@@ -9,6 +9,7 @@ from .deps import ReceiptDeps
 from .models import (
     Receipt,
     ReceiptItem,
+    ReceiptItemCreateRequest,
     ReceiptItemRead,
     ReceiptItemUpdate,
     ReceiptRead,
@@ -165,3 +166,38 @@ async def update_receipt_item(
 ) -> Receipt:
     """Update a receipt item."""
     return await service.update_item(receipt_id, item_id, item_in)
+
+
+@router.post(
+    "/{receipt_id}/items",
+    response_model=ReceiptRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_receipt_item(
+    receipt_id: int,
+    item_in: ReceiptItemCreateRequest,
+    service: ReceiptDeps,
+) -> Receipt:
+    """Create a new item for a receipt.
+
+    Creates the item and updates the receipt total automatically.
+    """
+    return await service.create_item(receipt_id, item_in)
+
+
+@router.delete(
+    "/{receipt_id}/items/{item_id}",
+    response_model=ReceiptRead,
+    status_code=status.HTTP_200_OK,
+)
+async def delete_receipt_item(
+    receipt_id: int,
+    item_id: int,
+    service: ReceiptDeps,
+) -> Receipt:
+    """Delete a receipt item.
+
+    Deletes the item and updates the receipt total automatically.
+    Returns the updated receipt with remaining items.
+    """
+    return await service.delete_item(receipt_id, item_id)

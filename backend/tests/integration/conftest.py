@@ -30,10 +30,10 @@ from PIL import Image
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncEngine,
-    AsyncSession,
     create_async_engine,
 )
 from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.category.models import Category
 from app.core.config import settings
@@ -284,6 +284,8 @@ async def test_receipt_item(
     test_category: Category,
 ) -> AsyncGenerator[ReceiptItem]:
     """Create a test receipt item linked to a receipt and category."""
+    assert test_receipt.id is not None
+    assert test_category.id is not None
     item = ReceiptItem(
         name="Test Item",
         quantity=2,
@@ -297,3 +299,86 @@ async def test_receipt_item(
     await test_session.commit()
     await test_session.refresh(item)
     yield item
+
+
+@pytest_asyncio.fixture
+async def analytics_test_data(test_session: AsyncSession) -> dict:
+    """Create test data for analytics tests.
+
+    Creates a realistic scenario with multiple stores, categories,
+    receipts, and items for testing analytics aggregations.
+    """
+    # Create categories
+    groceries = Category(name="Groceries", description="Food items")
+    electronics = Category(name="Electronics", description="Electronic items")
+    test_session.add(groceries)
+    test_session.add(electronics)
+    await test_session.flush()
+
+    # Create receipts for January 2025
+    receipt1 = Receipt(
+        store_name="Walmart",
+        total_amount=Decimal("50.00"),
+        currency="EUR",
+        purchase_date=datetime(2025, 1, 5),
+        image_path="/path/receipt1.jpg",
+    )
+    receipt2 = Receipt(
+        store_name="Target",
+        total_amount=Decimal("75.00"),
+        currency="EUR",
+        purchase_date=datetime(2025, 1, 15),
+        image_path="/path/receipt2.jpg",
+    )
+    receipt3 = Receipt(
+        store_name="Walmart",
+        total_amount=Decimal("30.00"),
+        currency="EUR",
+        purchase_date=datetime(2025, 1, 20),
+        image_path="/path/receipt3.jpg",
+    )
+    test_session.add_all([receipt1, receipt2, receipt3])
+    await test_session.flush()
+
+    # Assert IDs are set after flush (for type checker)
+    assert receipt1.id is not None
+    assert receipt2.id is not None
+    assert groceries.id is not None
+    assert electronics.id is not None
+
+    # Create receipt items
+    item1 = ReceiptItem(
+        name="Milk",
+        quantity=2,
+        unit_price=Decimal("3.00"),
+        total_price=Decimal("6.00"),
+        currency="EUR",
+        receipt_id=receipt1.id,
+        category_id=groceries.id,
+    )
+    item2 = ReceiptItem(
+        name="Bread",
+        quantity=1,
+        unit_price=Decimal("2.50"),
+        total_price=Decimal("2.50"),
+        currency="EUR",
+        receipt_id=receipt1.id,
+        category_id=groceries.id,
+    )
+    item3 = ReceiptItem(
+        name="USB Cable",
+        quantity=1,
+        unit_price=Decimal("15.00"),
+        total_price=Decimal("15.00"),
+        currency="EUR",
+        receipt_id=receipt2.id,
+        category_id=electronics.id,
+    )
+    test_session.add_all([item1, item2, item3])
+    await test_session.commit()
+
+    return {
+        "categories": [groceries, electronics],
+        "receipts": [receipt1, receipt2, receipt3],
+        "items": [item1, item2, item3],
+    }

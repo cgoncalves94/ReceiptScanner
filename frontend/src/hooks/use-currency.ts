@@ -112,3 +112,27 @@ export function convertAndSum(
     return sum + converted;
   }, 0);
 }
+
+// Type for backend CurrencyAmount response
+interface CurrencyAmountResponse {
+  currency: string;
+  amount: string; // Backend sends Decimal as string
+}
+
+/**
+ * Convert CurrencyAmount[] from backend to a single total in target currency.
+ * Used for analytics data that comes grouped by original currency.
+ */
+export function convertCurrencyAmounts(
+  amounts: CurrencyAmountResponse[] | null | undefined,
+  targetCurrency: string,
+  rates: ExchangeRates | undefined
+): number {
+  if (!amounts || amounts.length === 0) return 0;
+
+  return amounts.reduce((sum, item) => {
+    const numAmount = Number(item.amount);
+    const converted = convertAmount(numAmount, item.currency, targetCurrency, rates);
+    return sum + converted;
+  }, 0);
+}

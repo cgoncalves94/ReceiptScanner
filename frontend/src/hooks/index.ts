@@ -5,6 +5,8 @@ export {
   useUpdateReceipt,
   useDeleteReceipt,
   useUpdateReceiptItem,
+  useCreateReceiptItem,
+  useDeleteReceiptItem,
 } from "./use-receipts";
 
 export {
@@ -20,7 +22,15 @@ export {
   useExchangeRates,
   convertAmount,
   convertAndSum,
+  convertCurrencyAmounts,
   symbolToCode,
   codeToSymbol,
   SUPPORTED_CURRENCIES,
 } from "./use-currency";
+
+export {
+  useAnalyticsSummary,
+  useAnalyticsTrends,
+  useTopStores,
+  useCategoryBreakdown,
+} from "./use-analytics";

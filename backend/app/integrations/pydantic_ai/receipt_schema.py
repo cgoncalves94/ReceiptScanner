@@ -4,46 +4,46 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 
-class CurrencySymbol(str, Enum):
-    """Currency symbols for standardization."""
+class CurrencyCode(str, Enum):
+    """ISO 4217 currency codes for standardization."""
 
-    EURO = "€"
-    DOLLAR = "$"
-    POUND = "£"
+    EUR = "EUR"
+    USD = "USD"
+    GBP = "GBP"
 
     @classmethod
     def standardize(cls, value: str) -> str:
-        """Standardize currency string to a symbol.
+        """Standardize currency string to ISO 4217 code.
 
         Args:
-            value: Currency string to standardize
+            value: Currency string to standardize (symbol or code)
 
         Returns:
-            Standardized currency symbol
+            Standardized ISO currency code (EUR, USD, GBP)
         """
-        # Mapping of various currency formats to standard symbols
+        # Mapping of various currency formats to ISO codes
         mapping = {
             # Euro variations
-            "EUR": cls.EURO,
-            "EURO": cls.EURO,
-            "EUROS": cls.EURO,
-            "€": cls.EURO,
+            "EUR": cls.EUR,
+            "EURO": cls.EUR,
+            "EUROS": cls.EUR,
+            "€": cls.EUR,
             # Dollar variations
-            "USD": cls.DOLLAR,
-            "DOLLAR": cls.DOLLAR,
-            "DOLLARS": cls.DOLLAR,
-            "$": cls.DOLLAR,
+            "USD": cls.USD,
+            "DOLLAR": cls.USD,
+            "DOLLARS": cls.USD,
+            "$": cls.USD,
             # Pound variations
-            "GBP": cls.POUND,
-            "POUND": cls.POUND,
-            "POUNDS": cls.POUND,
-            "£": cls.POUND,
+            "GBP": cls.GBP,
+            "POUND": cls.GBP,
+            "POUNDS": cls.GBP,
+            "£": cls.GBP,
         }
 
         # Convert to uppercase for case-insensitive matching
         upper_value = value.upper().strip()
 
-        # Return mapped symbol or original if not found
+        # Return mapped ISO code or original if not found
         return mapping.get(upper_value, value)
 
 
@@ -60,7 +60,9 @@ class ReceiptItem(BaseModel):
     name: str = Field(description="Name of the item")
     price: float = Field(description="Price of the item", ge=0)
     quantity: float = Field(description="Quantity of the item", ge=0, default=1.0)
-    currency: str = Field(description="Currency symbol (e.g., $, £, €)")
+    currency: str = Field(
+        description="Currency code or symbol (e.g., USD, EUR, GBP, $, £, €)"
+    )
     category: Category = Field(description="Category information for the item")
 
 
@@ -69,6 +71,6 @@ class ReceiptAnalysis(BaseModel):
 
     store_name: str = Field(description="Name of the store")
     total_amount: float = Field(description="Total amount of the receipt", ge=0)
-    currency: str = Field(description="Currency symbol used in the receipt")
+    currency: str = Field(description="Currency code or symbol used in the receipt")
     date: datetime = Field(description="Date and time of the receipt")
     items: list[ReceiptItem] = Field(description="List of items on the receipt")

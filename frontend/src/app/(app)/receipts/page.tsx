@@ -17,8 +17,8 @@ function ReceiptsPageLoading() {
       <div className="flex flex-col gap-4">
         <Skeleton className="h-10 w-full max-w-md" />
         <div className="flex items-center gap-2">
-          <Skeleton className="h-10 w-[180px]" />
-          <Skeleton className="h-10 w-[180px]" />
+          <Skeleton className="h-10 w-45" />
+          <Skeleton className="h-10 w-45" />
         </div>
       </div>
       <Card className="bg-card/50 border-border/50">

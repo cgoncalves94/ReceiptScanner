@@ -6,11 +6,12 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.category.services import CategoryService
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import BadRequestError, NotFoundError
 from app.receipt.models import (
     Receipt,
     ReceiptCreate,
     ReceiptItem,
+    ReceiptItemCreateRequest,
     ReceiptItemUpdate,
     ReceiptUpdate,
 )
@@ -105,6 +106,7 @@ async def test_get_receipt(
         currency="$",
         image_path="/path/to/image.jpg",
     )
+    assert receipt.id is not None
     mock_session.scalar.return_value = receipt
     mock_session.refresh = AsyncMock()
 
@@ -150,11 +152,11 @@ async def test_list_receipts(
         for i in range(1, 4)
     ]
 
-    # Mock the session.scalars().all() chain
-    mock_session.scalars = AsyncMock()
-    # Make scalars() return an object with a non-coroutine all() method
-    mock_session.scalars.return_value = MagicMock()
-    mock_session.scalars.return_value.all.return_value = receipts[
+    # Mock the session.exec().all() chain
+    mock_session.exec = AsyncMock()
+    # Make exec() return an object with a non-coroutine all() method
+    mock_session.exec.return_value = MagicMock()
+    mock_session.exec.return_value.all.return_value = receipts[
         :2
     ]  # Return only first 2
 
@@ -166,7 +168,7 @@ async def test_list_receipts(
 
     # Assert
     assert len(retrieved_receipts) == 2
-    mock_session.scalars.assert_called_once()
+    mock_session.exec.assert_called_once()
     assert mock_session.refresh.call_count == 2  # Called once for each receipt
 
 
@@ -183,6 +185,7 @@ async def test_update_receipt(
         currency="$",
         image_path="/path/to/image.jpg",
     )
+    assert existing_receipt.id is not None
 
     # Mock the scalar method for get
     mock_session.scalar.return_value = existing_receipt
@@ -243,6 +246,7 @@ async def test_delete_receipt(
         currency="$",
         image_path="/path/to/image.jpg",
     )
+    assert receipt.id is not None
     mock_session.scalar.return_value = receipt
 
     # Mock the delete and flush methods
@@ -283,11 +287,11 @@ async def test_list_items_by_category(
         for i in range(1, 3)
     ]
 
-    # Mock the session.scalars().all() chain
-    mock_session.scalars = AsyncMock()
-    # Make scalars() return an object with a non-coroutine all() method
-    mock_session.scalars.return_value = MagicMock()
-    mock_session.scalars.return_value.all.return_value = items
+    # Mock the session.exec().all() chain
+    mock_session.exec = AsyncMock()
+    # Make exec() return an object with a non-coroutine all() method
+    mock_session.exec.return_value = MagicMock()
+    mock_session.exec.return_value.all.return_value = items
 
     # Act
     retrieved_items = await receipt_service.list_items_by_category(
@@ -297,7 +301,7 @@ async def test_list_items_by_category(
     # Assert
     assert len(retrieved_items) == 2
     assert all(item.category_id == category_id for item in retrieved_items)
-    mock_session.scalars.assert_called_once()
+    mock_session.exec.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -368,6 +372,171 @@ async def test_update_nonexistent_receipt_item(
     assert "not found" in str(exc_info.value)
 
 
+# Item CRUD Tests
+
+
+@pytest.mark.asyncio
+async def test_create_item(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test creating a receipt item and updating receipt total."""
+    # Arrange
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("10.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[],
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.flush = AsyncMock()
+    mock_session.refresh = AsyncMock()
+
+    item_data = ReceiptItemCreateRequest(
+        name="New Item",
+        quantity=2,
+        unit_price=Decimal("5.50"),
+        currency="$",
+        category_id=1,
+    )
+
+    # Act
+    updated_receipt = await receipt_service.create_item(receipt_id=1, item_in=item_data)
+
+    # Assert
+    # Total should be original (10.00) + new item total (2 * 5.50 = 11.00) = 21.00
+    assert updated_receipt.total_amount == Decimal("21.00")
+    mock_session.add.assert_called()
+    mock_session.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_item_nonexistent_receipt(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test creating an item on a receipt that doesn't exist."""
+    # Arrange
+    mock_session.scalar.return_value = None
+
+    item_data = ReceiptItemCreateRequest(
+        name="New Item",
+        quantity=1,
+        unit_price=Decimal("5.00"),
+        currency="$",
+    )
+
+    # Act & Assert
+    with pytest.raises(NotFoundError) as exc_info:
+        await receipt_service.create_item(receipt_id=999, item_in=item_data)
+    assert "not found" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_delete_item(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test deleting a receipt item and updating receipt total."""
+    # Arrange
+    item = ReceiptItem(
+        id=1,
+        name="Item to Delete",
+        quantity=1,
+        unit_price=Decimal("5.00"),
+        total_price=Decimal("5.00"),
+        currency="$",
+        receipt_id=1,
+    )
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("15.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[item],
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.delete = AsyncMock()
+    mock_session.flush = AsyncMock()
+    mock_session.refresh = AsyncMock()
+
+    # Act
+    updated_receipt = await receipt_service.delete_item(receipt_id=1, item_id=1)
+
+    # Assert
+    # Total should be original (15.00) - deleted item (5.00) = 10.00
+    assert updated_receipt.total_amount == Decimal("10.00")
+    mock_session.delete.assert_called_once_with(item)
+    mock_session.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_item_nonexistent_item(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test deleting an item that doesn't exist in the receipt."""
+    # Arrange
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("10.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[],  # No items
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.refresh = AsyncMock()
+
+    # Act & Assert
+    with pytest.raises(NotFoundError) as exc_info:
+        await receipt_service.delete_item(receipt_id=1, item_id=999)
+    assert "not found" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_delete_item_nonexistent_receipt(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test deleting an item from a receipt that doesn't exist."""
+    # Arrange
+    mock_session.scalar.return_value = None
+
+    # Act & Assert
+    with pytest.raises(NotFoundError) as exc_info:
+        await receipt_service.delete_item(receipt_id=999, item_id=1)
+    assert "not found" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_create_item_currency_mismatch(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test creating an item with currency that doesn't match the receipt."""
+    # Arrange
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("10.00"),
+        currency="$",  # Receipt uses dollars
+        image_path="/path/to/image.jpg",
+        items=[],
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.refresh = AsyncMock()
+
+    item_data = ReceiptItemCreateRequest(
+        name="New Item",
+        quantity=1,
+        unit_price=Decimal("5.00"),
+        currency="€",  # Item uses euros - mismatch!
+    )
+
+    # Act & Assert
+    with pytest.raises(BadRequestError) as exc_info:
+        await receipt_service.create_item(receipt_id=1, item_in=item_data)
+    assert "does not match" in str(exc_info.value)
+
+
 # Filter Tests
 
 
@@ -387,9 +556,9 @@ async def test_list_receipts_with_search_filter(
         ),
     ]
 
-    mock_session.scalars = AsyncMock()
-    mock_session.scalars.return_value = MagicMock()
-    mock_session.scalars.return_value.all.return_value = receipts
+    mock_session.exec = MagicMock()
+    mock_session.exec.return_value = MagicMock()
+    mock_session.exec.return_value.all.return_value = receipts
     mock_session.refresh = AsyncMock()
 
     # Act
@@ -397,7 +566,7 @@ async def test_list_receipts_with_search_filter(
 
     # Assert
     assert len(result) == 1
-    mock_session.scalars.assert_called_once()
+    mock_session.exec.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -416,9 +585,9 @@ async def test_list_receipts_with_amount_filters(
         ),
     ]
 
-    mock_session.scalars = AsyncMock()
-    mock_session.scalars.return_value = MagicMock()
-    mock_session.scalars.return_value.all.return_value = receipts
+    mock_session.exec = MagicMock()
+    mock_session.exec.return_value = MagicMock()
+    mock_session.exec.return_value.all.return_value = receipts
     mock_session.refresh = AsyncMock()
 
     # Act
@@ -428,7 +597,7 @@ async def test_list_receipts_with_amount_filters(
 
     # Assert
     assert len(result) == 1
-    mock_session.scalars.assert_called_once()
+    mock_session.exec.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -448,9 +617,9 @@ async def test_list_receipts_with_no_filters(
         for i in range(1, 4)
     ]
 
-    mock_session.scalars = AsyncMock()
-    mock_session.scalars.return_value = MagicMock()
-    mock_session.scalars.return_value.all.return_value = receipts
+    mock_session.exec = MagicMock()
+    mock_session.exec.return_value = MagicMock()
+    mock_session.exec.return_value.all.return_value = receipts
     mock_session.refresh = AsyncMock()
 
     # Act
@@ -458,4 +627,4 @@ async def test_list_receipts_with_no_filters(
 
     # Assert
     assert len(result) == 3
-    mock_session.scalars.assert_called_once()
+    mock_session.exec.assert_called_once()

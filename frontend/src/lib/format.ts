@@ -32,11 +32,24 @@ export function formatDistanceToNow(dateString: string): string {
   });
 }
 
+// ISO code to symbol mapping
+const ISO_TO_SYMBOL: Record<string, string> = {
+  EUR: "€",
+  GBP: "£",
+  USD: "$",
+  JPY: "¥",
+  CHF: "CHF",
+  AUD: "A$",
+  CAD: "C$",
+};
+
 /**
- * Format currency with symbol
+ * Format currency with symbol.
+ * Converts ISO codes (EUR, GBP, USD) to symbols (€, £, $) for display.
  */
-export function formatCurrency(amount: number, currency: string = "$"): string {
-  return `${currency}${amount.toFixed(2)}`;
+export function formatCurrency(amount: number, currency: string = "EUR"): string {
+  const symbol = ISO_TO_SYMBOL[currency.toUpperCase()] || currency;
+  return `${symbol}${amount.toFixed(2)}`;
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Receipt, ReceiptUpdate, ReceiptItemUpdate, ReceiptFilters } from "@/types";
+import type { Receipt, ReceiptUpdate, ReceiptItemCreate, ReceiptItemUpdate, ReceiptFilters } from "@/types";
 
 const RECEIPTS_KEY = ["receipts"];
 
@@ -88,6 +88,90 @@ export function useUpdateReceiptItem() {
       data: ReceiptItemUpdate;
     }) => api.updateReceiptItem(receiptId, itemId, data),
     onSuccess: (updated) => {
+      queryClient.setQueryData<Receipt[]>(RECEIPTS_KEY, (old) =>
+        old?.map((r) => (r.id === updated.id ? updated : r))
+      );
+      queryClient.setQueryData([...RECEIPTS_KEY, updated.id], updated);
+    },
+  });
+}
+
+export function useCreateReceiptItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      receiptId,
+      data,
+    }: {
+      receiptId: number;
+      data: ReceiptItemCreate;
+    }) => api.createReceiptItem(receiptId, data),
+    onSuccess: (updated) => {
+      // Update the receipts list cache
+      queryClient.setQueryData<Receipt[]>(RECEIPTS_KEY, (old) =>
+        old?.map((r) => (r.id === updated.id ? updated : r))
+      );
+      // Update the individual receipt cache
+      queryClient.setQueryData([...RECEIPTS_KEY, updated.id], updated);
+    },
+  });
+}
+
+export function useDeleteReceiptItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ receiptId, itemId }: { receiptId: number; itemId: number }) =>
+      api.deleteReceiptItem(receiptId, itemId),
+    onMutate: async ({ receiptId, itemId }) => {
+      // Cancel any outgoing refetches to prevent overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: [...RECEIPTS_KEY, receiptId] });
+
+      // Snapshot the previous value
+      const previousReceipt = queryClient.getQueryData<Receipt>([
+        ...RECEIPTS_KEY,
+        receiptId,
+      ]);
+
+      // Optimistically update the receipt by removing the item
+      if (previousReceipt) {
+        const deletedItem = previousReceipt.items.find((i) => i.id === itemId);
+        // Round to 2 decimal places to avoid floating-point precision issues
+        const newTotal = deletedItem
+          ? Math.round((previousReceipt.total_amount - deletedItem.total_price) * 100) / 100
+          : previousReceipt.total_amount;
+
+        const updatedReceipt: Receipt = {
+          ...previousReceipt,
+          total_amount: newTotal,
+          items: previousReceipt.items.filter((i) => i.id !== itemId),
+        };
+
+        queryClient.setQueryData([...RECEIPTS_KEY, receiptId], updatedReceipt);
+
+        // Also update the list cache
+        queryClient.setQueryData<Receipt[]>(RECEIPTS_KEY, (old) =>
+          old?.map((r) => (r.id === receiptId ? updatedReceipt : r))
+        );
+      }
+
+      return { previousReceipt };
+    },
+    onError: (_err, { receiptId }, context) => {
+      // Rollback on error
+      if (context?.previousReceipt) {
+        queryClient.setQueryData(
+          [...RECEIPTS_KEY, receiptId],
+          context.previousReceipt
+        );
+        queryClient.setQueryData<Receipt[]>(RECEIPTS_KEY, (old) =>
+          old?.map((r) => (r.id === receiptId ? context.previousReceipt! : r))
+        );
+      }
+    },
+    onSuccess: (updated) => {
+      // Update with the server response to ensure consistency
       queryClient.setQueryData<Receipt[]>(RECEIPTS_KEY, (old) =>
         old?.map((r) => (r.id === updated.id ? updated : r))
       );

@@ -11,9 +11,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Receipt, TrendingUp, ShoppingCart, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Receipt, TrendingUp, ShoppingCart, CalendarDays, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import Link from "next/link";
-import { useReceipts } from "@/hooks";
+import {
+  useReceipts,
+  useExchangeRates,
+  convertAndSum,
+  codeToSymbol,
+  SUPPORTED_CURRENCIES,
+} from "@/hooks";
 import { formatDistanceToNow } from "@/lib/format";
 
 const MONTHS = [
@@ -21,92 +33,88 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-// Group amounts by currency
-function groupByCurrency(receipts: { total_amount: number; currency: string }[]) {
-  const groups = new Map<string, number>();
-  receipts.forEach((r) => {
-    const current = groups.get(r.currency) ?? 0;
-    groups.set(r.currency, current + Number(r.total_amount));
-  });
-  return groups;
-}
-
-// Format currency totals as string
-function formatCurrencyTotals(groups: Map<string, number>) {
-  if (groups.size === 0) return "0.00";
-  return Array.from(groups.entries())
-    .map(([currency, amount]) => `${currency}${amount.toFixed(2)}`)
-    .join(" • ");
-}
-
 export default function Dashboard() {
   const { data: receipts, isLoading } = useReceipts();
 
+  // Currency selector for display conversion
+  const [displayCurrency, setDisplayCurrency] = useState<string>("EUR");
+  const { data: exchangeRates } = useExchangeRates(displayCurrency);
+  const currencySymbol = codeToSymbol(displayCurrency);
+
   // Month/Year selector state - default to current month
-  // Using primitives to avoid memoization issues with Date objects
+  // Using "all" for all months view, or month index as string
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth.toString());
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  // Get available years from receipts
-  const availableYears = useMemo(() => {
-    if (!receipts?.length) return [currentYear];
-    const years = new Set(
-      receipts.map((r) => new Date(r.purchase_date).getFullYear())
-    );
-    years.add(currentYear); // Always include current year
-    return Array.from(years).sort((a, b) => b - a);
-  }, [receipts, currentYear]);
+  // Available years - go back 30 years to cover historical receipts (consistent with Analytics)
+  const availableYears = Array.from(
+    { length: 30 },
+    (_, i) => currentYear - i
+  );
 
   // Filter receipts for selected month
   const monthReceipts = useMemo(() => {
     return receipts?.filter((r) => {
       const purchaseDate = new Date(r.purchase_date);
-      return purchaseDate.getMonth() === selectedMonth && purchaseDate.getFullYear() === selectedYear;
+      const yearMatches = purchaseDate.getFullYear() === selectedYear;
+      if (selectedMonth === "all") return yearMatches;
+      return yearMatches && purchaseDate.getMonth() === parseInt(selectedMonth);
     }) ?? [];
   }, [receipts, selectedMonth, selectedYear]);
 
-  // Stats for selected month (grouped by currency)
-  const monthTotals = groupByCurrency(monthReceipts);
+  // Stats for selected month (converted to display currency)
+  const totalSpent = convertAndSum(
+    monthReceipts.map((r) => ({ amount: Number(r.total_amount), currency: r.currency })),
+    displayCurrency,
+    exchangeRates
+  );
   const receiptCount = monthReceipts.length;
+  const avgPerReceipt = receiptCount > 0 ? totalSpent / receiptCount : 0;
   const recentReceipts = monthReceipts.slice(0, 5);
 
   // Navigation helpers
   const goToPrevMonth = () => {
-    if (selectedMonth === 0) {
-      setSelectedMonth(11);
+    if (selectedMonth === "all") {
+      setSelectedYear(selectedYear - 1);
+    } else if (selectedMonth === "0") {
+      setSelectedMonth("11");
       setSelectedYear(selectedYear - 1);
     } else {
-      setSelectedMonth(selectedMonth - 1);
+      setSelectedMonth((parseInt(selectedMonth) - 1).toString());
     }
   };
 
   const goToNextMonth = () => {
-    if (selectedMonth === 11) {
-      setSelectedMonth(0);
+    if (selectedMonth === "all") {
+      setSelectedYear(selectedYear + 1);
+    } else if (selectedMonth === "11") {
+      setSelectedMonth("0");
       setSelectedYear(selectedYear + 1);
     } else {
-      setSelectedMonth(selectedMonth + 1);
+      setSelectedMonth((parseInt(selectedMonth) + 1).toString());
     }
   };
 
-  const isCurrentMonth = selectedMonth === currentMonth && selectedYear === currentYear;
+  const isCurrentMonth = selectedMonth === currentMonth.toString() && selectedYear === currentYear;
 
   return (
     <div className="space-y-6">
-      {/* Month Selector */}
-      <div className="flex items-center justify-between">
+      {/* Controls Row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Month/Year Navigation */}
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={goToPrevMonth}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2">
-            <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Months</SelectItem>
                 {MONTHS.map((month, index) => (
                   <SelectItem key={index} value={index.toString()}>
                     {month}
@@ -130,19 +138,52 @@ export default function Dashboard() {
           <Button variant="outline" size="icon" onClick={goToNextMonth}>
             <ChevronRight className="h-4 w-4" />
           </Button>
+          {!isCurrentMonth && selectedMonth !== "all" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedMonth(currentMonth.toString());
+                setSelectedYear(currentYear);
+              }}
+            >
+              Today
+            </Button>
+          )}
         </div>
-        {!isCurrentMonth && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSelectedMonth(currentMonth);
-              setSelectedYear(currentYear);
-            }}
-          >
-            Today
-          </Button>
-        )}
+
+        {/* Currency Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Display in:</span>
+          <Select value={displayCurrency} onValueChange={setDisplayCurrency}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_CURRENCIES.map((curr) => (
+                <SelectItem key={curr.code} value={curr.code}>
+                  {curr.symbol} {curr.code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <TooltipProvider>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Currency conversion info"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Converted using live rates from Frankfurter API</p>
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -175,7 +216,7 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-24" />
             ) : (
               <div className="text-2xl font-bold text-amber-500">
-                {formatCurrencyTotals(monthTotals)}
+                {currencySymbol}{totalSpent.toFixed(2)}
               </div>
             )}
           </CardContent>
@@ -194,14 +235,7 @@ export default function Dashboard() {
             ) : (
               <div className="text-2xl font-bold">
                 {receiptCount > 0
-                  ? formatCurrencyTotals(
-                      new Map(
-                        Array.from(monthTotals.entries()).map(([currency, total]) => [
-                          currency,
-                          total / receiptCount,
-                        ])
-                      )
-                    )
+                  ? `${currencySymbol}${avgPerReceipt.toFixed(2)}`
                   : "—"}
               </div>
             )}
@@ -214,15 +248,15 @@ export default function Dashboard() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{MONTHS[selectedMonth]} Receipts</CardTitle>
+              <CardTitle>{selectedMonth === "all" ? `${selectedYear}` : MONTHS[parseInt(selectedMonth)]} Receipts</CardTitle>
               <CardDescription>
                 {receiptCount === 0
-                  ? "No receipts this month"
-                  : `${receiptCount} receipt${receiptCount !== 1 ? "s" : ""} in ${MONTHS[selectedMonth]} ${selectedYear}`}
+                  ? `No receipts ${selectedMonth === "all" ? "this year" : "this month"}`
+                  : `${receiptCount} receipt${receiptCount !== 1 ? "s" : ""} in ${selectedMonth === "all" ? selectedYear : `${MONTHS[parseInt(selectedMonth)]} ${selectedYear}`}`}
               </CardDescription>
             </div>
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/receipts?year=${selectedYear}&month=${selectedMonth}`}>View All</Link>
+              <Link href={`/receipts?year=${selectedYear}${selectedMonth !== "all" ? `&month=${selectedMonth}` : ""}`}>View All</Link>
             </Button>
           </div>
         </CardHeader>
@@ -236,7 +270,7 @@ export default function Dashboard() {
           ) : recentReceipts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <CalendarDays className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No receipts in {MONTHS[selectedMonth]}</p>
+              <p>No receipts in {selectedMonth === "all" ? selectedYear : MONTHS[parseInt(selectedMonth)]}</p>
               <p className="text-sm">Scan a receipt to get started</p>
             </div>
           ) : (
@@ -260,7 +294,7 @@ export default function Dashboard() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">
-                      {receipt.currency}{Number(receipt.total_amount).toFixed(2)}
+                      {codeToSymbol(receipt.currency)}{Number(receipt.total_amount).toFixed(2)}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {receipt.items.length} items

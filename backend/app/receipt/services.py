@@ -22,6 +22,7 @@ from .models import (
     ReceiptCreate,
     ReceiptItem,
     ReceiptItemCreate,
+    ReceiptItemCreateRequest,
     ReceiptItemUpdate,
     ReceiptUpdate,
 )
@@ -112,6 +113,10 @@ class ReceiptService:
             )
 
             receipt = await self.create(receipt_create)
+            if receipt.id is None:
+                raise ServiceUnavailableError(
+                    "Failed to create receipt - ID not assigned"
+                )
 
             # Ensure receipt has an ID after creation
             if receipt.id is None:
@@ -239,7 +244,7 @@ class ReceiptService:
             stmt.order_by(col(Receipt.purchase_date).desc()).offset(skip).limit(limit)
         )
 
-        results = await self.session.scalars(stmt)
+        results = await self.session.exec(stmt)
         receipts = results.all()
 
         # Ensure items are loaded for each receipt
@@ -327,5 +332,90 @@ class ReceiptService:
             .offset(skip)
             .limit(limit)
         )
-        results = await self.session.scalars(stmt)
+        results = await self.session.exec(stmt)
         return results.all()
+
+    async def create_item(
+        self, receipt_id: int, item_in: ReceiptItemCreateRequest
+    ) -> Receipt:
+        """Create a single receipt item and update the receipt total.
+
+        Args:
+            receipt_id: The ID of the receipt to add the item to
+            item_in: The item data
+
+        Returns:
+            The updated receipt with all items
+        """
+        # Get receipt with row lock to prevent concurrent update race conditions
+        stmt = select(Receipt).where(Receipt.id == receipt_id).with_for_update()
+        receipt = await self.session.scalar(stmt)
+        if not receipt:
+            raise NotFoundError(f"Receipt with id {receipt_id} not found")
+
+        # Validate currency matches the receipt
+        if item_in.currency != receipt.currency:
+            raise BadRequestError(
+                f"Item currency '{item_in.currency}' does not match "
+                f"receipt currency '{receipt.currency}'"
+            )
+
+        # Calculate total_price from quantity and unit_price
+        total_price = item_in.quantity * item_in.unit_price
+
+        # Create the new item
+        item = ReceiptItem(
+            name=item_in.name,
+            quantity=item_in.quantity,
+            unit_price=item_in.unit_price,
+            total_price=total_price,
+            currency=item_in.currency,
+            category_id=item_in.category_id,
+            receipt_id=receipt_id,
+        )
+
+        self.session.add(item)
+
+        # Update the receipt total
+        receipt.total_amount = receipt.total_amount + total_price
+        receipt.updated_at = datetime.now(UTC)
+
+        await self.session.flush()
+        await self.session.refresh(receipt, ["items"])
+
+        return receipt
+
+    async def delete_item(self, receipt_id: int, item_id: int) -> Receipt:
+        """Delete a receipt item and update the receipt total.
+
+        Args:
+            receipt_id: The ID of the receipt
+            item_id: The ID of the item to delete
+
+        Returns:
+            The updated receipt with remaining items
+        """
+        # Get receipt with row lock to prevent concurrent update race conditions
+        stmt = select(Receipt).where(Receipt.id == receipt_id).with_for_update()
+        receipt = await self.session.scalar(stmt)
+        if not receipt:
+            raise NotFoundError(f"Receipt with id {receipt_id} not found")
+        await self.session.refresh(receipt, ["items"])
+
+        # Find the item in the receipt
+        item = next((i for i in receipt.items if i.id == item_id), None)
+        if not item:
+            raise NotFoundError(
+                f"Item with id {item_id} not found in receipt {receipt_id}"
+            )
+
+        # Update the receipt total before deleting
+        receipt.total_amount = receipt.total_amount - item.total_price
+        receipt.updated_at = datetime.now(UTC)
+
+        # Delete the item
+        await self.session.delete(item)
+        await self.session.flush()
+        await self.session.refresh(receipt, ["items"])
+
+        return receipt
