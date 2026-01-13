@@ -41,6 +41,14 @@ export interface ReceiptItemUpdate {
   category_id?: number | null;
 }
 
+export interface ReceiptItemCreate {
+  name: string;
+  quantity: number;
+  unit_price: number;
+  currency: string;
+  category_id?: number | null;
+}
+
 export interface Receipt {
   id: number;
   store_name: string;

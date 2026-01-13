@@ -42,8 +42,10 @@ import {
   ImageIcon,
   Trash2,
   Pencil,
+  Plus,
 } from "lucide-react";
-import { useReceipt, useDeleteReceipt, useUpdateReceiptItem, useCategories } from "@/hooks";
+import { useReceipt, useDeleteReceipt, useUpdateReceiptItem, useDeleteReceiptItem, useCategories } from "@/hooks";
+import { AddItemDialog } from "@/components/receipts/add-item-dialog";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -62,6 +64,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   const { data: categories } = useCategories();
   const deleteMutation = useDeleteReceipt();
   const updateItemMutation = useUpdateReceiptItem();
+  const deleteItemMutation = useDeleteReceiptItem();
 
   // Create a map for quick category lookup
   const categoryMap = new Map(
@@ -69,6 +72,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   );
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
@@ -98,6 +102,18 @@ export default function ReceiptDetailPage({ params }: PageProps) {
         error instanceof Error ? error.message : "Failed to update item"
       );
       updateItemMutation.reset();
+    }
+  };
+
+  const handleDeleteItem = async (itemId: number) => {
+    try {
+      await deleteItemMutation.mutateAsync({ receiptId, itemId });
+      toast.success("Item deleted");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete item"
+      );
+      deleteItemMutation.reset();
     }
   };
 
@@ -191,7 +207,17 @@ export default function ReceiptDetailPage({ params }: PageProps) {
       {/* Items */}
       <Card className="bg-card/50 border-border/50">
         <CardHeader>
-          <CardTitle>Items</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Items</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddItemDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -228,6 +254,15 @@ export default function ReceiptDetailPage({ params }: PageProps) {
                         onClick={() => openEditItem(item)}
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteItem(item.id)}
+                        disabled={deleteItemMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -352,6 +387,14 @@ export default function ReceiptDetailPage({ params }: PageProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Item Dialog */}
+      <AddItemDialog
+        open={addItemDialogOpen}
+        onOpenChange={setAddItemDialogOpen}
+        receiptId={receiptId}
+        currency={receipt.currency}
+      />
     </div>
   );
 }

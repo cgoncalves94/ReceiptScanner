@@ -5,6 +5,7 @@ import type {
   CategoryUpdate,
   Receipt,
   ReceiptUpdate,
+  ReceiptItemCreate,
   ReceiptItemUpdate,
   SpendingSummary,
   SpendingTrendsResponse,
@@ -95,6 +96,22 @@ class ApiClient {
     return this.request<Receipt>(`/receipts/${receiptId}/items/${itemId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
+    });
+  }
+
+  async createReceiptItem(
+    receiptId: number,
+    data: ReceiptItemCreate
+  ): Promise<Receipt> {
+    return this.request<Receipt>(`/receipts/${receiptId}/items`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteReceiptItem(receiptId: number, itemId: number): Promise<Receipt> {
+    return this.request<Receipt>(`/receipts/${receiptId}/items/${itemId}`, {
+      method: "DELETE",
     });
   }
 
