@@ -176,3 +176,6 @@ postgres_data/
 # Other
 .cursor/
 .logfire/
+
+# Auto Claude data directory
+.auto-claude/
