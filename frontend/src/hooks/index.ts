@@ -29,6 +29,8 @@ export {
   SUPPORTED_CURRENCIES,
 } from "./use-currency";
 
+export type { ExchangeRates } from "./use-currency";
+
 export {
   useAnalyticsSummary,
   useAnalyticsTrends,
