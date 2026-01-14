@@ -2,6 +2,8 @@ from collections.abc import Sequence
 
 from fastapi import APIRouter, status
 
+from app.auth.deps import CurrentUser
+
 from .deps import CategoryDeps
 from .models import (
     Category,
@@ -16,6 +18,7 @@ router = APIRouter(prefix="/api/v1/categories", tags=["categories"])
 @router.post("", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
 async def create_category(
     category_in: CategoryCreate,
+    current_user: CurrentUser,
     service: CategoryDeps,
 ) -> Category:
     """Create a new category."""
@@ -24,6 +27,7 @@ async def create_category(
 
 @router.get("", response_model=list[CategoryRead], status_code=status.HTTP_200_OK)
 async def list_categories(
+    current_user: CurrentUser,
     service: CategoryDeps,
     skip: int = 0,
     limit: int = 100,
@@ -37,6 +41,7 @@ async def list_categories(
 )
 async def get_category(
     category_id: int,
+    current_user: CurrentUser,
     service: CategoryDeps,
 ) -> Category:
     """Get a specific category by ID."""
@@ -49,6 +54,7 @@ async def get_category(
 async def update_category(
     category_id: int,
     category_in: CategoryUpdate,
+    current_user: CurrentUser,
     service: CategoryDeps,
 ) -> Category:
     """Update a category."""
@@ -58,6 +64,7 @@ async def update_category(
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_category(
     category_id: int,
+    current_user: CurrentUser,
     service: CategoryDeps,
 ) -> None:
     """Delete a category."""
