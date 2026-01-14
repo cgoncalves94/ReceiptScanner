@@ -5,7 +5,7 @@ from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
-from app.receipt.models import ReceiptItem
+from app.receipt.models import Receipt, ReceiptItem
 
 from .models import Category, CategoryCreate, CategoryUpdate
 
@@ -105,9 +105,14 @@ class CategoryService:
         """
         category = await self.get(category_id, user_id)
 
-        # Check if any items are using this category
-        stmt = select(func.count(col(ReceiptItem.id))).where(
-            col(ReceiptItem.category_id) == category_id
+        # Check if any items belonging to this user are using this category
+        stmt = (
+            select(func.count(col(ReceiptItem.id)))
+            .join(Receipt, col(ReceiptItem.receipt_id) == col(Receipt.id))
+            .where(
+                col(ReceiptItem.category_id) == category_id,
+                col(Receipt.user_id) == user_id,
+            )
         )
         item_count = await self.session.scalar(stmt)
 

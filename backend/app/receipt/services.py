@@ -138,13 +138,12 @@ class ReceiptService:
                         category_create, user_id=user_id
                     )
 
-                # Calculate quantity and prices
-                quantity = (
-                    int(item_data.quantity) if item_data.quantity.is_integer() else 1
-                )
+                # Calculate quantity and prices (guard against zero/negative from AI)
+                raw_quantity = item_data.quantity if item_data.quantity >= 1 else 1
+                quantity = int(raw_quantity) if raw_quantity.is_integer() else 1
 
                 # Round to 2 decimal places to avoid floating point precision issues
-                unit_price = round(item_data.price / item_data.quantity, 2)
+                unit_price = round(item_data.price / raw_quantity, 2)
                 total_price = round(item_data.price, 2)
 
                 # Create receipt item
