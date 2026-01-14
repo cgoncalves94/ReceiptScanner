@@ -120,15 +120,15 @@ export default function Dashboard() {
     }, 0);
   }, [categoryBreakdown, displayCurrency, exchangeRates]);
 
-  // Get top 4 categories for preview
+  // Get top 4 categories for preview (pre-compute totals to avoid redundant conversions)
   const topCategories = useMemo(() => {
     if (!categoryBreakdown?.categories) return [];
     return [...categoryBreakdown.categories]
-      .sort((a, b) => {
-        const aTotal = convertCurrencyAmounts(a.totals_by_currency, displayCurrency, exchangeRates);
-        const bTotal = convertCurrencyAmounts(b.totals_by_currency, displayCurrency, exchangeRates);
-        return bTotal - aTotal;
-      })
+      .map((cat) => ({
+        ...cat,
+        total: convertCurrencyAmounts(cat.totals_by_currency, displayCurrency, exchangeRates),
+      }))
+      .sort((a, b) => b.total - a.total)
       .slice(0, 4);
   }, [categoryBreakdown, displayCurrency, exchangeRates]);
 
@@ -487,7 +487,7 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {topCategories.map((cat) => {
-                  const catTotal = convertCurrencyAmounts(cat.totals_by_currency, displayCurrency, exchangeRates);
+                  const catTotal = cat.total;
                   const percentage = categoryTotalSpent > 0 ? (catTotal / categoryTotalSpent) * 100 : 0;
                   return (
                     <div key={cat.category_id}>
