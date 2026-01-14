@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging.config
 import os
 from pathlib import Path
@@ -26,6 +28,13 @@ class Settings(BaseSettings):
     # API Keys
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     LOGFIRE_TOKEN: str = os.getenv("LOGFIRE_TOKEN", "")
+
+    # JWT Authentication
+    JWT_SECRET_KEY: str = os.getenv(
+        "JWT_SECRET_KEY", "your-secret-key-change-in-production"
+    )
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # File upload settings
     UPLOAD_DIR: Path = Path("uploads")
