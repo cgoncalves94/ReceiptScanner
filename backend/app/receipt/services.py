@@ -104,9 +104,7 @@ class ReceiptService:
             try:
                 receipt_data = await analyze_receipt(pil_image, category_dicts)
             except Exception as e:
-                raise ServiceUnavailableError(
-                    f"Failed to analyze receipt: {e}"
-                ) from e
+                raise ServiceUnavailableError(f"Failed to analyze receipt: {e}") from e
 
             # Create receipt record
             receipt_create = ReceiptCreate(
