@@ -6,6 +6,7 @@ A full-stack receipt scanning application with AI-powered analysis. Upload recei
 
 - **AI Receipt Scanning**: Upload receipt images, get items extracted automatically
 - **Category Management**: Organize items with custom categories
+- **User Authentication**: Register/login with JWT and per-user data isolation
 - **Multi-Currency Support**: Track spending in EUR, GBP, USD with real-time conversion
 - **Analytics Dashboard**: Monthly spending breakdown by category
 - **Dark Mode**: Modern dark-first UI design
@@ -34,7 +35,8 @@ git clone https://github.com/cgoncalves94/receipt-scanner.git
 cd receipt-scanner
 make setup
 
-# Add your GEMINI_API_KEY to backend/.env
+# Add your GEMINI_API_KEY and JWT_SECRET_KEY to backend/.env
+# (see backend/.env.example for required vars)
 
 # Start services
 make dev              # Terminal 1: Backend + DB

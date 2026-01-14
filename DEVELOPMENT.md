@@ -66,7 +66,7 @@ make test         # Run unit tests
 make test-cov     # Run with coverage report
 
 # Code quality
-make lint         # Check with ruff + mypy
+make lint         # Check with ruff + ty
 make format       # Auto-fix and format
 
 # Database
@@ -116,6 +116,7 @@ backend/app/
 │   ├── exceptions.py       # Domain exceptions
 │   ├── error_handlers.py   # Exception → HTTP mapping
 │   └── decorators.py       # @transactional decorator
+├── auth/                   # Auth domain (router, models, services, deps)
 ├── receipt/                # Receipt domain
 │   ├── router.py           # API endpoints
 │   ├── models.py           # SQLModel models + schemas
@@ -269,6 +270,7 @@ make db-down        # Stop PostgreSQL
 Required:
 
 - `GEMINI_API_KEY` - Google Gemini API key
+- `JWT_SECRET_KEY` - JWT signing secret (min 32 chars; validated at startup)
 
 Optional:
 

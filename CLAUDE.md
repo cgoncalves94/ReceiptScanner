@@ -22,6 +22,7 @@ receipt-scanner/
 │   ├── app/
 │   │   ├── main.py         # App entry, lifespan, middleware
 │   │   ├── core/           # Config, db, exceptions, decorators
+│   │   ├── auth/           # Auth domain (router, models, services, deps)
 │   │   ├── receipt/        # Receipt domain (router, models, services, deps)
 │   │   ├── category/       # Category domain
 │   │   ├── analytics/      # Analytics domain (spending summaries, trends, breakdowns)
@@ -51,7 +52,7 @@ make setup            # Initial setup
 # Backend (cd backend)
 make dev              # Run migrations + start server
 make test             # Run unit tests
-make lint             # Ruff + mypy
+make lint             # Ruff + ty
 make format           # Auto-fix
 
 # Frontend (cd frontend)
@@ -77,6 +78,11 @@ backend/app/
 │   ├── exceptions.py       # NotFoundError, ConflictError, etc.
 │   ├── error_handlers.py   # Exception → HTTP response (standard FastAPI format)
 │   └── decorators.py       # @transactional
+├── auth/
+│   ├── router.py           # /api/v1/auth endpoints
+│   ├── models.py           # User + schemas
+│   ├── services.py         # AuthService (register/login)
+│   └── deps.py             # CurrentUser dependency
 ├── receipt/
 │   ├── router.py           # /api/v1/receipts endpoints
 │   ├── models.py           # Receipt, ReceiptItem + schemas
@@ -171,6 +177,9 @@ catch (error) {
 
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
+| `POST` | `/api/v1/auth/register` | Register a new user |
+| `POST` | `/api/v1/auth/login` | Login and receive JWT |
+| `GET` | `/api/v1/auth/me` | Get current user |
 | `POST` | `/api/v1/receipts/scan` | Upload and analyze receipt |
 | `GET` | `/api/v1/receipts` | List receipts (supports filtering: search, store, after, before, category_ids, min_amount, max_amount) |
 | `GET` | `/api/v1/receipts/{id}` | Get receipt with items |
@@ -202,7 +211,7 @@ cd backend && make test
 
 ## Code Quality
 
-- **Backend:** Ruff (lint + format), mypy (strict), pre-commit hooks
+- **Backend:** Ruff (lint + format), ty (strict), pre-commit hooks
 - **Frontend:** ESLint, TypeScript strict
 
 ## Environment
@@ -210,6 +219,7 @@ cd backend && make test
 **Backend (`backend/.env`):**
 
 - `GEMINI_API_KEY` (required)
+- `JWT_SECRET_KEY` (required, min 32 chars; validated at startup)
 - `GEMINI_MODEL` (default: gemini-2.5-flash-preview-05-20)
 - `POSTGRES_*` (defaults work with docker-compose)
 
@@ -226,3 +236,4 @@ cd backend && make test
 5. **Currency storage** uses ISO 4217 codes (EUR, GBP, USD) - displayed as symbols (€, £, $) in frontend
 6. **Multi-currency analytics** - backend returns `totals_by_currency` arrays, frontend converts using Frankfurter API
 7. **Date formatting** uses ISO 8601 (`isoformat()`) for Safari compatibility
+8. **JWT secret** is validated at startup; set `JWT_SECRET_KEY` in backend/.env
