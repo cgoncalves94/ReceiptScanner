@@ -79,8 +79,7 @@ class Receipt(ReceiptBase, table=True):
         default_factory=lambda: datetime.now(UTC),
         description="Date and time the receipt was last updated",
     )
-    user_id: int | None = Field(
-        default=None,
+    user_id: int = Field(
         foreign_key="user.id",
         index=True,
         description="ID of the user who owns this receipt",

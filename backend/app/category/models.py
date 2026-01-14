@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 from sqlmodel._compat import SQLModelConfig
 
@@ -14,7 +15,6 @@ class CategoryBase(SQLModel):
     """Base model for category data."""
 
     name: str = Field(
-        unique=True,
         index=True,
         min_length=1,
         max_length=255,
@@ -30,6 +30,10 @@ class CategoryBase(SQLModel):
 class Category(CategoryBase, table=True):
     """Category model for database."""
 
+    __table_args__ = (
+        UniqueConstraint("name", "user_id", name="uq_category_name_user_id"),
+    )
+
     id: int | None = Field(
         default=None,
         primary_key=True,
@@ -44,8 +48,7 @@ class Category(CategoryBase, table=True):
         default_factory=lambda: datetime.now(UTC),
         description="Date and time the category was last updated",
     )
-    user_id: int | None = Field(
-        default=None,
+    user_id: int = Field(
         foreign_key="user.id",
         index=True,
         description="ID of the user who owns this category",
