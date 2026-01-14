@@ -11,6 +11,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from sqlmodel._compat import SQLModelConfig
 
 if TYPE_CHECKING:
+    from ..auth.models import User
     from ..category.models import Category
 
 
@@ -78,6 +79,11 @@ class Receipt(ReceiptBase, table=True):
         default_factory=lambda: datetime.now(UTC),
         description="Date and time the receipt was last updated",
     )
+    user_id: int = Field(
+        foreign_key="user.id",
+        index=True,
+        description="ID of the user who owns this receipt",
+    )
     # Tags stored as PostgreSQL array
     tags: list[str] = Field(
         default_factory=list,
@@ -89,6 +95,9 @@ class Receipt(ReceiptBase, table=True):
     items: list[ReceiptItem] = Relationship(
         back_populates="receipt",
         sa_relationship_kwargs={"cascade": "all, delete-orphan", "lazy": "selectin"},
+    )
+    user: User = Relationship(
+        sa_relationship_kwargs={"lazy": "selectin"},
     )
 
 

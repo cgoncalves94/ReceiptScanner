@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging.config
 import os
 from pathlib import Path
@@ -27,6 +29,13 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     LOGFIRE_TOKEN: str = os.getenv("LOGFIRE_TOKEN", "")
 
+    # JWT Authentication
+    JWT_SECRET_KEY: str = os.getenv(
+        "JWT_SECRET_KEY", "your-secret-key-change-in-production"
+    )
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
     # File upload settings
     UPLOAD_DIR: Path = Path("uploads")
 
@@ -42,6 +51,25 @@ class Settings(BaseSettings):
     def set_default_origins(self) -> Settings:
         if not self.ALLOWED_ORIGINS:
             self.ALLOWED_ORIGINS = [AnyHttpUrl("http://localhost:3000")]
+        return self
+
+    @model_validator(mode="after")
+    def validate_jwt_secret(self) -> Settings:
+        """Validate JWT secret key is secure and not using default value."""
+        if self.JWT_SECRET_KEY == "your-secret-key-change-in-production":  # noqa: S105
+            raise ValueError(
+                "SECURITY ERROR: JWT_SECRET_KEY must be changed from default value.\n"
+                "Generate a secure key:\n"
+                "  python -c 'import secrets; print(secrets.token_urlsafe(32))'\n"
+                "Then set it in your .env file or environment variables."
+            )
+        if len(self.JWT_SECRET_KEY) < 32:
+            raise ValueError(
+                f"SECURITY ERROR: JWT_SECRET_KEY must be at least 32 characters long.\n"
+                f"Current length: {len(self.JWT_SECRET_KEY)} characters\n"
+                "Generate a secure key:\n"
+                "  python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
         return self
 
     @property

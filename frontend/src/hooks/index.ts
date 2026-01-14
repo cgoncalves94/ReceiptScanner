@@ -37,3 +37,5 @@ export {
   useTopStores,
   useCategoryBreakdown,
 } from "./use-analytics";
+
+export { useUser, useLogin, useRegister, useLogout } from "./use-auth";

@@ -184,8 +184,10 @@ dependencies = [
     { name = "python-jose" },
     { name = "python-multipart" },
     { name = "rich" },
+    { name = "ruff" },
     { name = "sqlmodel" },
     { name = "tenacity" },
+    { name = "ty" },
     { name = "uvicorn" },
 ]
 
@@ -230,9 +232,11 @@ requires-dist = [
     { name = "python-jose", specifier = ">=3.4.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "rich", specifier = ">=14.0.0" },
+    { name = "ruff", specifier = ">=0.14.7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.0" },
     { name = "sqlmodel", specifier = ">=0.0.31" },
     { name = "tenacity", specifier = ">=9.1.0" },
+    { name = "ty", specifier = ">=0.0.11" },
     { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.11" },
     { name = "uvicorn", specifier = ">=0.40.0" },
 ]

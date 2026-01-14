@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from pydantic_ai.models.test import TestModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.models import User
 from app.category.models import Category
 from app.integrations.pydantic_ai.receipt_agent import get_receipt_agent
 
@@ -24,6 +25,7 @@ async def test_scan_receipt_creates_receipt_and_items(
     test_client: TestClient,
     test_image: BytesIO,
     mock_receipt_analysis: dict,
+    auth_headers: dict[str, str],
 ) -> None:
     """Test that scanning a receipt creates receipt and items in database.
 
@@ -38,6 +40,7 @@ async def test_scan_receipt_creates_receipt_and_items(
         response = test_client.post(
             "/api/v1/receipts/scan",
             files={"image": ("receipt.png", test_image, "image/png")},
+            headers=auth_headers,
         )
 
     # Assert: Response is correct
@@ -64,12 +67,16 @@ async def test_scan_receipt_uses_existing_categories(
     test_session: AsyncSession,
     test_image: BytesIO,
     mock_receipt_analysis: dict,
+    test_user: User,
+    auth_headers: dict[str, str],
 ) -> None:
     """Test that scanning uses existing categories when available."""
     # Arrange: Create an existing category that matches one in the mock response
+    assert test_user.id is not None
     existing_category = Category(
         name="Dairy",
         description="Existing dairy category",
+        user_id=test_user.id,
     )
     test_session.add(existing_category)
     await test_session.commit()
@@ -82,6 +89,7 @@ async def test_scan_receipt_uses_existing_categories(
         response = test_client.post(
             "/api/v1/receipts/scan",
             files={"image": ("receipt.png", test_image, "image/png")},
+            headers=auth_headers,
         )
 
     # Assert
@@ -96,6 +104,7 @@ async def test_scan_receipt_uses_existing_categories(
 @pytest.mark.asyncio
 async def test_scan_receipt_with_invalid_image(
     test_client: TestClient,
+    auth_headers: dict[str, str],
 ) -> None:
     """Test that scanning with invalid file returns 400 Bad Request."""
     # Arrange: Create invalid file content
@@ -105,6 +114,7 @@ async def test_scan_receipt_with_invalid_image(
     response = test_client.post(
         "/api/v1/receipts/scan",
         files={"image": ("receipt.txt", invalid_file, "text/plain")},
+        headers=auth_headers,
     )
 
     # Assert: Should return 400 with helpful error message
@@ -116,6 +126,7 @@ async def test_scan_receipt_with_invalid_image(
 async def test_scan_receipt_ai_failure_returns_503(
     test_client: TestClient,
     test_image: BytesIO,
+    auth_headers: dict[str, str],
 ) -> None:
     """Test that AI service failure returns 503 Service Unavailable."""
     # Arrange: Create a broken model that will fail validation
@@ -127,6 +138,7 @@ async def test_scan_receipt_ai_failure_returns_503(
         response = test_client.post(
             "/api/v1/receipts/scan",
             files={"image": ("receipt.png", test_image, "image/png")},
+            headers=auth_headers,
         )
 
     # Assert: Should return 503 (wrapped by ServiceUnavailableError)

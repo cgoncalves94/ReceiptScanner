@@ -34,6 +34,7 @@ class AnalyticsService:
 
     async def get_summary(
         self,
+        user_id: int,
         year: int,
         month: int | None = None,
     ) -> SpendingSummary:
@@ -44,6 +45,7 @@ class AnalyticsService:
             func.sum(col(Receipt.total_amount)).label("total_amount"),
             func.count(col(Receipt.id)).label("receipt_count"),
         ).where(
+            col(Receipt.user_id) == user_id,
             extract("year", col(Receipt.purchase_date)) == year,
         )
 
@@ -80,6 +82,7 @@ class AnalyticsService:
             .join(Receipt, col(ReceiptItem.receipt_id) == col(Receipt.id))
             .join(Category, col(ReceiptItem.category_id) == col(Category.id))
             .where(
+                col(Receipt.user_id) == user_id,
                 extract("year", col(Receipt.purchase_date)) == year,
                 col(ReceiptItem.category_id).is_not(None),
             )
@@ -99,6 +102,7 @@ class AnalyticsService:
             .join(Receipt, col(ReceiptItem.receipt_id) == col(Receipt.id))
             .join(Category, col(ReceiptItem.category_id) == col(Category.id))
             .where(
+                col(Receipt.user_id) == user_id,
                 extract("year", col(Receipt.purchase_date)) == year,
                 col(ReceiptItem.category_id).is_not(None),
             )
@@ -130,6 +134,7 @@ class AnalyticsService:
                 .join(Receipt, col(ReceiptItem.receipt_id) == col(Receipt.id))
                 .join(Category, col(ReceiptItem.category_id) == col(Category.id))
                 .where(
+                    col(Receipt.user_id) == user_id,
                     extract("year", col(Receipt.purchase_date)) == year,
                     col(Category.name) == top_category,
                     col(ReceiptItem.category_id).is_not(None),
@@ -162,6 +167,7 @@ class AnalyticsService:
 
     async def get_trends(
         self,
+        user_id: int,
         start_date: datetime,
         end_date: datetime,
         period: Literal["daily", "weekly", "monthly"] = "monthly",
@@ -182,6 +188,7 @@ class AnalyticsService:
                 func.count(col(Receipt.id)).label("receipt_count"),
             )
             .where(
+                col(Receipt.user_id) == user_id,
                 col(Receipt.purchase_date) >= start_date,
                 col(Receipt.purchase_date) <= end_date,
             )
@@ -227,6 +234,7 @@ class AnalyticsService:
 
     async def get_top_stores(
         self,
+        user_id: int,
         year: int,
         month: int | None = None,
         limit: int = 10,
@@ -237,6 +245,7 @@ class AnalyticsService:
             col(Receipt.store_name).label("store_name"),
             func.sum(col(Receipt.total_amount)).label("total_spent"),
         ).where(
+            col(Receipt.user_id) == user_id,
             extract("year", col(Receipt.purchase_date)) == year,
         )
 
@@ -264,6 +273,7 @@ class AnalyticsService:
             func.count(col(Receipt.id)).label("visit_count"),
             func.sum(col(Receipt.total_amount)).label("total_spent"),
         ).where(
+            col(Receipt.user_id) == user_id,
             extract("year", col(Receipt.purchase_date)) == year,
             col(Receipt.store_name).in_(top_stores),
         )
@@ -309,6 +319,7 @@ class AnalyticsService:
 
     async def get_category_breakdown(
         self,
+        user_id: int,
         year: int,
         month: int | None = None,
     ) -> CategoryBreakdownResponse:
@@ -324,6 +335,7 @@ class AnalyticsService:
             .join(Receipt, col(ReceiptItem.receipt_id) == col(Receipt.id))
             .join(Category, col(ReceiptItem.category_id) == col(Category.id))
             .where(
+                col(Receipt.user_id) == user_id,
                 extract("year", col(Receipt.purchase_date)) == year,
                 col(ReceiptItem.category_id).is_not(None),
             )

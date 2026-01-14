@@ -12,6 +12,9 @@ import pytest
 
 from app.analytics.services import AnalyticsService
 
+# Test user ID for data isolation
+TEST_USER_ID = 1
+
 
 @pytest.fixture
 def mock_session() -> AsyncMock:
@@ -41,7 +44,9 @@ async def test_get_summary_empty_data(
     mock_session.exec.side_effect = [mock_result, mock_category_result]
 
     # Act
-    summary = await analytics_service.get_summary(year=2025, month=1)
+    summary = await analytics_service.get_summary(
+        user_id=TEST_USER_ID, year=2025, month=1
+    )
 
     # Assert
     assert summary.totals_by_currency == []
@@ -70,7 +75,9 @@ async def test_get_summary_with_data(
     mock_session.exec.side_effect = [mock_result, mock_category_result]
 
     # Act
-    summary = await analytics_service.get_summary(year=2025, month=1)
+    summary = await analytics_service.get_summary(
+        user_id=TEST_USER_ID, year=2025, month=1
+    )
 
     # Assert
     assert len(summary.totals_by_currency) == 1
@@ -97,7 +104,9 @@ async def test_get_summary_yearly(
     mock_session.exec.side_effect = [mock_result, mock_category_result]
 
     # Act
-    summary = await analytics_service.get_summary(year=2025, month=None)
+    summary = await analytics_service.get_summary(
+        user_id=TEST_USER_ID, year=2025, month=None
+    )
 
     # Assert
     assert len(summary.totals_by_currency) == 2
@@ -133,7 +142,9 @@ async def test_get_summary_with_top_category(
     ]
 
     # Act
-    summary = await analytics_service.get_summary(year=2025, month=1)
+    summary = await analytics_service.get_summary(
+        user_id=TEST_USER_ID, year=2025, month=1
+    )
 
     # Assert
     assert summary.top_category == "Groceries"
@@ -156,7 +167,9 @@ async def test_get_trends_empty_data(
     # Act
     start = datetime(2025, 1, 1)
     end = datetime(2025, 1, 31)
-    trends = await analytics_service.get_trends(start, end, period="daily")
+    trends = await analytics_service.get_trends(
+        user_id=TEST_USER_ID, start_date=start, end_date=end, period="daily"
+    )
 
     # Assert
     assert trends.trends == []
@@ -182,7 +195,9 @@ async def test_get_trends_with_data(
     # Act
     start = datetime(2025, 1, 1)
     end = datetime(2025, 1, 31)
-    trends = await analytics_service.get_trends(start, end, period="daily")
+    trends = await analytics_service.get_trends(
+        user_id=TEST_USER_ID, start_date=start, end_date=end, period="daily"
+    )
 
     # Assert
     assert len(trends.trends) == 2  # Two dates
@@ -212,7 +227,7 @@ async def test_get_top_stores_empty(
     mock_session.exec.return_value = mock_result
 
     # Act
-    result = await analytics_service.get_top_stores(year=2025)
+    result = await analytics_service.get_top_stores(user_id=TEST_USER_ID, year=2025)
 
     # Assert
     assert result.stores == []
@@ -244,7 +259,9 @@ async def test_get_top_stores_with_data(
     ]
 
     # Act
-    result = await analytics_service.get_top_stores(year=2025, limit=10)
+    result = await analytics_service.get_top_stores(
+        user_id=TEST_USER_ID, year=2025, limit=10
+    )
 
     # Assert
     assert len(result.stores) == 2
@@ -265,7 +282,9 @@ async def test_get_top_stores_with_month_filter(
     mock_session.exec.return_value = mock_result
 
     # Act
-    result = await analytics_service.get_top_stores(year=2025, month=1)
+    result = await analytics_service.get_top_stores(
+        user_id=TEST_USER_ID, year=2025, month=1
+    )
 
     # Assert
     assert result.month == 1
@@ -283,7 +302,9 @@ async def test_get_category_breakdown_empty(
     mock_session.exec.return_value = mock_result
 
     # Act
-    result = await analytics_service.get_category_breakdown(year=2025, month=1)
+    result = await analytics_service.get_category_breakdown(
+        user_id=TEST_USER_ID, year=2025, month=1
+    )
 
     # Assert
     assert result.categories == []
@@ -305,7 +326,9 @@ async def test_get_category_breakdown_with_data(
     mock_session.exec.return_value = mock_result
 
     # Act
-    result = await analytics_service.get_category_breakdown(year=2025)
+    result = await analytics_service.get_category_breakdown(
+        user_id=TEST_USER_ID, year=2025
+    )
 
     # Assert
     assert len(result.categories) == 2
