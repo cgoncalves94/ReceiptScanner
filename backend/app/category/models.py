@@ -6,6 +6,7 @@ from sqlmodel._compat import SQLModelConfig
 
 if TYPE_CHECKING:
     from ..receipt.models import ReceiptItem
+    from ..auth.models import User
 
 
 # Database Model (also serves as base for responses)
@@ -43,10 +44,19 @@ class Category(CategoryBase, table=True):
         default_factory=lambda: datetime.now(UTC),
         description="Date and time the category was last updated",
     )
+    user_id: int | None = Field(
+        default=None,
+        foreign_key="user.id",
+        index=True,
+        description="ID of the user who owns this category",
+    )
 
     # Relationships
     items: list[ReceiptItem] = Relationship(
         back_populates="category",
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
+    user: User = Relationship(
         sa_relationship_kwargs={"lazy": "selectin"},
     )
 
