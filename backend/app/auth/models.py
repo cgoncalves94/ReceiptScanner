@@ -24,7 +24,7 @@ class UserBase(SQLModel):
 class User(UserBase, table=True):
     """User model for database."""
 
-    __tablename__ = "user"  # type: ignore[assignment]
+    __tablename__ = "user"
 
     id: int | None = Field(
         default=None,

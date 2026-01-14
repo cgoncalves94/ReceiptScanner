@@ -5,8 +5,8 @@ from sqlmodel import Field, Relationship, SQLModel
 from sqlmodel._compat import SQLModelConfig
 
 if TYPE_CHECKING:
-    from ..receipt.models import ReceiptItem
     from ..auth.models import User
+    from ..receipt.models import ReceiptItem
 
 
 # Database Model (also serves as base for responses)

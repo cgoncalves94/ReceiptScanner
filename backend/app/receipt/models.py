@@ -11,8 +11,8 @@ from sqlmodel import Field, Relationship, SQLModel
 from sqlmodel._compat import SQLModelConfig
 
 if TYPE_CHECKING:
-    from ..category.models import Category
     from ..auth.models import User
+    from ..category.models import Category
 
 
 class PaymentMethod(str, Enum):
