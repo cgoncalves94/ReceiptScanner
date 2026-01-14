@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { BarChart3, TrendingUp, FolderOpen, Receipt } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   useAnalyticsSummary,
   useAnalyticsTrends,
@@ -24,12 +27,69 @@ import {
 } from "@/components/analytics";
 import { MONTHS } from "@/lib/constants";
 
+function AnalyticsPageLoading() {
+  return (
+    <div className="space-y-6">
+      {/* Controls skeleton */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+
+      {/* Stats skeleton */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} className="bg-card/50 border-border/50">
+            <CardHeader className="pb-2">
+              <Skeleton className="h-4 w-24" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-32" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Chart skeleton */}
+      <Card className="bg-card/50 border-border/50">
+        <CardHeader>
+          <Skeleton className="h-6 w-40" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-80 w-full" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={<AnalyticsPageLoading />}>
+      <AnalyticsPageContent />
+    </Suspense>
+  );
+}
+
+function AnalyticsPageContent() {
+  const searchParams = useSearchParams();
+
   // Month/Year selector - "all" means all months in the year
+  // Initialize from URL params if present
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
-  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth.toString());
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+
+  const yearParam = searchParams.get("year");
+  const monthParam = searchParams.get("month");
+
+  // If year is provided but month isn't, default to "all" (full year view)
+  // If neither provided, default to current month/year
+  const parsedYear = yearParam ? parseInt(yearParam) : NaN;
+  const initialYear = isNaN(parsedYear) ? currentYear : parsedYear;
+  const initialMonth = monthParam ?? (yearParam && !isNaN(parsedYear) ? "all" : currentMonth.toString());
+
+  const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
+  const [selectedYear, setSelectedYear] = useState(initialYear);
 
   // Currency selector - for display conversion only
   const [displayCurrency, setDisplayCurrency] = useState<string>("EUR");

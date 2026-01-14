@@ -81,6 +81,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<ReceiptItem | null>(null);
   const [isDeleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
@@ -160,7 +161,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
 
   if (isLoading) {
     return (
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         <Skeleton className="h-10 w-32" />
         <Skeleton className="h-64 w-full" />
         <Skeleton className="h-96 w-full" />
@@ -170,7 +171,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
 
   if (error || !receipt) {
     return (
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <Card className="bg-card/50 border-border/50">
           <CardContent className="py-12 text-center">
             <Receipt className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
@@ -191,7 +192,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Back Button */}
       <Button variant="ghost" asChild className="-ml-2">
         <Link href="/receipts">
@@ -403,14 +404,18 @@ export default function ReceiptDetailPage({ params }: PageProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg overflow-hidden border border-border/50 bg-muted/20">
+            <button
+              type="button"
+              onClick={() => setImagePreviewOpen(true)}
+              className="w-full rounded-lg overflow-hidden border border-border/50 bg-muted/20 cursor-zoom-in hover:border-amber-500/50 transition-colors"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/${receipt.image_path}`}
                 alt="Receipt"
                 className="w-full max-h-150 object-contain"
               />
-            </div>
+            </button>
           </CardContent>
         </Card>
       )}
@@ -542,6 +547,24 @@ export default function ReceiptDetailPage({ params }: PageProps) {
         receiptId={receiptId}
         currency={receipt.currency}
       />
+
+      {/* Image Preview Dialog */}
+      {receipt.image_path && (
+        <Dialog open={imagePreviewOpen} onOpenChange={setImagePreviewOpen}>
+          <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Receipt Image</DialogTitle>
+              <DialogDescription>Full size receipt image</DialogDescription>
+            </DialogHeader>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/${receipt.image_path}`}
+              alt="Receipt"
+              className="w-full h-full max-h-[85vh] object-contain"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
