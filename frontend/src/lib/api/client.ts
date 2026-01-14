@@ -34,11 +34,15 @@ class ApiClient {
   setToken(token: string): void {
     if (typeof window === "undefined") return;
     localStorage.setItem(TOKEN_KEY, token);
+    // Also set in cookie for middleware access
+    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
   }
 
   removeToken(): void {
     if (typeof window === "undefined") return;
     localStorage.removeItem(TOKEN_KEY);
+    // Also remove from cookie
+    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
   }
 
   // ============================================================================
