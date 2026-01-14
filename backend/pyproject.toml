@@ -39,7 +39,7 @@ fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
 # Ignore assert statements in tests
-"tests/**/*.py" = ["S101"]
+"tests/**/*.py" = ["S101", "S105", "S106"]
 
 [tool.ruff.format]
 # Modern formatting options
@@ -66,7 +66,6 @@ dependencies = [
     "jinja2>=3.1.6",
     "httpx>=0.28.0",
     "aiofiles>=24.1.0",
-
     # Database
     "sqlmodel>=0.0.31",
     "alembic>=1.17.2",
@@ -89,7 +88,9 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "rich>=14.0.0",
     # Monitoring and logging
-    "logfire[fastapi,httpx,sqlalchemy]>=4.0.0"
+    "logfire[fastapi,httpx,sqlalchemy]>=4.0.0",
+    "ruff>=0.14.7",
+    "ty>=0.0.11",
 ]
 
 [tool.hatch.build.targets.wheel]
