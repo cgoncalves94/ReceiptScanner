@@ -8,7 +8,7 @@ const PUBLIC_ROUTES = ["/login", "/register"];
 // Routes to exclude from middleware (API routes, static files, etc.)
 const EXCLUDED_ROUTES = ["/api", "/_next", "/favicon.ico"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip middleware for excluded routes
