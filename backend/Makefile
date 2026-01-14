@@ -1,4 +1,4 @@
-.PHONY: help install dev run test test-unit test-integration test-all test-cov lint format typecheck migrate clean
+.PHONY: help install dev run test test-unit test-integration test-all test-cov lint format typecheck check migrate clean
 
 # Default target
 help:
@@ -20,9 +20,10 @@ help:
 	@echo "  make test-cov        Run tests with coverage report"
 	@echo ""
 	@echo "Code Quality:"
+	@echo "  make check       Run lint + typecheck"
 	@echo "  make lint        Check code with ruff"
 	@echo "  make format      Format code with ruff"
-	@echo "  make typecheck   Run mypy type checking"
+	@echo "  make typecheck   Run ty type checking"
 	@echo ""
 	@echo "Database:"
 	@echo "  make migrate     Apply database migrations"
@@ -74,7 +75,9 @@ format:
 	uv run ruff format .
 
 typecheck:
-	uv run mypy app/
+	uv run ty check app/
+
+check: lint typecheck
 
 # ============================================================================
 # Database
