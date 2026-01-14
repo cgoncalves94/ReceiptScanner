@@ -5,6 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Query, UploadFile, status
 
+from app.auth.deps import CurrentUser
+
 from .deps import ReceiptDeps
 from .models import (
     Receipt,
@@ -23,6 +25,7 @@ router = APIRouter(prefix="/api/v1/receipts", tags=["receipts"])
 @router.post("/scan", response_model=ReceiptRead, status_code=status.HTTP_201_CREATED)
 async def create_receipt_from_scan(
     *,
+    current_user: CurrentUser,
     service: ReceiptDeps,
     image: Annotated[UploadFile, File()],
 ) -> Receipt:
@@ -36,6 +39,7 @@ async def create_receipt_from_scan(
 
 @router.get("", response_model=list[ReceiptRead], status_code=status.HTTP_200_OK)
 async def list_receipts(
+    current_user: CurrentUser,
     service: ReceiptDeps,
     skip: int = 0,
     limit: int = 100,
@@ -102,6 +106,7 @@ async def list_receipts(
 
 @router.get("/stores", response_model=list[str], status_code=status.HTTP_200_OK)
 async def list_stores(
+    current_user: CurrentUser,
     service: ReceiptDeps,
 ) -> Sequence[str]:
     """Get a list of unique store names for filtering."""
@@ -111,6 +116,7 @@ async def list_stores(
 @router.get("/{receipt_id}", response_model=ReceiptRead, status_code=status.HTTP_200_OK)
 async def get_receipt(
     receipt_id: int,
+    current_user: CurrentUser,
     service: ReceiptDeps,
 ) -> Receipt:
     """Get a receipt by ID with all its items."""
@@ -124,6 +130,7 @@ async def get_receipt(
 )
 async def list_items_by_category(
     category_id: int,
+    current_user: CurrentUser,
     service: ReceiptDeps,
     skip: int = 0,
     limit: int = 100,
@@ -144,6 +151,7 @@ async def list_items_by_category(
 async def update_receipt(
     receipt_id: int,
     receipt_in: ReceiptUpdate,
+    current_user: CurrentUser,
     service: ReceiptDeps,
 ) -> Receipt:
     """Update a receipt."""
@@ -153,6 +161,7 @@ async def update_receipt(
 @router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_receipt(
     receipt_id: int,
+    current_user: CurrentUser,
     service: ReceiptDeps,
 ) -> None:
     """Delete a receipt and all its items."""
@@ -168,6 +177,7 @@ async def update_receipt_item(
     receipt_id: int,
     item_id: int,
     item_in: ReceiptItemUpdate,
+    current_user: CurrentUser,
     service: ReceiptDeps,
 ) -> Receipt:
     """Update a receipt item."""
@@ -182,6 +192,7 @@ async def update_receipt_item(
 async def create_receipt_item(
     receipt_id: int,
     item_in: ReceiptItemCreateRequest,
+    current_user: CurrentUser,
     service: ReceiptDeps,
 ) -> Receipt:
     """Create a new item for a receipt.
@@ -199,6 +210,7 @@ async def create_receipt_item(
 async def delete_receipt_item(
     receipt_id: int,
     item_id: int,
+    current_user: CurrentUser,
     service: ReceiptDeps,
 ) -> Receipt:
     """Delete a receipt item.
