@@ -16,7 +16,7 @@ class CategoryService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create(self, category_in: CategoryCreate) -> Category:
+    async def create(self, category_in: CategoryCreate, user_id: int) -> Category:
         """Create a new category."""
         # Check if category exists
         existing = await self.get_by_name(category_in.name)
@@ -25,15 +25,15 @@ class CategoryService:
                 f"Category with name '{category_in.name}' already exists"
             )
 
-        # Create new category
-        category = Category.model_validate(category_in)
+        # Create new category with user_id
+        category = Category(**category_in.model_dump(), user_id=user_id)
         self.session.add(category)
         await self.session.flush()
         return category
 
-    async def get(self, category_id: int) -> Category:
+    async def get(self, category_id: int, user_id: int) -> Category:
         """Get a category by ID."""
-        stmt = select(Category).where(Category.id == category_id)
+        stmt = select(Category).where(Category.id == category_id, col(Category.user_id) == user_id)
         category = await self.session.scalar(stmt)
         if not category:
             raise NotFoundError(f"Category with ID {category_id} not found")
@@ -45,16 +45,16 @@ class CategoryService:
         result: Category | None = await self.session.scalar(stmt)
         return result
 
-    async def list(self, skip: int = 0, limit: int = 100) -> Sequence[Category]:
+    async def list(self, skip: int = 0, limit: int = 100, user_id: int) -> Sequence[Category]:
         """List all categories."""
-        stmt = select(Category).offset(skip).limit(limit)
+        stmt = select(Category).where(col(Category.user_id) == user_id).offset(skip).limit(limit)
         result = await self.session.exec(stmt)
         return result.all()
 
-    async def update(self, category_id: int, category_in: CategoryUpdate) -> Category:
+    async def update(self, category_id: int, category_in: CategoryUpdate, user_id: int) -> Category:
         """Update a category."""
         # Get the category
-        category = await self.get(category_id)
+        category = await self.get(category_id, user_id)
 
         # If name is being updated, check for uniqueness
         if category_in.name is not None and category_in.name != category.name:
@@ -73,12 +73,12 @@ class CategoryService:
         await self.session.flush()
         return category
 
-    async def delete(self, category_id: int) -> None:
+    async def delete(self, category_id: int, user_id: int) -> None:
         """Delete a category.
 
         Raises ConflictError if the category has items assigned to it.
         """
-        category = await self.get(category_id)
+        category = await self.get(category_id, user_id)
 
         # Check if any items are using this category
         stmt = select(func.count(col(ReceiptItem.id))).where(

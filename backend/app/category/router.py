@@ -22,7 +22,7 @@ async def create_category(
     service: CategoryDeps,
 ) -> Category:
     """Create a new category."""
-    return await service.create(category_in)
+    return await service.create(category_in, user_id=current_user.id)
 
 
 @router.get("", response_model=list[CategoryRead], status_code=status.HTTP_200_OK)
@@ -33,7 +33,7 @@ async def list_categories(
     limit: int = 100,
 ) -> Sequence[Category]:
     """List all categories."""
-    return await service.list(skip=skip, limit=limit)
+    return await service.list(skip=skip, limit=limit, user_id=current_user.id)
 
 
 @router.get(
@@ -45,7 +45,7 @@ async def get_category(
     service: CategoryDeps,
 ) -> Category:
     """Get a specific category by ID."""
-    return await service.get(category_id)
+    return await service.get(category_id, user_id=current_user.id)
 
 
 @router.patch(
@@ -58,7 +58,7 @@ async def update_category(
     service: CategoryDeps,
 ) -> Category:
     """Update a category."""
-    return await service.update(category_id, category_in)
+    return await service.update(category_id, category_in, user_id=current_user.id)
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -68,4 +68,4 @@ async def delete_category(
     service: CategoryDeps,
 ) -> None:
     """Delete a category."""
-    await service.delete(category_id)
+    await service.delete(category_id, user_id=current_user.id)

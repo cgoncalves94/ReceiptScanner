@@ -53,6 +53,25 @@ class Settings(BaseSettings):
             self.ALLOWED_ORIGINS = [AnyHttpUrl("http://localhost:3000")]
         return self
 
+    @model_validator(mode="after")
+    def validate_jwt_secret(self) -> Settings:
+        """Validate JWT secret key is secure and not using default value."""
+        if self.JWT_SECRET_KEY == "your-secret-key-change-in-production":
+            raise ValueError(
+                "SECURITY ERROR: JWT_SECRET_KEY must be changed from default value.\n"
+                "Generate a secure key:\n"
+                "  python -c 'import secrets; print(secrets.token_urlsafe(32))'\n"
+                "Then set it in your .env file or environment variables."
+            )
+        if len(self.JWT_SECRET_KEY) < 32:
+            raise ValueError(
+                f"SECURITY ERROR: JWT_SECRET_KEY must be at least 32 characters long.\n"
+                f"Current length: {len(self.JWT_SECRET_KEY)} characters\n"
+                "Generate a secure key:\n"
+                "  python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+        return self
+
     @property
     def database_url(self) -> str:
         """Constructs database URL from config values."""
