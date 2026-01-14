@@ -31,9 +31,7 @@ async def create_receipt_from_scan(
     The image will be analyzed using AI to extract information.
     The receipt and items will be created in the database.
     """
-    # Process receipt and create in database
-    receipt = await service.create_from_scan(image)  # pragma: no cover
-    return receipt  # pragma: no cover
+    return await service.create_from_scan(image)
 
 
 @router.get("", response_model=list[ReceiptRead], status_code=status.HTTP_200_OK)

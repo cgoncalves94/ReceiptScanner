@@ -1,10 +1,11 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from sqlalchemy import select as sa_select
 from sqlmodel import col, extract, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel.sql.expression import Select
 
 from app.category.models import Category
 from app.receipt.models import Receipt, ReceiptItem
@@ -337,7 +338,7 @@ class AnalyticsService:
             col(Receipt.currency),
         )
 
-        result = await self.session.exec(stmt)
+        result = await self.session.exec(cast(Select[Any], stmt))
         rows = result.all()
 
         # Group by category

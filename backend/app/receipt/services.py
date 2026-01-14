@@ -13,7 +13,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.category.models import CategoryCreate
 from app.category.services import CategoryService
 from app.core.config import settings
-from app.core.decorators import transactional
 from app.core.exceptions import BadRequestError, NotFoundError, ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_agent import analyze_receipt
 
@@ -58,7 +57,6 @@ class ReceiptService:
         await self.session.flush()
         return receipt
 
-    @transactional
     async def create_from_scan(self, image_file: UploadFile) -> Receipt:
         """Create a receipt from an uploaded image file.
 
@@ -67,6 +65,8 @@ class ReceiptService:
         2. Processes the image with AI to extract receipt data
         3. Creates categories if they don't exist
         4. Creates the receipt and its items
+
+        If any step fails, the saved image file is cleaned up.
 
         Args:
             image_file: The uploaded receipt image
@@ -84,24 +84,27 @@ class ReceiptService:
             content = await image_file.read()
             f.write(content)
 
-        # Open and validate the image
         try:
-            pil_image = Image.open(image_path)
-            pil_image.verify()  # Verify it's a valid image
-            pil_image = Image.open(image_path)  # Re-open after verify
-        except Exception as e:
-            raise BadRequestError(f"Invalid image file: {e}") from e
+            # Open and validate the image
+            try:
+                pil_image = Image.open(image_path)
+                pil_image.verify()  # Verify it's a valid image
+                pil_image = Image.open(image_path)  # Re-open after verify
+            except Exception as e:
+                raise BadRequestError(f"Invalid image file: {e}") from e
 
-        # Get existing categories to help the AI model
-        categories = await self.category_service.list()
-        category_dicts = [
-            {"name": cat.name, "description": cat.description or ""}
-            for cat in categories
-        ]
+            # Get existing categories to help the AI model
+            categories = await self.category_service.list()
+            category_dicts = [
+                {"name": cat.name, "description": cat.description or ""}
+                for cat in categories
+            ]
 
-        try:
             # Analyze the receipt with AI
-            receipt_data = await analyze_receipt(pil_image, category_dicts)
+            try:
+                receipt_data = await analyze_receipt(pil_image, category_dicts)
+            except Exception as e:
+                raise ServiceUnavailableError(f"Failed to analyze receipt: {e}") from e
 
             # Create receipt record
             receipt_create = ReceiptCreate(
@@ -117,10 +120,6 @@ class ReceiptService:
                 raise ServiceUnavailableError(
                     "Failed to create receipt - ID not assigned"
                 )
-
-            # Ensure receipt has an ID after creation
-            if receipt.id is None:
-                raise ServiceUnavailableError("Failed to create receipt")
             receipt_id = receipt.id
 
             # Process each item
@@ -166,8 +165,11 @@ class ReceiptService:
             # Get the updated receipt with items
             return await self.get(receipt_id)
 
-        except Exception as e:
-            raise ServiceUnavailableError(f"Failed to analyze receipt: {str(e)}") from e
+        except Exception:
+            # Clean up the saved file on any failure
+            if image_path.exists():
+                image_path.unlink()
+            raise
 
     async def get(self, receipt_id: int) -> Receipt:
         """Get a receipt by ID."""
