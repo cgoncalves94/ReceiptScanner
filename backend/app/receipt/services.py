@@ -259,13 +259,21 @@ class ReceiptService:
         results = await self.session.exec(stmt)
         return results.all()
 
-    async def list_stores(self) -> Sequence[str]:
-        """Get a list of unique store names.
+    async def list_stores(self, user_id: int) -> Sequence[str]:
+        """Get a list of unique store names for a specific user.
+
+        Args:
+            user_id: The ID of the user whose stores to retrieve.
 
         Returns:
-            Sorted list of unique store names from all receipts.
+            Sorted list of unique store names from the user's receipts.
         """
-        stmt = select(Receipt.store_name).distinct().order_by(Receipt.store_name)
+        stmt = (
+            select(Receipt.store_name)
+            .where(col(Receipt.user_id) == user_id)
+            .distinct()
+            .order_by(Receipt.store_name)
+        )
         results = await self.session.exec(stmt)
         return results.all()
 
@@ -338,17 +346,33 @@ class ReceiptService:
         return items
 
     async def list_items_by_category(
-        self, category_id: int, skip: int = 0, limit: int = 100
+        self, category_id: int, user_id: int, skip: int = 0, limit: int = 100
     ) -> Sequence[ReceiptItem]:
-        """List receipt items by category."""
-        # Get the category directly from the database
-        category = await self.category_service.get(category_id)
+        """List receipt items by category for a specific user.
+
+        Args:
+            category_id: The ID of the category to filter by.
+            user_id: The ID of the user whose items to retrieve.
+            skip: Number of items to skip.
+            limit: Maximum number of items to return.
+
+        Returns:
+            List of receipt items belonging to the user's receipts in the specified category.
+
+        Raises:
+            NotFoundError: If the category doesn't exist or doesn't belong to the user.
+        """
+        # Verify the category exists and belongs to the user
+        category = await self.category_service.get(category_id, user_id)
         if not category:
             raise NotFoundError(f"Category with id {category_id} not found")
 
+        # Join with Receipt table to filter by user_id
         stmt = (
             select(ReceiptItem)
+            .join(Receipt, ReceiptItem.receipt_id == Receipt.id)
             .where(ReceiptItem.category_id == category_id)
+            .where(col(Receipt.user_id) == user_id)
             .offset(skip)
             .limit(limit)
         )

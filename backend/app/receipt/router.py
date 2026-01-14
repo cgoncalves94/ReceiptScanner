@@ -110,7 +110,7 @@ async def list_stores(
     service: ReceiptDeps,
 ) -> Sequence[str]:
     """Get a list of unique store names for filtering."""
-    return await service.list_stores()
+    return await service.list_stores(user_id=current_user.id)
 
 
 @router.get("/{receipt_id}", response_model=ReceiptRead, status_code=status.HTTP_200_OK)
@@ -138,6 +138,7 @@ async def list_items_by_category(
     """List all receipt items in a category."""
     return await service.list_items_by_category(
         category_id=category_id,
+        user_id=current_user.id,
         skip=skip,
         limit=limit,
     )

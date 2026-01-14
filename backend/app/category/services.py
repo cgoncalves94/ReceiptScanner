@@ -18,8 +18,8 @@ class CategoryService:
 
     async def create(self, category_in: CategoryCreate, user_id: int) -> Category:
         """Create a new category."""
-        # Check if category exists
-        existing = await self.get_by_name(category_in.name)
+        # Check if category with this name already exists for this user
+        existing = await self.get_by_name(category_in.name, user_id)
         if existing:
             raise ConflictError(
                 f"Category with name '{category_in.name}' already exists"
@@ -39,9 +39,17 @@ class CategoryService:
             raise NotFoundError(f"Category with ID {category_id} not found")
         return category
 
-    async def get_by_name(self, name: str) -> Category | None:
-        """Get a category by name."""
-        stmt = select(Category).where(Category.name == name)
+    async def get_by_name(self, name: str, user_id: int) -> Category | None:
+        """Get a category by name for a specific user.
+
+        Args:
+            name: The category name to search for.
+            user_id: The ID of the user whose categories to search.
+
+        Returns:
+            The category if found, None otherwise.
+        """
+        stmt = select(Category).where(Category.name == name, col(Category.user_id) == user_id)
         result: Category | None = await self.session.scalar(stmt)
         return result
 
@@ -56,9 +64,9 @@ class CategoryService:
         # Get the category
         category = await self.get(category_id, user_id)
 
-        # If name is being updated, check for uniqueness
+        # If name is being updated, check for uniqueness within this user's categories
         if category_in.name is not None and category_in.name != category.name:
-            existing = await self.get_by_name(category_in.name)
+            existing = await self.get_by_name(category_in.name, user_id)
             if existing:
                 raise ConflictError(
                     f"Category with name '{category_in.name}' already exists"
