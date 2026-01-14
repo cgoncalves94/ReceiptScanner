@@ -1,10 +1,11 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Scan, Menu } from "lucide-react";
+import { Scan, Menu, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useUIStore } from "@/lib/store";
+import { useUser, useLogout } from "@/hooks/use-auth";
 
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -16,11 +17,19 @@ const pageTitles: Record<string, string> = {
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { toggleSidebar } = useUIStore();
+  const { data: user } = useUser();
+  const logoutMutation = useLogout();
 
   // Get title, handle dynamic routes like /receipts/[id]
   const title = pageTitles[pathname] ||
     (pathname.startsWith("/receipts/") ? "Receipt Details" : "Receipt Scanner");
+
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
+    router.push("/login");
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/50 bg-background/80 backdrop-blur-sm px-6">
@@ -44,6 +53,22 @@ export function Header() {
             Scan
           </Link>
         </Button>
+        {user && (
+          <>
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {user.email}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              disabled={logoutMutation.isPending}
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </>
+        )}
       </div>
     </header>
   );
