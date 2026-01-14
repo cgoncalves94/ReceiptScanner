@@ -35,7 +35,9 @@ class ApiClient {
     if (typeof window === "undefined") return;
     localStorage.setItem(TOKEN_KEY, token);
     // Also set in cookie for middleware access
-    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    // Add Secure flag in production (HTTPS only)
+    const secureFlag = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${secureFlag}`;
   }
 
   removeToken(): void {

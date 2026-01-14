@@ -22,8 +22,15 @@ export function useLogin() {
     mutationFn: (credentials: LoginCredentials) => api.login(credentials),
     onSuccess: async () => {
       // Fetch user data after successful login
-      const user = await api.getCurrentUser();
-      queryClient.setQueryData<User>(AUTH_KEY, user);
+      try {
+        const user = await api.getCurrentUser();
+        queryClient.setQueryData<User>(AUTH_KEY, user);
+      } catch {
+        // If getCurrentUser fails after login succeeds, clean up the stored token
+        // to maintain consistent state
+        api.logout();
+        throw new Error("Failed to fetch user data after login");
+      }
     },
   });
 }
