@@ -56,9 +56,7 @@ export function RegisterForm({
   });
 
   const handleSubmit = async (data: RegisterFormData) => {
-    // Remove confirmPassword before sending to API
-    const { confirmPassword: _confirmPassword, ...credentials } = data;
-    await onSubmit(credentials);
+    await onSubmit({ email: data.email, password: data.password });
   };
 
   return (
