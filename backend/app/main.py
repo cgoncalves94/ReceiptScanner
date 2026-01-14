@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app import __author__
 from app.analytics.router import router as analytics_router
+from app.auth.router import router as auth_router
 from app.category.router import router as category_router
 from app.core.config import settings
 from app.core.db import check_db_connection, engine, init_db
@@ -73,6 +74,7 @@ app.add_middleware(
 )
 
 # Include domain routers
+app.include_router(auth_router)
 app.include_router(receipt_router)
 app.include_router(category_router)
 app.include_router(analytics_router)
