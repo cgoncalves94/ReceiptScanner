@@ -1,6 +1,6 @@
 """Unit tests for authentication utilities."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import jwt
@@ -128,8 +128,8 @@ def test_create_access_token_custom_expiration(mock_settings: MagicMock) -> None
     decoded = jwt.decode(
         token, mock_settings.JWT_SECRET_KEY, algorithms=[mock_settings.JWT_ALGORITHM]
     )
-    exp_time = datetime.fromtimestamp(decoded["exp"], tz=timezone.utc)
-    expected_exp = datetime.now(timezone.utc) + expires_delta
+    exp_time = datetime.fromtimestamp(decoded["exp"], tz=UTC)
+    expected_exp = datetime.now(UTC) + expires_delta
 
     # Allow 5 second tolerance for test execution time
     assert abs((exp_time - expected_exp).total_seconds()) < 5

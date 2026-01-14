@@ -8,6 +8,9 @@ from app.category.models import Category, CategoryCreate, CategoryUpdate
 from app.category.services import CategoryService
 from app.core.exceptions import ConflictError, NotFoundError
 
+# Test user ID for data isolation
+TEST_USER_ID = 1
+
 
 @pytest.fixture
 def mock_session() -> AsyncMock:
@@ -41,7 +44,7 @@ async def test_create_category(
     mock_session.flush = AsyncMock()
 
     # Act
-    created_category = await category_service.create(category_in)
+    created_category = await category_service.create(category_in, user_id=TEST_USER_ID)
 
     # Assert
     assert created_category.name == category_in.name
@@ -69,7 +72,7 @@ async def test_create_duplicate_category(
 
     # Act & Assert
     with pytest.raises(ConflictError) as exc_info:
-        await category_service.create(category_in)
+        await category_service.create(category_in, user_id=TEST_USER_ID)
     assert "already exists" in str(exc_info.value)
     mock_session.add.assert_not_called()
 
@@ -89,7 +92,7 @@ async def test_get_category(
     mock_session.scalar.return_value = category
 
     # Act
-    retrieved_category = await category_service.get(category.id)
+    retrieved_category = await category_service.get(category.id, user_id=TEST_USER_ID)
 
     # Assert
     assert retrieved_category.id == category.id
@@ -108,7 +111,7 @@ async def test_get_nonexistent_category(
 
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
-        await category_service.get(999)
+        await category_service.get(999, user_id=TEST_USER_ID)
     assert "not found" in str(exc_info.value)
 
 
@@ -131,7 +134,9 @@ async def test_list_categories(
     ]  # Return only first 2
 
     # Act
-    retrieved_categories = await category_service.list(skip=0, limit=2)
+    retrieved_categories = await category_service.list(
+        skip=0, limit=2, user_id=TEST_USER_ID
+    )
 
     # Assert
     assert len(retrieved_categories) == 2
@@ -164,7 +169,9 @@ async def test_update_category(
     )
 
     # Act
-    updated_category = await category_service.update(existing_category.id, update_data)
+    updated_category = await category_service.update(
+        existing_category.id, update_data, user_id=TEST_USER_ID
+    )
 
     # Assert
     assert updated_category.name == update_data.name
@@ -187,7 +194,7 @@ async def test_update_nonexistent_category(
 
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
-        await category_service.update(999, update_data)
+        await category_service.update(999, update_data, user_id=TEST_USER_ID)
     assert "not found" in str(exc_info.value)
     mock_session.flush.assert_not_called()
 
@@ -220,7 +227,9 @@ async def test_update_category_duplicate_name(
 
     # Act & Assert
     with pytest.raises(ConflictError) as exc_info:
-        await category_service.update(existing_category.id, update_data)
+        await category_service.update(
+            existing_category.id, update_data, user_id=TEST_USER_ID
+        )
     assert "already exists" in str(exc_info.value)
     mock_session.flush.assert_not_called()
 
@@ -245,7 +254,7 @@ async def test_delete_category(
     mock_session.flush = AsyncMock()
 
     # Act
-    await category_service.delete(category.id)
+    await category_service.delete(category.id, user_id=TEST_USER_ID)
 
     # Assert
     mock_session.delete.assert_called_once_with(category)
@@ -265,7 +274,7 @@ async def test_delete_nonexistent_category(
 
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
-        await category_service.delete(999)
+        await category_service.delete(999, user_id=TEST_USER_ID)
     assert "not found" in str(exc_info.value)
     mock_session.delete.assert_not_called()
 
@@ -289,7 +298,7 @@ async def test_delete_category_with_items(
 
     # Act & Assert
     with pytest.raises(ConflictError) as exc_info:
-        await category_service.delete(category.id)
+        await category_service.delete(category.id, user_id=TEST_USER_ID)
     assert "Cannot delete category" in str(exc_info.value)
     assert "5 item(s)" in str(exc_info.value)
     mock_session.delete.assert_not_called()

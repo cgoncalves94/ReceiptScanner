@@ -35,6 +35,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.auth.models import User
+from app.auth.utils import create_access_token, hash_password
 from app.category.models import Category
 from app.core.config import settings
 from app.core.deps import get_session
@@ -248,14 +250,53 @@ def mock_receipt_analysis() -> dict:
 
 
 # =============================================================================
+# Authentication Fixtures
+# =============================================================================
+
+
+@pytest_asyncio.fixture
+async def test_user(test_session: AsyncSession) -> AsyncGenerator[User]:
+    """Create a test user in the database."""
+    user = User(
+        email="test@example.com",
+        hashed_password=hash_password("testpassword123"),
+        is_active=True,
+    )
+    test_session.add(user)
+    await test_session.commit()
+    await test_session.refresh(user)
+    yield user
+
+
+@pytest.fixture
+def auth_token(test_user: User) -> str:
+    """Create a JWT access token for the test user."""
+    assert test_user.id is not None
+    return create_access_token(data={"sub": str(test_user.id)})
+
+
+@pytest.fixture
+def auth_headers(auth_token: str) -> dict[str, str]:
+    """Create authorization headers with the test user's token."""
+    return {"Authorization": f"Bearer {auth_token}"}
+
+
+# =============================================================================
 # Entity Fixtures (Database Records)
 # =============================================================================
 
 
 @pytest_asyncio.fixture
-async def test_category(test_session: AsyncSession) -> AsyncGenerator[Category]:
+async def test_category(
+    test_session: AsyncSession, test_user: User
+) -> AsyncGenerator[Category]:
     """Create a test category in the database."""
-    category = Category(name="Test Category", description="Test Description")
+    assert test_user.id is not None
+    category = Category(
+        name="Test Category",
+        description="Test Description",
+        user_id=test_user.id,
+    )
     test_session.add(category)
     await test_session.commit()
     await test_session.refresh(category)
@@ -263,13 +304,17 @@ async def test_category(test_session: AsyncSession) -> AsyncGenerator[Category]:
 
 
 @pytest_asyncio.fixture
-async def test_receipt(test_session: AsyncSession) -> AsyncGenerator[Receipt]:
+async def test_receipt(
+    test_session: AsyncSession, test_user: User
+) -> AsyncGenerator[Receipt]:
     """Create a test receipt in the database."""
+    assert test_user.id is not None
     receipt = Receipt(
         store_name="Test Store",
         total_amount=Decimal("10.99"),
         currency="$",
         image_path="/path/to/image.jpg",
+        user_id=test_user.id,
     )
     test_session.add(receipt)
     await test_session.commit()
@@ -302,15 +347,21 @@ async def test_receipt_item(
 
 
 @pytest_asyncio.fixture
-async def analytics_test_data(test_session: AsyncSession) -> dict:
+async def analytics_test_data(test_session: AsyncSession, test_user: User) -> dict:
     """Create test data for analytics tests.
 
     Creates a realistic scenario with multiple stores, categories,
     receipts, and items for testing analytics aggregations.
     """
+    assert test_user.id is not None
+
     # Create categories
-    groceries = Category(name="Groceries", description="Food items")
-    electronics = Category(name="Electronics", description="Electronic items")
+    groceries = Category(
+        name="Groceries", description="Food items", user_id=test_user.id
+    )
+    electronics = Category(
+        name="Electronics", description="Electronic items", user_id=test_user.id
+    )
     test_session.add(groceries)
     test_session.add(electronics)
     await test_session.flush()
@@ -322,6 +373,7 @@ async def analytics_test_data(test_session: AsyncSession) -> dict:
         currency="EUR",
         purchase_date=datetime(2025, 1, 5),
         image_path="/path/receipt1.jpg",
+        user_id=test_user.id,
     )
     receipt2 = Receipt(
         store_name="Target",
@@ -329,6 +381,7 @@ async def analytics_test_data(test_session: AsyncSession) -> dict:
         currency="EUR",
         purchase_date=datetime(2025, 1, 15),
         image_path="/path/receipt2.jpg",
+        user_id=test_user.id,
     )
     receipt3 = Receipt(
         store_name="Walmart",
@@ -336,6 +389,7 @@ async def analytics_test_data(test_session: AsyncSession) -> dict:
         currency="EUR",
         purchase_date=datetime(2025, 1, 20),
         image_path="/path/receipt3.jpg",
+        user_id=test_user.id,
     )
     test_session.add_all([receipt1, receipt2, receipt3])
     await test_session.flush()

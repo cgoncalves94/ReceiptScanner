@@ -18,6 +18,9 @@ from app.receipt.models import (
 )
 from app.receipt.services import ReceiptService
 
+# Test user ID for data isolation
+TEST_USER_ID = 1
+
 
 def test_receipt_item_total_cost():
     """Test the total_cost computed property of ReceiptItem."""
@@ -83,7 +86,7 @@ async def test_create_receipt(
     mock_session.flush = AsyncMock()
 
     # Act
-    created_receipt = await receipt_service.create(receipt_in)
+    created_receipt = await receipt_service.create(receipt_in, user_id=TEST_USER_ID)
 
     # Assert
     assert created_receipt.store_name == receipt_in.store_name
@@ -112,7 +115,7 @@ async def test_get_receipt(
     mock_session.refresh = AsyncMock()
 
     # Act
-    retrieved_receipt = await receipt_service.get(receipt.id)
+    retrieved_receipt = await receipt_service.get(receipt.id, user_id=TEST_USER_ID)
 
     # Assert
     assert retrieved_receipt.id == receipt.id
@@ -132,7 +135,7 @@ async def test_get_nonexistent_receipt(
 
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
-        await receipt_service.get(999)
+        await receipt_service.get(999, user_id=TEST_USER_ID)
     assert "not found" in str(exc_info.value)
 
 
@@ -162,7 +165,9 @@ async def test_list_receipts(
     ]  # Return only first 2
 
     # Act
-    retrieved_receipts = await receipt_service.list(skip=0, limit=2)
+    retrieved_receipts = await receipt_service.list(
+        skip=0, limit=2, user_id=TEST_USER_ID
+    )
 
     # Assert
     assert len(retrieved_receipts) == 2
@@ -198,7 +203,9 @@ async def test_update_receipt(
     )
 
     # Act
-    updated_receipt = await receipt_service.update(existing_receipt.id, update_data)
+    updated_receipt = await receipt_service.update(
+        existing_receipt.id, update_data, user_id=TEST_USER_ID
+    )
 
     # Assert
     assert updated_receipt.store_name == update_data.store_name
@@ -226,7 +233,7 @@ async def test_update_nonexistent_receipt(
 
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
-        await receipt_service.update(999, update_data)
+        await receipt_service.update(999, update_data, user_id=TEST_USER_ID)
     assert "not found" in str(exc_info.value)
     mock_session.flush.assert_not_called()
 
@@ -252,7 +259,7 @@ async def test_delete_receipt(
     mock_session.flush = AsyncMock()
 
     # Act
-    await receipt_service.delete(receipt.id)
+    await receipt_service.delete(receipt.id, user_id=TEST_USER_ID)
 
     # Assert
     mock_session.delete.assert_called_once_with(receipt)
@@ -293,7 +300,7 @@ async def test_list_items_by_category(
 
     # Act
     retrieved_items = await receipt_service.list_items_by_category(
-        category_id=category_id
+        category_id=category_id, user_id=TEST_USER_ID
     )
 
     # Assert
@@ -334,7 +341,7 @@ async def test_update_receipt_item(
 
     # Act
     updated_receipt = await receipt_service.update_item(
-        receipt_id=1, item_id=1, item_in=update_data
+        receipt_id=1, item_id=1, item_in=update_data, user_id=TEST_USER_ID
     )
 
     # Assert
@@ -365,7 +372,7 @@ async def test_update_nonexistent_receipt_item(
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
         await receipt_service.update_item(
-            receipt_id=1, item_id=999, item_in=update_data
+            receipt_id=1, item_id=999, item_in=update_data, user_id=TEST_USER_ID
         )
     assert "not found" in str(exc_info.value)
 
@@ -403,7 +410,9 @@ async def test_update_receipt_with_metadata(
     )
 
     # Act
-    updated_receipt = await receipt_service.update(existing_receipt.id, update_data)
+    updated_receipt = await receipt_service.update(
+        existing_receipt.id, update_data, user_id=TEST_USER_ID
+    )
 
     # Assert
     assert updated_receipt.notes == "Weekly grocery shopping"
@@ -474,7 +483,9 @@ async def test_create_item(
     )
 
     # Act
-    updated_receipt = await receipt_service.create_item(receipt_id=1, item_in=item_data)
+    updated_receipt = await receipt_service.create_item(
+        receipt_id=1, item_in=item_data, user_id=TEST_USER_ID
+    )
 
     # Assert
     # Total should be original (10.00) + new item total (2 * 5.50 = 11.00) = 21.00
@@ -500,7 +511,9 @@ async def test_create_item_nonexistent_receipt(
 
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
-        await receipt_service.create_item(receipt_id=999, item_in=item_data)
+        await receipt_service.create_item(
+            receipt_id=999, item_in=item_data, user_id=TEST_USER_ID
+        )
     assert "not found" in str(exc_info.value)
 
 
@@ -533,7 +546,9 @@ async def test_delete_item(
     mock_session.refresh = AsyncMock()
 
     # Act
-    updated_receipt = await receipt_service.delete_item(receipt_id=1, item_id=1)
+    updated_receipt = await receipt_service.delete_item(
+        receipt_id=1, item_id=1, user_id=TEST_USER_ID
+    )
 
     # Assert
     # Total should be original (15.00) - deleted item (5.00) = 10.00
@@ -561,7 +576,9 @@ async def test_delete_item_nonexistent_item(
 
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
-        await receipt_service.delete_item(receipt_id=1, item_id=999)
+        await receipt_service.delete_item(
+            receipt_id=1, item_id=999, user_id=TEST_USER_ID
+        )
     assert "not found" in str(exc_info.value)
 
 
@@ -575,7 +592,9 @@ async def test_delete_item_nonexistent_receipt(
 
     # Act & Assert
     with pytest.raises(NotFoundError) as exc_info:
-        await receipt_service.delete_item(receipt_id=999, item_id=1)
+        await receipt_service.delete_item(
+            receipt_id=999, item_id=1, user_id=TEST_USER_ID
+        )
     assert "not found" in str(exc_info.value)
 
 
@@ -605,7 +624,9 @@ async def test_create_item_currency_mismatch(
 
     # Act & Assert
     with pytest.raises(BadRequestError) as exc_info:
-        await receipt_service.create_item(receipt_id=1, item_in=item_data)
+        await receipt_service.create_item(
+            receipt_id=1, item_in=item_data, user_id=TEST_USER_ID
+        )
     assert "does not match" in str(exc_info.value)
 
 
@@ -634,7 +655,9 @@ async def test_list_receipts_with_search_filter(
     mock_session.refresh = AsyncMock()
 
     # Act
-    result = await receipt_service.list(filters={"search": "grocery"})
+    result = await receipt_service.list(
+        filters={"search": "grocery"}, user_id=TEST_USER_ID
+    )
 
     # Assert
     assert len(result) == 1
@@ -664,7 +687,8 @@ async def test_list_receipts_with_amount_filters(
 
     # Act
     result = await receipt_service.list(
-        filters={"min_amount": Decimal("50.00"), "max_amount": Decimal("100.00")}
+        filters={"min_amount": Decimal("50.00"), "max_amount": Decimal("100.00")},
+        user_id=TEST_USER_ID,
     )
 
     # Assert
@@ -695,7 +719,7 @@ async def test_list_receipts_with_no_filters(
     mock_session.refresh = AsyncMock()
 
     # Act
-    result = await receipt_service.list(filters=None)
+    result = await receipt_service.list(filters=None, user_id=TEST_USER_ID)
 
     # Assert
     assert len(result) == 3

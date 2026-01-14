@@ -6,11 +6,12 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.models import User
 from app.category.models import Category
 from app.receipt.models import Receipt, ReceiptItem
 
 
-def test_create_category(test_client: TestClient) -> None:
+def test_create_category(test_client: TestClient, auth_headers: dict[str, str]) -> None:
     """Test creating a category via API."""
     # Arrange
     category_data = {
@@ -19,7 +20,9 @@ def test_create_category(test_client: TestClient) -> None:
     }
 
     # Act
-    response = test_client.post("/api/v1/categories/", json=category_data)
+    response = test_client.post(
+        "/api/v1/categories/", json=category_data, headers=auth_headers
+    )
 
     # Assert
     assert response.status_code == 201
@@ -32,10 +35,14 @@ def test_create_category(test_client: TestClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_category(test_client: TestClient, test_category: Category) -> None:
+async def test_get_category(
+    test_client: TestClient, test_category: Category, auth_headers: dict[str, str]
+) -> None:
     """Test getting a category by ID via API."""
     # Act
-    response = test_client.get(f"/api/v1/categories/{test_category.id}")
+    response = test_client.get(
+        f"/api/v1/categories/{test_category.id}", headers=auth_headers
+    )
 
     # Assert
     assert response.status_code == 200
@@ -47,18 +54,27 @@ async def test_get_category(test_client: TestClient, test_category: Category) ->
 
 @pytest.mark.asyncio
 async def test_list_categories(
-    test_client: TestClient, test_session: AsyncSession
+    test_client: TestClient,
+    test_session: AsyncSession,
+    test_user: User,
+    auth_headers: dict[str, str],
 ) -> None:
     """Test listing categories via API."""
     # Arrange
+    assert test_user.id is not None
     categories = [
-        Category(name=f"Category {i}", description=f"Description {i}") for i in range(3)
+        Category(
+            name=f"Category {i}",
+            description=f"Description {i}",
+            user_id=test_user.id,
+        )
+        for i in range(3)
     ]
     test_session.add_all(categories)
     await test_session.commit()
 
     # Act
-    response = test_client.get("/api/v1/categories/")
+    response = test_client.get("/api/v1/categories/", headers=auth_headers)
 
     # Assert
     assert response.status_code == 200
@@ -71,11 +87,17 @@ async def test_list_categories(
 
 @pytest.mark.asyncio
 async def test_update_category(
-    test_client: TestClient, test_session: AsyncSession
+    test_client: TestClient,
+    test_session: AsyncSession,
+    test_user: User,
+    auth_headers: dict[str, str],
 ) -> None:
     """Test updating a category via API."""
     # Arrange
-    category = Category(name="Old Name", description="Old Description")
+    assert test_user.id is not None
+    category = Category(
+        name="Old Name", description="Old Description", user_id=test_user.id
+    )
     test_session.add(category)
     await test_session.commit()
 
@@ -88,6 +110,7 @@ async def test_update_category(
     response = test_client.patch(
         f"/api/v1/categories/{category.id}",
         json=update_data,
+        headers=auth_headers,
     )
 
     # Assert
@@ -100,35 +123,44 @@ async def test_update_category(
 
 @pytest.mark.asyncio
 async def test_delete_category(
-    test_client: TestClient, test_category: Category
+    test_client: TestClient,
+    test_category: Category,
+    auth_headers: dict[str, str],
 ) -> None:
     """Test deleting a category via API."""
     # Act
-    response = test_client.delete(f"/api/v1/categories/{test_category.id}")
+    response = test_client.delete(
+        f"/api/v1/categories/{test_category.id}", headers=auth_headers
+    )
 
     # Assert
     assert response.status_code == 204
 
     # Verify category is deleted
-    get_response = test_client.get(f"/api/v1/categories/{test_category.id}")
+    get_response = test_client.get(
+        f"/api/v1/categories/{test_category.id}", headers=auth_headers
+    )
     assert get_response.status_code == 404
 
 
-def test_get_nonexistent_category(test_client: TestClient) -> None:
+def test_get_nonexistent_category(
+    test_client: TestClient, auth_headers: dict[str, str]
+) -> None:
     """Test getting a category that doesn't exist."""
-    response = test_client.get("/api/v1/categories/999")
+    response = test_client.get("/api/v1/categories/999", headers=auth_headers)
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_create_duplicate_category(
-    test_client: TestClient, test_category: Category
+    test_client: TestClient, test_category: Category, auth_headers: dict[str, str]
 ) -> None:
     """Test creating a category with a name that already exists."""
     # Act: Try to create category with same name as fixture
     response = test_client.post(
         "/api/v1/categories/",
         json={"name": test_category.name, "description": "New Description"},
+        headers=auth_headers,
     )
 
     # Assert
@@ -138,7 +170,10 @@ async def test_create_duplicate_category(
 
 @pytest.mark.asyncio
 async def test_delete_category_with_items_returns_409(
-    test_client: TestClient, test_session: AsyncSession
+    test_client: TestClient,
+    test_session: AsyncSession,
+    test_user: User,
+    auth_headers: dict[str, str],
 ) -> None:
     """Test that deleting a category with assigned items returns 409 Conflict.
 
@@ -146,7 +181,10 @@ async def test_delete_category_with_items_returns_409(
     if they have receipt items assigned to them.
     """
     # Arrange: Create category, receipt, and item
-    category = Category(name="Protected Category", description="Has items")
+    assert test_user.id is not None
+    category = Category(
+        name="Protected Category", description="Has items", user_id=test_user.id
+    )
     test_session.add(category)
     await test_session.flush()
 
@@ -155,6 +193,7 @@ async def test_delete_category_with_items_returns_409(
         total_amount=Decimal("10.00"),
         currency="€",
         image_path="/test/path.jpg",
+        user_id=test_user.id,
     )
     test_session.add(receipt)
     await test_session.flush()
@@ -176,7 +215,9 @@ async def test_delete_category_with_items_returns_409(
     await test_session.commit()
 
     # Act: Try to delete category with items
-    response = test_client.delete(f"/api/v1/categories/{category.id}")
+    response = test_client.delete(
+        f"/api/v1/categories/{category.id}", headers=auth_headers
+    )
 
     # Assert: Should return 409 Conflict
     assert response.status_code == 409
@@ -184,5 +225,7 @@ async def test_delete_category_with_items_returns_409(
     assert "items" in detail or "assigned" in detail
 
     # Verify category still exists
-    get_response = test_client.get(f"/api/v1/categories/{category.id}")
+    get_response = test_client.get(
+        f"/api/v1/categories/{category.id}", headers=auth_headers
+    )
     assert get_response.status_code == 200
