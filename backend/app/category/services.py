@@ -53,7 +53,13 @@ class CategoryService:
         result: Category | None = await self.session.scalar(stmt)
         return result
 
-    async def list(self, skip: int = 0, limit: int = 100, user_id: int) -> Sequence[Category]:
+    async def list(
+        self,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        user_id: int,
+    ) -> Sequence[Category]:
         """List all categories."""
         stmt = select(Category).where(col(Category.user_id) == user_id).offset(skip).limit(limit)
         result = await self.session.exec(stmt)
