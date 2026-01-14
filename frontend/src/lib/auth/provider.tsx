@@ -26,7 +26,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const currentUser = await api.getCurrentUser();
         setUser(currentUser);
-      } catch (error) {
+      } catch {
         // Token is invalid or expired, remove it
         api.removeToken();
       } finally {
@@ -38,14 +38,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
-    const response = await api.login(credentials);
+    await api.login(credentials);
     // Token is automatically stored by api.login
     const currentUser = await api.getCurrentUser();
     setUser(currentUser);
   };
 
   const register = async (credentials: RegisterCredentials) => {
-    const newUser = await api.register(credentials);
+    await api.register(credentials);
     // After registration, automatically log in
     await login({
       email: credentials.email,
