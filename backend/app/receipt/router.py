@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Query, UploadFile, status
 
-from app.auth.deps import CurrentUser
+from app.auth.deps import CurrentUser, require_user_id
 
 from .deps import ReceiptDeps
 from .models import (
@@ -34,7 +34,8 @@ async def create_receipt_from_scan(
     The image will be analyzed using AI to extract information.
     The receipt and items will be created in the database.
     """
-    return await service.create_from_scan(image, user_id=current_user.id)
+    user_id = require_user_id(current_user)
+    return await service.create_from_scan(image, user_id=user_id)
 
 
 @router.get("", response_model=list[ReceiptRead], status_code=status.HTTP_200_OK)
@@ -83,6 +84,7 @@ async def list_receipts(
     - category_ids: Filter receipts that have items in specified categories
     - min_amount/max_amount: Total amount range filter
     """
+    user_id = require_user_id(current_user)
     # Build filters dict only with provided values
     filters: ReceiptFilters = {}
     if search is not None:
@@ -100,7 +102,9 @@ async def list_receipts(
     if max_amount is not None:
         filters["max_amount"] = max_amount
 
-    receipts = await service.list(skip=skip, limit=limit, filters=filters or None, user_id=current_user.id)
+    receipts = await service.list(
+        skip=skip, limit=limit, filters=filters or None, user_id=user_id
+    )
     return receipts  # pragma: no cover
 
 
@@ -110,7 +114,8 @@ async def list_stores(
     service: ReceiptDeps,
 ) -> Sequence[str]:
     """Get a list of unique store names for filtering."""
-    return await service.list_stores(user_id=current_user.id)
+    user_id = require_user_id(current_user)
+    return await service.list_stores(user_id=user_id)
 
 
 @router.get("/{receipt_id}", response_model=ReceiptRead, status_code=status.HTTP_200_OK)
@@ -120,7 +125,8 @@ async def get_receipt(
     service: ReceiptDeps,
 ) -> Receipt:
     """Get a receipt by ID with all its items."""
-    return await service.get(receipt_id, user_id=current_user.id)
+    user_id = require_user_id(current_user)
+    return await service.get(receipt_id, user_id=user_id)
 
 
 @router.get(
@@ -136,9 +142,10 @@ async def list_items_by_category(
     limit: int = 100,
 ) -> Sequence[ReceiptItem]:
     """List all receipt items in a category."""
+    user_id = require_user_id(current_user)
     return await service.list_items_by_category(
         category_id=category_id,
-        user_id=current_user.id,
+        user_id=user_id,
         skip=skip,
         limit=limit,
     )
@@ -156,7 +163,8 @@ async def update_receipt(
     service: ReceiptDeps,
 ) -> Receipt:
     """Update a receipt."""
-    return await service.update(receipt_id, receipt_in, user_id=current_user.id)
+    user_id = require_user_id(current_user)
+    return await service.update(receipt_id, receipt_in, user_id=user_id)
 
 
 @router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -166,7 +174,8 @@ async def delete_receipt(
     service: ReceiptDeps,
 ) -> None:
     """Delete a receipt and all its items."""
-    await service.delete(receipt_id, user_id=current_user.id)
+    user_id = require_user_id(current_user)
+    await service.delete(receipt_id, user_id=user_id)
 
 
 @router.patch(
@@ -182,7 +191,8 @@ async def update_receipt_item(
     service: ReceiptDeps,
 ) -> Receipt:
     """Update a receipt item."""
-    return await service.update_item(receipt_id, item_id, item_in, user_id=current_user.id)
+    user_id = require_user_id(current_user)
+    return await service.update_item(receipt_id, item_id, item_in, user_id=user_id)
 
 
 @router.post(
@@ -200,7 +210,8 @@ async def create_receipt_item(
 
     Creates the item and updates the receipt total automatically.
     """
-    return await service.create_item(receipt_id, item_in, user_id=current_user.id)
+    user_id = require_user_id(current_user)
+    return await service.create_item(receipt_id, item_in, user_id=user_id)
 
 
 @router.delete(
@@ -219,4 +230,5 @@ async def delete_receipt_item(
     Deletes the item and updates the receipt total automatically.
     Returns the updated receipt with remaining items.
     """
-    return await service.delete_item(receipt_id, item_id, user_id=current_user.id)
+    user_id = require_user_id(current_user)
+    return await service.delete_item(receipt_id, item_id, user_id=user_id)

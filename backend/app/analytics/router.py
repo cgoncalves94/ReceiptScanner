@@ -3,7 +3,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, status
 
-from app.auth.deps import CurrentUser
+from app.auth.deps import CurrentUser, require_user_id
 
 from .deps import AnalyticsDeps
 from .models import (
@@ -28,7 +28,8 @@ async def get_spending_summary(
 
     Returns totals grouped by original currency for frontend conversion.
     """
-    return await service.get_summary(user_id=current_user.id, year=year, month=month)
+    user_id = require_user_id(current_user)
+    return await service.get_summary(user_id=user_id, year=year, month=month)
 
 
 @router.get(
@@ -46,8 +47,9 @@ async def get_spending_trends(
 
     Returns time-series data grouped by original currency for frontend conversion.
     """
+    user_id = require_user_id(current_user)
     return await service.get_trends(
-        user_id=current_user.id,
+        user_id=user_id,
         start_date=start,
         end_date=end,
         period=period,
@@ -69,8 +71,9 @@ async def get_top_stores(
 
     Returns stores with totals grouped by original currency for frontend conversion.
     """
+    user_id = require_user_id(current_user)
     return await service.get_top_stores(
-        user_id=current_user.id,
+        user_id=user_id,
         year=year,
         month=month,
         limit=limit,
@@ -94,8 +97,9 @@ async def get_category_breakdown(
     Returns categories with totals grouped by original currency for frontend conversion.
     Percentages are calculated on frontend after currency conversion.
     """
+    user_id = require_user_id(current_user)
     return await service.get_category_breakdown(
-        user_id=current_user.id,
+        user_id=user_id,
         year=year,
         month=month,
     )
