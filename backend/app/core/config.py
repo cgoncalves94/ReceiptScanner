@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_jwt_secret(self) -> Settings:
         """Validate JWT secret key is secure and not using default value."""
-        if self.JWT_SECRET_KEY == "your-secret-key-change-in-production":
+        if self.JWT_SECRET_KEY == "your-secret-key-change-in-production":  # noqa: S105
             raise ValueError(
                 "SECURITY ERROR: JWT_SECRET_KEY must be changed from default value.\n"
                 "Generate a secure key:\n"

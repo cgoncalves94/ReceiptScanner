@@ -95,3 +95,14 @@ async def get_current_user(
 # Type aliases for dependency injection
 AuthDeps = Annotated[AuthService, Depends(get_auth_service)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def require_user_id(user: User) -> int:
+    """Return a non-null user ID or raise if authentication is invalid."""
+    if user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user.id
