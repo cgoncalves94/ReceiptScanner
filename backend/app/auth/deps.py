@@ -8,6 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.deps import get_session
+from app.core.exceptions import NotFoundError
 
 from .models import User
 from .services import AuthService
@@ -75,7 +76,7 @@ async def get_current_user(
     # Get the user from the database
     try:
         user = await service.get_user_by_id(user_id)
-    except Exception:
+    except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
