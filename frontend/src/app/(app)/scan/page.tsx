@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dropzone, ScanResult } from "@/components/scan";
 import { useScanReceipt } from "@/hooks";
 import { toast } from "sonner";
@@ -28,37 +28,41 @@ export default function ScanPage() {
     setScannedReceipt(null);
   };
 
-  return (
-    <div className="max-w-2xl mx-auto">
-      <Card className="bg-card/50 border-border/50">
-        <CardHeader>
-          <CardTitle>Scan Receipt</CardTitle>
-          <CardDescription>
-            Upload a photo of your receipt and let AI extract the details
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {scanMutation.isPending ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-12 w-12 text-amber-500 animate-spin mb-4" />
-              <p className="text-lg font-medium">Analyzing receipt...</p>
-              <p className="text-muted-foreground">
-                This may take a few seconds
-              </p>
-            </div>
-          ) : scannedReceipt ? (
+  // Show scan result in a card when we have one
+  if (scannedReceipt) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
             <ScanResult
               receipt={scannedReceipt}
               onScanAnother={handleScanAnother}
             />
-          ) : (
-            <Dropzone
-              onFileSelect={handleFileSelect}
-              disabled={scanMutation.isPending}
-            />
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (scanMutation.isPending) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
+        <Loader2 className="h-20 w-20 text-amber-500 animate-spin mb-6" />
+        <p className="text-2xl font-medium">Analyzing receipt...</p>
+        <p className="text-muted-foreground mt-2">
+          This may take a few seconds
+        </p>
+      </div>
+    );
+  }
+
+  // Full-page dropzone
+  return (
+    <Dropzone
+      onFileSelect={handleFileSelect}
+      disabled={scanMutation.isPending}
+      fullPage
+    />
   );
 }

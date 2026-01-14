@@ -17,21 +17,29 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Receipt, TrendingUp, ShoppingCart, CalendarDays, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { Receipt, TrendingUp, ShoppingCart, CalendarDays, ChevronLeft, ChevronRight, Info, FolderOpen, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import {
   useReceipts,
   useExchangeRates,
   convertAndSum,
+  convertCurrencyAmounts,
   codeToSymbol,
   SUPPORTED_CURRENCIES,
+  useAnalyticsTrends,
+  useCategoryBreakdown,
 } from "@/hooks";
 import { formatDistanceToNow } from "@/lib/format";
-
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
+import { MONTHS } from "@/lib/constants";
 
 export default function Dashboard() {
   const { data: receipts, isLoading } = useReceipts();
@@ -73,6 +81,56 @@ export default function Dashboard() {
   const receiptCount = monthReceipts.length;
   const avgPerReceipt = receiptCount > 0 ? totalSpent / receiptCount : 0;
   const recentReceipts = monthReceipts.slice(0, 5);
+
+  // Calculate date range for trends based on selected period
+  const { trendStart, trendEnd } = useMemo(() => {
+    if (selectedMonth === "all") {
+      return {
+        trendStart: new Date(selectedYear, 0, 1),
+        trendEnd: new Date(selectedYear, 11, 31),
+      };
+    }
+    const monthNum = parseInt(selectedMonth);
+    const lastDay = new Date(selectedYear, monthNum + 1, 0).getDate();
+    return {
+      trendStart: new Date(selectedYear, monthNum, 1),
+      trendEnd: new Date(selectedYear, monthNum, lastDay),
+    };
+  }, [selectedMonth, selectedYear]);
+
+  // Fetch analytics data
+  const isMonthlyView = selectedMonth === "all";
+  const { data: trends, isLoading: trendsLoading } = useAnalyticsTrends(
+    trendStart,
+    trendEnd,
+    isMonthlyView ? "monthly" : "daily"
+  );
+
+  const monthParam = selectedMonth === "all" ? undefined : parseInt(selectedMonth);
+  const { data: categoryBreakdown, isLoading: categoriesLoading } = useCategoryBreakdown(
+    selectedYear,
+    monthParam
+  );
+
+  // Calculate category total for percentage calculations
+  const categoryTotalSpent = useMemo(() => {
+    if (!categoryBreakdown?.categories) return 0;
+    return categoryBreakdown.categories.reduce((acc, cat) => {
+      return acc + convertCurrencyAmounts(cat.totals_by_currency, displayCurrency, exchangeRates);
+    }, 0);
+  }, [categoryBreakdown, displayCurrency, exchangeRates]);
+
+  // Get top 4 categories for preview (pre-compute totals to avoid redundant conversions)
+  const topCategories = useMemo(() => {
+    if (!categoryBreakdown?.categories) return [];
+    return [...categoryBreakdown.categories]
+      .map((cat) => ({
+        ...cat,
+        total: convertCurrencyAmounts(cat.totals_by_currency, displayCurrency, exchangeRates),
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 4);
+  }, [categoryBreakdown, displayCurrency, exchangeRates]);
 
   // Navigation helpers
   const goToPrevMonth = () => {
@@ -306,6 +364,164 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Analytics Preview Section */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Spending Trends Mini Chart */}
+        <Card className="bg-card/50 border-border/50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-amber-500" />
+                  Spending Trends
+                </CardTitle>
+                <CardDescription>
+                  {isMonthlyView ? "Monthly" : "Daily"} overview
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/analytics?year=${selectedYear}${selectedMonth !== "all" ? `&month=${selectedMonth}` : ""}`}>View Details</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {trendsLoading ? (
+              <Skeleton className="h-50 w-full" />
+            ) : !trends?.trends.length ? (
+              <div className="h-50 flex flex-col items-center justify-center text-muted-foreground">
+                <TrendingUp className="h-10 w-10 mb-3 opacity-50" />
+                <p className="text-sm">No trend data available</p>
+              </div>
+            ) : (
+              <div className="h-50">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={trends.trends.map((t) => ({
+                      period_label: new Date(t.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: isMonthlyView ? undefined : "numeric",
+                      }),
+                      total_amount: convertCurrencyAmounts(t.totals_by_currency, displayCurrency, exchangeRates),
+                    }))}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorTotalDashboard" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
+                    <XAxis
+                      dataKey="period_label"
+                      tick={{ fill: "#f59e0b", fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <YAxis
+                      tick={{ fill: "#f59e0b", fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `${currencySymbol}${value.toFixed(0)}`}
+                      width={50}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid #f59e0b",
+                        borderRadius: "8px",
+                      }}
+                      labelStyle={{ color: "#f59e0b" }}
+                      formatter={(value: number | undefined) => [
+                        `${currencySymbol}${(value ?? 0).toFixed(2)}`,
+                        "Total Spent",
+                      ]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="total_amount"
+                      stroke="#f59e0b"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorTotalDashboard)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Categories Preview */}
+        <Card className="bg-card/50 border-border/50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-amber-500" />
+                  Top Categories
+                </CardTitle>
+                <CardDescription>
+                  {selectedMonth === "all" ? selectedYear : `${MONTHS[parseInt(selectedMonth)]} ${selectedYear}`}
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/analytics?year=${selectedYear}${selectedMonth !== "all" ? `&month=${selectedMonth}` : ""}`}>View All</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {categoriesLoading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-14 w-full" />
+                ))}
+              </div>
+            ) : topCategories.length === 0 ? (
+              <div className="h-50 flex flex-col items-center justify-center text-muted-foreground">
+                <FolderOpen className="h-10 w-10 mb-3 opacity-50" />
+                <p className="text-sm">No category data available</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {topCategories.map((cat) => {
+                  const catTotal = cat.total;
+                  const percentage = categoryTotalSpent > 0 ? (catTotal / categoryTotalSpent) * 100 : 0;
+                  return (
+                    <div key={cat.category_id}>
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-accent/50">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                            <FolderOpen className="h-4 w-4 text-amber-500" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{cat.category_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {cat.item_count} item{cat.item_count !== 1 ? "s" : ""} • {percentage.toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                        <p className="font-semibold text-amber-500">
+                          {currencySymbol}{catTotal.toFixed(2)}
+                        </p>
+                      </div>
+                      {/* Progress bar */}
+                      <div className="h-1 mt-1 bg-accent rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-amber-500 rounded-full transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 interface DropzoneProps {
   onFileSelect: (file: File) => void;
   disabled?: boolean;
+  fullPage?: boolean;
 }
 
-export function Dropzone({ onFileSelect, disabled }: DropzoneProps) {
+export function Dropzone({ onFileSelect, disabled, fullPage }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -77,13 +78,13 @@ export function Dropzone({ onFileSelect, disabled }: DropzoneProps) {
 
   if (preview && selectedFile) {
     return (
-      <div className="space-y-4">
+      <div className={cn("space-y-4", fullPage && "max-w-4xl mx-auto")}>
         <div className="relative rounded-xl overflow-hidden border border-border/50 bg-card/50">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview}
             alt="Receipt preview"
-            className="w-full max-h-125 object-contain"
+            className="w-full max-h-[60vh] object-contain"
           />
           <Button
             variant="secondary"
@@ -128,7 +129,10 @@ export function Dropzone({ onFileSelect, disabled }: DropzoneProps) {
       onDragLeave={handleDragLeave}
       className={cn(
         "relative rounded-xl border-2 border-dashed transition-colors",
-        "flex flex-col items-center justify-center p-12",
+        "flex flex-col items-center justify-center",
+        fullPage
+          ? "min-h-[calc(100vh-10rem)] p-8"
+          : "p-12 min-h-100",
         isDragging
           ? "border-amber-500 bg-amber-500/5"
           : "border-border/50 hover:border-amber-500/50 hover:bg-amber-500/5",
@@ -144,14 +148,19 @@ export function Dropzone({ onFileSelect, disabled }: DropzoneProps) {
         aria-label="Upload receipt image"
       />
 
-      <div className="h-16 w-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-4">
-        <Upload className="h-8 w-8 text-amber-500" />
+      <div className={cn(
+        "rounded-2xl bg-amber-500/10 flex items-center justify-center mb-6",
+        fullPage ? "h-24 w-24" : "h-16 w-16"
+      )}>
+        <Upload className={cn("text-amber-500", fullPage ? "h-12 w-12" : "h-8 w-8")} />
       </div>
 
-      <p className="text-lg font-medium mb-1">
+      <p className={cn("font-medium mb-2", fullPage ? "text-2xl" : "text-lg")}>
         {isDragging ? "Drop your receipt here" : "Drag & drop your receipt"}
       </p>
-      <p className="text-muted-foreground mb-4">or click to browse</p>
+      <p className={cn("text-muted-foreground mb-4", fullPage && "text-lg")}>
+        or click anywhere to browse
+      </p>
 
       <p className="text-sm text-muted-foreground">
         Supports JPG, PNG, HEIC up to 10MB

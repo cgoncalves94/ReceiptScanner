@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,6 +39,13 @@ function ReceiptsPageLoading() {
   );
 }
 
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function ReceiptsPage() {
   return (
     <Suspense fallback={<ReceiptsPageLoading />}>
@@ -47,7 +55,40 @@ export default function ReceiptsPage() {
 }
 
 function ReceiptsPageContent() {
-  const [filters, setFilters] = useState<ReceiptFilters>({});
+  const searchParams = useSearchParams();
+
+  // Compute initial filters from URL params (year/month from dashboard)
+  const initialFilters = useMemo((): ReceiptFilters => {
+    const yearParam = searchParams.get("year");
+    const monthParam = searchParams.get("month");
+
+    if (!yearParam) return {};
+
+    const year = parseInt(yearParam);
+    if (isNaN(year)) return {};
+
+    // If month is provided and not "all", filter to that specific month
+    // Month is 0-indexed (0=January, 11=December) to match Dashboard/Analytics state
+    if (monthParam && monthParam !== "all") {
+      const month = parseInt(monthParam);
+      if (!isNaN(month) && month >= 0 && month <= 11) {
+        const startDate = new Date(year, month, 1);
+        const endDate = new Date(year, month + 1, 0); // Last day of month
+        return {
+          after: formatLocalDate(startDate),
+          before: formatLocalDate(endDate),
+        };
+      }
+    }
+
+    // Otherwise filter to entire year
+    return {
+      after: `${year}-01-01`,
+      before: `${year}-12-31`,
+    };
+  }, [searchParams]);
+
+  const [filters, setFilters] = useState<ReceiptFilters>(initialFilters);
 
   // Fetch receipts with server-side filtering
   const { data: receipts, isLoading } = useReceipts(
