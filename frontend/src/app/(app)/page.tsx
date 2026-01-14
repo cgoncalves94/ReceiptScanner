@@ -106,7 +106,7 @@ export default function Dashboard() {
     isMonthlyView ? "monthly" : "daily"
   );
 
-  const monthParam = selectedMonth === "all" ? undefined : parseInt(selectedMonth) + 1;
+  const monthParam = selectedMonth === "all" ? undefined : parseInt(selectedMonth);
   const { data: categoryBreakdown, isLoading: categoriesLoading } = useCategoryBreakdown(
     selectedYear,
     monthParam

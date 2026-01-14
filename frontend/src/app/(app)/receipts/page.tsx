@@ -39,6 +39,13 @@ function ReceiptsPageLoading() {
   );
 }
 
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function ReceiptsPage() {
   return (
     <Suspense fallback={<ReceiptsPageLoading />}>
@@ -68,8 +75,8 @@ function ReceiptsPageContent() {
         const startDate = new Date(year, month, 1);
         const endDate = new Date(year, month + 1, 0); // Last day of month
         return {
-          after: startDate.toISOString().split("T")[0],
-          before: endDate.toISOString().split("T")[0],
+          after: formatLocalDate(startDate),
+          before: formatLocalDate(endDate),
         };
       }
     }
