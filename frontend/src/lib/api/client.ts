@@ -1,33 +1,70 @@
 import type {
+  AuthResponse,
   Category,
   CategoryBreakdownResponse,
   CategoryCreate,
   CategoryUpdate,
+  LoginCredentials,
   Receipt,
   ReceiptUpdate,
   ReceiptItemCreate,
   ReceiptItemUpdate,
   ReceiptFilters,
+  RegisterCredentials,
   SpendingSummary,
   SpendingTrendsResponse,
   TopStoresResponse,
+  User,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_V1 = `${API_BASE_URL}/api/v1`;
+const TOKEN_KEY = "receipt_scanner_token";
 
 class ApiClient {
+  // ============================================================================
+  // Token Management
+  // ============================================================================
+
+  getToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(TOKEN_KEY);
+  }
+
+  setToken(token: string): void {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+
+  removeToken(): void {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem(TOKEN_KEY);
+  }
+
+  // ============================================================================
+  // HTTP Request Helpers
+  // ============================================================================
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_V1}${endpoint}`;
+    const token = this.getToken();
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    };
+
+    // Add Authorization header if token exists
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await fetch(url, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -80,9 +117,18 @@ class ApiClient {
     const formData = new FormData();
     formData.append("image", file);
 
+    const token = this.getToken();
+    const headers: Record<string, string> = {};
+
+    // Add Authorization header if token exists
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_V1}/receipts/scan`, {
       method: "POST",
       body: formData,
+      headers,
     });
 
     if (!response.ok) {
@@ -248,6 +294,37 @@ class ApiClient {
       params.set("month", (month + 1).toString()); // Convert 0-indexed to 1-indexed
     }
     return this.request<CategoryBreakdownResponse>(`/analytics/category-breakdown?${params}`);
+  }
+
+  // ============================================================================
+  // Authentication
+  // ============================================================================
+
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    });
+
+    // Store token after successful login
+    this.setToken(response.access_token);
+
+    return response;
+  }
+
+  async register(credentials: RegisterCredentials): Promise<User> {
+    return this.request<User>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    });
+  }
+
+  async getCurrentUser(): Promise<User> {
+    return this.request<User>("/auth/me");
+  }
+
+  logout(): void {
+    this.removeToken();
   }
 }
 
