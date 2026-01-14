@@ -33,7 +33,9 @@ class CategoryService:
 
     async def get(self, category_id: int, user_id: int) -> Category:
         """Get a category by ID."""
-        stmt = select(Category).where(Category.id == category_id, col(Category.user_id) == user_id)
+        stmt = select(Category).where(
+            Category.id == category_id, col(Category.user_id) == user_id
+        )
         category = await self.session.scalar(stmt)
         if not category:
             raise NotFoundError(f"Category with ID {category_id} not found")
@@ -49,7 +51,9 @@ class CategoryService:
         Returns:
             The category if found, None otherwise.
         """
-        stmt = select(Category).where(Category.name == name, col(Category.user_id) == user_id)
+        stmt = select(Category).where(
+            Category.name == name, col(Category.user_id) == user_id
+        )
         result: Category | None = await self.session.scalar(stmt)
         return result
 
@@ -61,11 +65,18 @@ class CategoryService:
         user_id: int,
     ) -> Sequence[Category]:
         """List all categories."""
-        stmt = select(Category).where(col(Category.user_id) == user_id).offset(skip).limit(limit)
+        stmt = (
+            select(Category)
+            .where(col(Category.user_id) == user_id)
+            .offset(skip)
+            .limit(limit)
+        )
         result = await self.session.exec(stmt)
         return result.all()
 
-    async def update(self, category_id: int, category_in: CategoryUpdate, user_id: int) -> Category:
+    async def update(
+        self, category_id: int, category_in: CategoryUpdate, user_id: int
+    ) -> Category:
         """Update a category."""
         # Get the category
         category = await self.get(category_id, user_id)

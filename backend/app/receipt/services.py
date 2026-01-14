@@ -94,7 +94,7 @@ class ReceiptService:
                 raise BadRequestError(f"Invalid image file: {e}") from e
 
             # Get existing categories to help the AI model
-            categories = await self.category_service.list()
+            categories = await self.category_service.list(user_id=user_id)
             category_dicts = [
                 {"name": cat.name, "description": cat.description or ""}
                 for cat in categories
@@ -127,14 +127,16 @@ class ReceiptService:
             for item_data in receipt_data.items:
                 # Get or create category
                 category = await self.category_service.get_by_name(
-                    item_data.category.name
+                    item_data.category.name, user_id=user_id
                 )
                 if not category:
                     category_create = CategoryCreate(
                         name=item_data.category.name,
                         description=item_data.category.description,
                     )
-                    category = await self.category_service.create(category_create, user_id=user_id)
+                    category = await self.category_service.create(
+                        category_create, user_id=user_id
+                    )
 
                 # Calculate quantity and prices
                 quantity = (
@@ -163,7 +165,7 @@ class ReceiptService:
             await self.session.flush()
 
             # Get the updated receipt with items
-            return await self.get(receipt_id)
+            return await self.get(receipt_id, user_id=user_id)
 
         except Exception:
             # Clean up the saved file on any failure
@@ -173,7 +175,9 @@ class ReceiptService:
 
     async def get(self, receipt_id: int, user_id: int) -> Receipt:
         """Get a receipt by ID."""
-        stmt = select(Receipt).where(Receipt.id == receipt_id, col(Receipt.user_id) == user_id)
+        stmt = select(Receipt).where(
+            Receipt.id == receipt_id, col(Receipt.user_id) == user_id
+        )
         receipt = await self.session.scalar(stmt)
 
         if not receipt:
@@ -277,7 +281,9 @@ class ReceiptService:
         results = await self.session.exec(stmt)
         return results.all()
 
-    async def update(self, receipt_id: int, receipt_in: ReceiptUpdate, user_id: int) -> Receipt:
+    async def update(
+        self, receipt_id: int, receipt_in: ReceiptUpdate, user_id: int
+    ) -> Receipt:
         """Update a receipt."""
         # Get the receipt from the database
         receipt = await self.get(receipt_id, user_id)
@@ -330,11 +336,11 @@ class ReceiptService:
         return receipt
 
     async def create_items(
-        self, receipt_id: int, items_in: Sequence[ReceiptItemCreate]
+        self, receipt_id: int, items_in: Sequence[ReceiptItemCreate], user_id: int
     ) -> Sequence[ReceiptItem]:
         """Create multiple receipt items."""
         # Get the receipt from the database
-        receipt = await self.get(receipt_id)
+        receipt = await self.get(receipt_id, user_id=user_id)
 
         items = [ReceiptItem(**item.model_dump()) for item in items_in]
         for item in items:
@@ -370,7 +376,7 @@ class ReceiptService:
         # Join with Receipt table to filter by user_id
         stmt = (
             select(ReceiptItem)
-            .join(Receipt, ReceiptItem.receipt_id == Receipt.id)
+            .join(Receipt, col(ReceiptItem.receipt_id) == col(Receipt.id))
             .where(ReceiptItem.category_id == category_id)
             .where(col(Receipt.user_id) == user_id)
             .offset(skip)
@@ -393,7 +399,11 @@ class ReceiptService:
             The updated receipt with all items
         """
         # Get receipt with row lock to prevent concurrent update race conditions
-        stmt = select(Receipt).where(Receipt.id == receipt_id, col(Receipt.user_id) == user_id).with_for_update()
+        stmt = (
+            select(Receipt)
+            .where(Receipt.id == receipt_id, col(Receipt.user_id) == user_id)
+            .with_for_update()
+        )
         receipt = await self.session.scalar(stmt)
         if not receipt:
             raise NotFoundError(f"Receipt with id {receipt_id} not found")
@@ -442,7 +452,11 @@ class ReceiptService:
             The updated receipt with remaining items
         """
         # Get receipt with row lock to prevent concurrent update race conditions
-        stmt = select(Receipt).where(Receipt.id == receipt_id, col(Receipt.user_id) == user_id).with_for_update()
+        stmt = (
+            select(Receipt)
+            .where(Receipt.id == receipt_id, col(Receipt.user_id) == user_id)
+            .with_for_update()
+        )
         receipt = await self.session.scalar(stmt)
         if not receipt:
             raise NotFoundError(f"Receipt with id {receipt_id} not found")
