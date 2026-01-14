@@ -38,9 +38,7 @@ def upgrade() -> None:
         "category",
         sa.Column("user_id", sa.Integer(), nullable=True),
     )
-    op.create_index(
-        op.f("ix_category_user_id"), "category", ["user_id"], unique=False
-    )
+    op.create_index(op.f("ix_category_user_id"), "category", ["user_id"], unique=False)
     op.create_foreign_key(
         "fk_category_user_id_user",
         "category",
