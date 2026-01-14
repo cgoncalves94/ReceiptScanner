@@ -3,6 +3,8 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, status
 
+from app.auth.deps import CurrentUser
+
 from .deps import AnalyticsDeps
 from .models import (
     CategoryBreakdownResponse,
@@ -16,6 +18,7 @@ router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
 @router.get("/summary", response_model=SpendingSummary, status_code=status.HTTP_200_OK)
 async def get_spending_summary(
+    current_user: CurrentUser,
     service: AnalyticsDeps,
     year: int = Query(default_factory=lambda: datetime.now().year, ge=2000, le=2100),
     month: int | None = Query(default=None, ge=1, le=12),
@@ -25,13 +28,14 @@ async def get_spending_summary(
 
     Returns totals grouped by original currency for frontend conversion.
     """
-    return await service.get_summary(year=year, month=month)
+    return await service.get_summary(user_id=current_user.id, year=year, month=month)
 
 
 @router.get(
     "/trends", response_model=SpendingTrendsResponse, status_code=status.HTTP_200_OK
 )
 async def get_spending_trends(
+    current_user: CurrentUser,
     service: AnalyticsDeps,
     start: datetime = Query(..., description="Start date (ISO format)"),
     end: datetime = Query(..., description="End date (ISO format)"),
@@ -43,6 +47,7 @@ async def get_spending_trends(
     Returns time-series data grouped by original currency for frontend conversion.
     """
     return await service.get_trends(
+        user_id=current_user.id,
         start_date=start,
         end_date=end,
         period=period,
@@ -53,6 +58,7 @@ async def get_spending_trends(
     "/top-stores", response_model=TopStoresResponse, status_code=status.HTTP_200_OK
 )
 async def get_top_stores(
+    current_user: CurrentUser,
     service: AnalyticsDeps,
     year: int = Query(default_factory=lambda: datetime.now().year, ge=2000, le=2100),
     month: int | None = Query(default=None, ge=1, le=12),
@@ -64,6 +70,7 @@ async def get_top_stores(
     Returns stores with totals grouped by original currency for frontend conversion.
     """
     return await service.get_top_stores(
+        user_id=current_user.id,
         year=year,
         month=month,
         limit=limit,
@@ -76,6 +83,7 @@ async def get_top_stores(
     status_code=status.HTTP_200_OK,
 )
 async def get_category_breakdown(
+    current_user: CurrentUser,
     service: AnalyticsDeps,
     year: int = Query(default_factory=lambda: datetime.now().year, ge=2000, le=2100),
     month: int | None = Query(default=None, ge=1, le=12),
@@ -87,6 +95,7 @@ async def get_category_breakdown(
     Percentages are calculated on frontend after currency conversion.
     """
     return await service.get_category_breakdown(
+        user_id=current_user.id,
         year=year,
         month=month,
     )
