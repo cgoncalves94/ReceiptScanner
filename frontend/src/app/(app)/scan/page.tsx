@@ -47,8 +47,12 @@ export default function ScanPage() {
   // Show loading state
   if (scanMutation.isPending) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
-        <Loader2 className="h-20 w-20 text-amber-500 animate-spin mb-6" />
+      <div
+        className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]"
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 className="h-20 w-20 text-amber-500 animate-spin mb-6" aria-hidden="true" />
         <p className="text-2xl font-medium">Analyzing receipt...</p>
         <p className="text-muted-foreground mt-2">
           This may take a few seconds

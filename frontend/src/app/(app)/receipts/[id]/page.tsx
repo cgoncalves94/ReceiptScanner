@@ -224,7 +224,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold">
+              <p className="text-3xl font-bold tabular-nums">
                 {formatCurrency(Number(receipt.total_amount), receipt.currency)}
               </p>
             </div>
@@ -272,7 +272,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">
+                      <span className="font-semibold tabular-nums">
                         {formatCurrency(Number(item.total_price), item.currency)}
                       </span>
                       <Button
@@ -280,6 +280,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => openEditItem(item)}
+                        aria-label="Edit item"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -291,6 +292,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
                           setItemToDelete(item);
                           setDeleteConfirmationOpen(true);
                         }}
+                        aria-label="Delete item"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -305,7 +307,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
 
           <div className="flex items-center justify-between text-lg font-semibold">
             <span>Total</span>
-            <span>{formatCurrency(Number(receipt.total_amount), receipt.currency)}</span>
+            <span className="tabular-nums">{formatCurrency(Number(receipt.total_amount), receipt.currency)}</span>
           </div>
         </CardContent>
       </Card>
