@@ -92,6 +92,7 @@ export function Dropzone({ onFileSelect, disabled, fullPage }: DropzoneProps) {
             className="absolute top-3 right-3"
             onClick={handleClear}
             disabled={disabled}
+            aria-label="Clear selected image"
           >
             <X className="h-4 w-4" />
           </Button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,16 +18,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { Receipt, TrendingUp, ShoppingCart, CalendarDays, ChevronLeft, ChevronRight, Info, FolderOpen, BarChart3 } from "lucide-react";
+
+const SpendingChart = dynamic(
+  () => import("@/components/dashboard/spending-chart").then((mod) => mod.SpendingChart),
+  {
+    loading: () => <Skeleton className="h-full w-full" />,
+    ssr: false,
+  }
+);
 import Link from "next/link";
 import {
   useReceipts,
@@ -163,7 +163,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         {/* Month/Year Navigation */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={goToPrevMonth}>
+          <Button variant="outline" size="icon" onClick={goToPrevMonth} aria-label="Previous month">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2">
@@ -193,7 +193,7 @@ export default function Dashboard() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" size="icon" onClick={goToNextMonth}>
+          <Button variant="outline" size="icon" onClick={goToNextMonth} aria-label="Next month">
             <ChevronRight className="h-4 w-4" />
           </Button>
           {!isCurrentMonth && selectedMonth !== "all" && (
@@ -273,7 +273,7 @@ export default function Dashboard() {
             {isLoading ? (
               <Skeleton className="h-8 w-24" />
             ) : (
-              <div className="text-2xl font-bold text-amber-500">
+              <div className="text-2xl font-bold text-amber-500 tabular-nums">
                 {currencySymbol}{totalSpent.toFixed(2)}
               </div>
             )}
@@ -291,7 +291,7 @@ export default function Dashboard() {
             {isLoading ? (
               <Skeleton className="h-8 w-20" />
             ) : (
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold tabular-nums">
                 {receiptCount > 0
                   ? `${currencySymbol}${avgPerReceipt.toFixed(2)}`
                   : "—"}
@@ -351,7 +351,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">
+                    <p className="font-semibold tabular-nums">
                       {codeToSymbol(receipt.currency)}{Number(receipt.total_amount).toFixed(2)}
                     </p>
                     <p className="text-sm text-muted-foreground">
@@ -395,60 +395,16 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="h-50">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={trends.trends.map((t) => ({
-                      period_label: new Date(t.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: isMonthlyView ? undefined : "numeric",
-                      }),
-                      total_amount: convertCurrencyAmounts(t.totals_by_currency, displayCurrency, exchangeRates),
-                    }))}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="colorTotalDashboard" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
-                    <XAxis
-                      dataKey="period_label"
-                      tick={{ fill: "#f59e0b", fontSize: 11 }}
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <YAxis
-                      tick={{ fill: "#f59e0b", fontSize: 11 }}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => `${currencySymbol}${value.toFixed(0)}`}
-                      width={50}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid #f59e0b",
-                        borderRadius: "8px",
-                      }}
-                      labelStyle={{ color: "#f59e0b" }}
-                      formatter={(value: number | undefined) => [
-                        `${currencySymbol}${(value ?? 0).toFixed(2)}`,
-                        "Total Spent",
-                      ]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="total_amount"
-                      stroke="#f59e0b"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#colorTotalDashboard)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <SpendingChart
+                  data={trends.trends.map((t) => ({
+                    period_label: new Date(t.date).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: isMonthlyView ? undefined : "numeric",
+                    }),
+                    total_amount: convertCurrencyAmounts(t.totals_by_currency, displayCurrency, exchangeRates),
+                  }))}
+                  currencySymbol={currencySymbol}
+                />
               </div>
             )}
           </CardContent>
@@ -503,7 +459,7 @@ export default function Dashboard() {
                             </p>
                           </div>
                         </div>
-                        <p className="font-semibold text-amber-500">
+                        <p className="font-semibold text-amber-500 tabular-nums">
                           {currencySymbol}{catTotal.toFixed(2)}
                         </p>
                       </div>

@@ -74,6 +74,17 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      // Handle 401 Unauthorized - but NOT for auth endpoints (login returns 401 for bad credentials)
+      const isAuthEndpoint = endpoint.startsWith("/auth/");
+      if (response.status === 401 && !isAuthEndpoint) {
+        this.removeToken();
+        if (typeof window !== "undefined") {
+          // Dispatch event for AuthErrorHandler to redirect via Next.js router
+          window.dispatchEvent(new CustomEvent("auth-error"));
+        }
+        throw new Error("Session expired. Please log in again.");
+      }
+
       const error = await response.json().catch(() => ({ detail: "Unknown error" }));
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
@@ -138,6 +149,16 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      // Handle 401 Unauthorized - token is invalid/expired
+      if (response.status === 401) {
+        this.removeToken();
+        if (typeof window !== "undefined") {
+          // Dispatch event for AuthErrorHandler to redirect via Next.js router
+          window.dispatchEvent(new CustomEvent("auth-error"));
+        }
+        throw new Error("Session expired. Please log in again.");
+      }
+
       const error = await response.json().catch(() => ({ detail: "Upload failed" }));
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
