@@ -97,11 +97,11 @@ class ApiClient {
     return response.json();
   }
 
-  // ============================================================================
-  // Receipts
-  // ============================================================================
-
-  async getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> {
+  /**
+   * Helper method to build URLSearchParams from ReceiptFilters.
+   * Used by both getReceipts and exportReceipts to avoid duplication.
+   */
+  private buildReceiptFilterParams(filters?: ReceiptFilters): URLSearchParams {
     const params = new URLSearchParams();
 
     if (filters) {
@@ -121,6 +121,15 @@ class ApiClient {
       }
     }
 
+    return params;
+  }
+
+  // ============================================================================
+  // Receipts
+  // ============================================================================
+
+  async getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> {
+    const params = this.buildReceiptFilterParams(filters);
     const queryString = params.toString();
     const endpoint = queryString ? `/receipts?${queryString}` : "/receipts";
     return this.request<Receipt[]>(endpoint);
@@ -183,26 +192,8 @@ class ApiClient {
     return this.request<string[]>("/receipts/stores");
   }
 
-  async exportReceipts(filters?: ReceiptFilters): Promise<Blob> {
-    const params = new URLSearchParams();
-
-    if (filters) {
-      if (filters.search) params.append("search", filters.search);
-      if (filters.store) params.append("store", filters.store);
-      if (filters.after) params.append("after", filters.after);
-      if (filters.before) params.append("before", filters.before);
-      if (filters.min_amount !== undefined)
-        params.append("min_amount", filters.min_amount.toString());
-      if (filters.max_amount !== undefined)
-        params.append("max_amount", filters.max_amount.toString());
-      // category_ids needs to be added multiple times for array params
-      if (filters.category_ids) {
-        filters.category_ids.forEach((id) =>
-          params.append("category_ids", id.toString())
-        );
-      }
-    }
-
+  async exportReceipts(filters?: ReceiptFilters): Promise<{ blob: Blob; filename: string }> {
+    const params = this.buildReceiptFilterParams(filters);
     const queryString = params.toString();
     const endpoint = queryString ? `/receipts/export?${queryString}` : "/receipts/export";
 
@@ -234,7 +225,18 @@ class ApiClient {
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
 
-    return response.blob();
+    // Extract filename from Content-Disposition header
+    const disposition = response.headers.get("Content-Disposition");
+    let filename = "receipts_export.csv"; // Default fallback
+    if (disposition?.includes("attachment")) {
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+      if (filenameMatch?.[1]) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    const blob = await response.blob();
+    return { blob, filename };
   }
 
   // ============================================================================

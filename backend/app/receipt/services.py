@@ -193,7 +193,7 @@ class ReceiptService:
         self,
         *,
         skip: int = 0,
-        limit: int = 100,
+        limit: int | None = 100,
         filters: ReceiptFilters | None = None,
         user_id: int,
     ) -> Sequence[Receipt]:
@@ -201,7 +201,7 @@ class ReceiptService:
 
         Args:
             skip: Number of records to skip
-            limit: Maximum number of records to return
+            limit: Maximum number of records to return (None for no limit)
             filters: Optional dictionary of filter parameters:
                 - search: ILIKE search on store_name
                 - store: Exact match on store_name
@@ -257,9 +257,9 @@ class ReceiptService:
                 )
 
         # Apply pagination and ordering (newest first)
-        stmt = (
-            stmt.order_by(col(Receipt.purchase_date).desc()).offset(skip).limit(limit)
-        )
+        stmt = stmt.order_by(col(Receipt.purchase_date).desc()).offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
 
         results = await self.session.exec(stmt)
         return results.all()
@@ -498,9 +498,8 @@ class ReceiptService:
             Receipts without items will have one row with empty item fields.
         """
         # Get filtered receipts using existing list method
-        receipts = await self.list(
-            filters=filters, user_id=user_id, skip=0, limit=10000
-        )
+        # Note: No limit applied to ensure complete export of all matching receipts
+        receipts = await self.list(filters=filters, user_id=user_id, skip=0, limit=None)
 
         # Define CSV columns
         fieldnames = [
@@ -527,21 +526,26 @@ class ReceiptService:
 
         # Write data rows
         for receipt in receipts:
+            # Build base row with common receipt fields
+            base_row = {
+                "receipt_id": receipt.id,
+                "receipt_date": receipt.purchase_date.isoformat(),
+                "store_name": receipt.store_name,
+                "receipt_total": str(receipt.total_amount),
+                "receipt_currency": receipt.currency,
+                "payment_method": receipt.payment_method.value
+                if receipt.payment_method
+                else "",
+                "tax_amount": str(receipt.tax_amount)
+                if receipt.tax_amount is not None
+                else "",
+            }
+
             # Handle receipts with no items
             if not receipt.items:
                 writer.writerow(
                     {
-                        "receipt_id": receipt.id,
-                        "receipt_date": receipt.purchase_date.isoformat(),
-                        "store_name": receipt.store_name,
-                        "receipt_total": str(receipt.total_amount),
-                        "receipt_currency": receipt.currency,
-                        "payment_method": receipt.payment_method.value
-                        if receipt.payment_method
-                        else "",
-                        "tax_amount": str(receipt.tax_amount)
-                        if receipt.tax_amount
-                        else "",
+                        **base_row,
                         "item_id": "",
                         "item_name": "",
                         "item_quantity": "",
@@ -556,17 +560,7 @@ class ReceiptService:
                 for item in receipt.items:
                     writer.writerow(
                         {
-                            "receipt_id": receipt.id,
-                            "receipt_date": receipt.purchase_date.isoformat(),
-                            "store_name": receipt.store_name,
-                            "receipt_total": str(receipt.total_amount),
-                            "receipt_currency": receipt.currency,
-                            "payment_method": receipt.payment_method.value
-                            if receipt.payment_method
-                            else "",
-                            "tax_amount": str(receipt.tax_amount)
-                            if receipt.tax_amount
-                            else "",
+                            **base_row,
                             "item_id": item.id,
                             "item_name": item.name,
                             "item_quantity": item.quantity,

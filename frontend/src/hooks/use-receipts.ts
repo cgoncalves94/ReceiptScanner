@@ -57,12 +57,8 @@ export function useScanReceipt() {
 export function useExportReceipts() {
   return useMutation({
     mutationFn: (filters?: ReceiptFilters) => api.exportReceipts(filters),
-    onSuccess: (blob) => {
-      // Create timestamp for filename
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-      const filename = `receipts_export_${timestamp}.csv`;
-
-      // Create download link
+    onSuccess: ({ blob, filename }) => {
+      // Create download link using filename from backend
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -73,6 +69,10 @@ export function useExportReceipts() {
       // Clean up
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+    },
+    onError: (error) => {
+      console.error('Export failed:', error);
+      // Error state is already tracked by the mutation, calling component should handle it
     },
   });
 }

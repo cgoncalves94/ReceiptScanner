@@ -421,3 +421,123 @@ async def test_list_stores(
     assert data == sorted(data)
     # Our test receipt's store should be in the list
     assert test_receipt.store_name in data
+
+
+# Export Tests
+
+
+@pytest.mark.asyncio
+async def test_export_receipts_basic(
+    test_client: TestClient, test_receipt: Receipt, auth_headers: dict[str, str]
+) -> None:
+    """Test basic CSV export without filters."""
+    response = test_client.get("/api/v1/receipts/export", headers=auth_headers)
+
+    assert response.status_code == 200
+    # Check content type
+    assert response.headers["content-type"] == "text/csv; charset=utf-8"
+    # Check Content-Disposition header with filename
+    assert "attachment" in response.headers["content-disposition"]
+    assert "receipts_export_" in response.headers["content-disposition"]
+    assert ".csv" in response.headers["content-disposition"]
+    # Check CSV content is not empty
+    csv_content = response.content.decode("utf-8")
+    assert len(csv_content) > 0
+    # Check CSV has header row
+    lines = csv_content.strip().split("\n")
+    assert len(lines) >= 1  # At least header
+    # Check required columns in header
+    header = lines[0]
+    assert "receipt_id" in header
+    assert "store_name" in header
+    assert "receipt_total" in header
+    assert "item_name" in header
+    assert "category_name" in header
+
+
+@pytest.mark.asyncio
+async def test_export_receipts_with_filters(
+    test_client: TestClient, test_receipt: Receipt, auth_headers: dict[str, str]
+) -> None:
+    """Test CSV export with filter parameters."""
+    # Export with store filter
+    response = test_client.get(
+        f"/api/v1/receipts/export?store={test_receipt.store_name}",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/csv; charset=utf-8"
+    csv_content = response.content.decode("utf-8")
+    # CSV should contain the store name
+    assert test_receipt.store_name in csv_content
+
+
+@pytest.mark.asyncio
+async def test_export_receipts_requires_authentication(
+    test_client: TestClient,
+) -> None:
+    """Test that export endpoint requires authentication."""
+    response = test_client.get("/api/v1/receipts/export")
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_export_receipts_csv_structure(
+    test_client: TestClient,
+    test_receipt: Receipt,
+    test_receipt_item: ReceiptItem,
+    auth_headers: dict[str, str],
+) -> None:
+    """Test that exported CSV has correct structure with receipt and item data."""
+    response = test_client.get("/api/v1/receipts/export", headers=auth_headers)
+
+    assert response.status_code == 200
+    csv_content = response.content.decode("utf-8")
+    lines = csv_content.strip().split("\n")
+
+    # Parse CSV header
+    header = lines[0].split(",")
+    expected_columns = [
+        "receipt_id",
+        "receipt_date",
+        "store_name",
+        "receipt_total",
+        "receipt_currency",
+        "payment_method",
+        "tax_amount",
+        "item_id",
+        "item_name",
+        "item_quantity",
+        "item_unit_price",
+        "item_total_price",
+        "item_currency",
+        "category_name",
+    ]
+
+    for col in expected_columns:
+        assert col in header
+
+    # At least one data row (header + data)
+    assert len(lines) >= 2
+
+
+@pytest.mark.asyncio
+async def test_export_receipts_with_amount_filter(
+    test_client: TestClient, test_receipt: Receipt, auth_headers: dict[str, str]
+) -> None:
+    """Test export with amount range filters."""
+    min_amount = float(test_receipt.total_amount) - 1
+    max_amount = float(test_receipt.total_amount) + 1
+
+    response = test_client.get(
+        f"/api/v1/receipts/export?min_amount={min_amount}&max_amount={max_amount}",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/csv; charset=utf-8"
+    csv_content = response.content.decode("utf-8")
+    # CSV should have content
+    assert len(csv_content) > 100  # More than just header

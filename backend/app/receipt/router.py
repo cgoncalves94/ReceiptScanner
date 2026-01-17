@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from io import BytesIO
 from typing import Annotated
@@ -22,6 +22,49 @@ from .models import (
 from .services import ReceiptFilters
 
 router = APIRouter(prefix="/api/v1/receipts", tags=["receipts"])
+
+
+def build_receipt_filters(
+    search: str | None,
+    store: str | None,
+    after: datetime | None,
+    before: datetime | None,
+    category_ids: list[int] | None,
+    min_amount: Decimal | None,
+    max_amount: Decimal | None,
+) -> ReceiptFilters:
+    """Build a ReceiptFilters dictionary from query parameters.
+
+    Only includes parameters that are not None.
+
+    Args:
+        search: Search term for store name
+        store: Exact store name match
+        after: Filter receipts on or after this date
+        before: Filter receipts on or before this date
+        category_ids: Filter by category IDs
+        min_amount: Minimum total amount
+        max_amount: Maximum total amount
+
+    Returns:
+        Dictionary with only non-None filter values
+    """
+    filters: ReceiptFilters = {}
+    if search is not None:
+        filters["search"] = search
+    if store is not None:
+        filters["store"] = store
+    if after is not None:
+        filters["after"] = after
+    if before is not None:
+        filters["before"] = before
+    if category_ids is not None:
+        filters["category_ids"] = category_ids
+    if min_amount is not None:
+        filters["min_amount"] = min_amount
+    if max_amount is not None:
+        filters["max_amount"] = max_amount
+    return filters
 
 
 @router.post("/scan", response_model=ReceiptRead, status_code=status.HTTP_201_CREATED)
@@ -87,22 +130,10 @@ async def list_receipts(
     - min_amount/max_amount: Total amount range filter
     """
     user_id = require_user_id(current_user)
-    # Build filters dict only with provided values
-    filters: ReceiptFilters = {}
-    if search is not None:
-        filters["search"] = search
-    if store is not None:
-        filters["store"] = store
-    if after is not None:
-        filters["after"] = after
-    if before is not None:
-        filters["before"] = before
-    if category_ids is not None:
-        filters["category_ids"] = category_ids
-    if min_amount is not None:
-        filters["min_amount"] = min_amount
-    if max_amount is not None:
-        filters["max_amount"] = max_amount
+    # Build filters dict using helper function
+    filters = build_receipt_filters(
+        search, store, after, before, category_ids, min_amount, max_amount
+    )
 
     receipts = await service.list(
         skip=skip, limit=limit, filters=filters or None, user_id=user_id
@@ -151,28 +182,16 @@ async def export_receipts(
     Filter options are the same as list_receipts endpoint.
     """
     user_id = require_user_id(current_user)
-    # Build filters dict only with provided values
-    filters: ReceiptFilters = {}
-    if search is not None:
-        filters["search"] = search
-    if store is not None:
-        filters["store"] = store
-    if after is not None:
-        filters["after"] = after
-    if before is not None:
-        filters["before"] = before
-    if category_ids is not None:
-        filters["category_ids"] = category_ids
-    if min_amount is not None:
-        filters["min_amount"] = min_amount
-    if max_amount is not None:
-        filters["max_amount"] = max_amount
+    # Build filters dict using helper function
+    filters = build_receipt_filters(
+        search, store, after, before, category_ids, min_amount, max_amount
+    )
 
     # Generate CSV content
     csv_content = await service.export_to_csv(filters=filters or None, user_id=user_id)
 
-    # Generate filename with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Generate filename with timestamp (UTC for consistency)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = f"receipts_export_{timestamp}.csv"
 
     # Convert string to bytes for streaming
