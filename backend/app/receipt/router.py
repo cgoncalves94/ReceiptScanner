@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from io import BytesIO
 from typing import Annotated
@@ -191,7 +191,7 @@ async def export_receipts(
     csv_content = await service.export_to_csv(filters=filters or None, user_id=user_id)
 
     # Generate filename with timestamp (UTC for consistency)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     filename = f"receipts_export_{timestamp}.csv"
 
     # Convert string to bytes for streaming
