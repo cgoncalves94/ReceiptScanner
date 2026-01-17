@@ -1,4 +1,4 @@
-.PHONY: help dev dev-backend dev-frontend build up down logs test clean db-up db-down init
+.PHONY: help dev dev-backend dev-frontend build up down logs test test-unit test-integration test-cov test-frontend test-db-ready clean db-up db-down init setup
 
 # Default target
 help:
@@ -18,9 +18,11 @@ help:
 	@echo "  make db-down        Stop database"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test           Run all tests"
-	@echo "  make test-backend   Run backend tests"
-	@echo "  make test-frontend  Run frontend tests"
+	@echo "  make test              Run all backend tests (auto-starts db)"
+	@echo "  make test-unit         Run unit tests only (no db needed)"
+	@echo "  make test-integration  Run integration tests (auto-starts db)"
+	@echo "  make test-cov          Run tests with coverage report"
+	@echo "  make test-frontend     Run frontend tests"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean          Remove cache and build files"
@@ -69,10 +71,29 @@ db-down:
 # Testing
 # ============================================================================
 
-test: test-backend
+# Ensure test database exists (idempotent)
+test-db-ready:
+	@docker compose up -d db --wait
+	@docker exec receipt-postgres psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'test_db'" | grep -q 1 || \
+		docker exec receipt-postgres psql -U postgres -c "CREATE DATABASE test_db;" >/dev/null
+	@echo "Test database ready"
 
-test-backend:
-	cd backend && make test
+# Run all backend tests (ensures db is ready)
+test: test-db-ready
+	cd backend && uv run pytest tests/ -v --tb=short
+
+# Run only unit tests (no db required)
+test-unit:
+	cd backend && uv run pytest tests/unit/ -v --tb=short
+
+# Run only integration tests (requires db)
+test-integration: test-db-ready
+	cd backend && uv run pytest tests/integration/ -v --tb=short
+
+# Run tests with coverage
+test-cov: test-db-ready
+	cd backend && uv run pytest tests/ -v --cov=app --cov-report=html --cov-report=term
+	@echo "Coverage report: open backend/htmlcov/index.html"
 
 test-frontend:
 	cd frontend && pnpm test
