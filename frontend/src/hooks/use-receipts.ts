@@ -54,6 +54,29 @@ export function useScanReceipt() {
   });
 }
 
+export function useExportReceipts() {
+  return useMutation({
+    mutationFn: (filters?: ReceiptFilters) => api.exportReceipts(filters),
+    onSuccess: ({ blob, filename }) => {
+      // Create download link using filename from backend
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
+    onError: (error) => {
+      console.error('Export failed:', error);
+      // Error state is already tracked by the mutation, calling component should handle it
+    },
+  });
+}
+
 export function useUpdateReceipt() {
   const queryClient = useQueryClient();
 

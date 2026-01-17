@@ -1,4 +1,7 @@
-.PHONY: help dev dev-backend dev-frontend build up down logs test test-unit test-integration test-cov test-frontend test-db-ready clean db-up db-down init setup
+.PHONY: help dev dev-backend dev-frontend build up down logs test test-unit test-integration test-cov test-frontend test-db-ready clean db-up db-down init setup stop-port-conflicts
+
+# Docker compose uses directory name as project name (enables worktree isolation)
+COMPOSE := docker compose
 
 # Default target
 help:
@@ -48,34 +51,42 @@ dev-frontend:
 # ============================================================================
 
 build:
-	docker compose build
+	$(COMPOSE) build
 
 up:
-	docker compose up -d
+	$(COMPOSE) up -d
 
 down:
-	docker compose down
+	$(COMPOSE) down
 
 logs:
-	docker compose logs -f
+	$(COMPOSE) logs -f
 
-db-up:
-	docker compose up -d db
+# Stop any container using port 5432 (enables worktree switching without manual cleanup)
+stop-port-conflicts:
+	@container=$$(docker ps -q --filter "publish=5432"); \
+	if [ -n "$$container" ]; then \
+		echo "Stopping container using port 5432..."; \
+		docker stop $$container >/dev/null; \
+	fi
+
+db-up: stop-port-conflicts
+	$(COMPOSE) up -d db
 	@echo "Waiting for database to be ready..."
 	@sleep 3
 
 db-down:
-	docker compose down db
+	$(COMPOSE) down db
 
 # ============================================================================
 # Testing
 # ============================================================================
 
 # Ensure test database exists (idempotent)
-test-db-ready:
-	@docker compose up -d db --wait
-	@docker exec receipt-postgres psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'test_db'" | grep -q 1 || \
-		docker exec receipt-postgres psql -U postgres -c "CREATE DATABASE test_db;" >/dev/null
+test-db-ready: stop-port-conflicts
+	@$(COMPOSE) up -d db --wait
+	@$(COMPOSE) exec -T db psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'test_db'" | grep -q 1 || \
+		$(COMPOSE) exec -T db psql -U postgres -c "CREATE DATABASE test_db;" >/dev/null
 	@echo "Test database ready"
 
 # Run all backend tests (ensures db is ready)
@@ -139,4 +150,4 @@ clean:
 		echo "Cleaning frontend..."; \
 		cd frontend && rm -rf .next node_modules; \
 	fi
-	docker compose down -v --remove-orphans 2>/dev/null || true
+	$(COMPOSE) down -v --remove-orphans 2>/dev/null || true

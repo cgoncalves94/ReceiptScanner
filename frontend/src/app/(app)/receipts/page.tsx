@@ -6,11 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Receipt, ChevronRight, Calendar, Scan } from "lucide-react";
-import { useReceipts, useStores } from "@/hooks";
+import { Receipt, ChevronRight, Calendar, Scan, Download, Loader2 } from "lucide-react";
+import { useReceipts, useStores, useExportReceipts } from "@/hooks";
 import { FilterBar } from "@/components/receipts/filter-bar";
 import { formatCurrency, formatDate, formatDistanceToNow } from "@/lib/format";
 import type { ReceiptFilters } from "@/types";
+import { toast } from "sonner";
 
 function ReceiptsPageLoading() {
   return (
@@ -98,10 +99,47 @@ function ReceiptsPageContent() {
   // Fetch unique store names from dedicated endpoint
   const { data: stores = [] } = useStores();
 
+  // Export receipts mutation
+  const exportMutation = useExportReceipts();
+
   const hasFilters = Object.keys(filters).length > 0;
+
+  const handleExport = async () => {
+    try {
+      await exportMutation.mutateAsync(
+        Object.keys(filters).length > 0 ? filters : undefined
+      );
+      toast.success("Receipts exported successfully!");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to export receipts"
+      );
+    }
+  };
 
   return (
     <div className="space-y-6">
+      {/* Export Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={handleExport}
+          disabled={exportMutation.isPending || isLoading || receipts?.length === 0}
+          className="bg-amber-500 hover:bg-amber-600 text-black"
+        >
+          {exportMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Exporting...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </>
+          )}
+        </Button>
+      </div>
+
       {/* Filter Bar */}
       <FilterBar
         filters={filters}

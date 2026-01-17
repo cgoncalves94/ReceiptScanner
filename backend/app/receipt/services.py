@@ -1,8 +1,10 @@
+import csv
 import os
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from io import StringIO
 from typing import TypedDict
 
 from fastapi import UploadFile
@@ -191,7 +193,7 @@ class ReceiptService:
         self,
         *,
         skip: int = 0,
-        limit: int = 100,
+        limit: int | None = 100,
         filters: ReceiptFilters | None = None,
         user_id: int,
     ) -> Sequence[Receipt]:
@@ -199,7 +201,7 @@ class ReceiptService:
 
         Args:
             skip: Number of records to skip
-            limit: Maximum number of records to return
+            limit: Maximum number of records to return (None for no limit)
             filters: Optional dictionary of filter parameters:
                 - search: ILIKE search on store_name
                 - store: Exact match on store_name
@@ -255,9 +257,9 @@ class ReceiptService:
                 )
 
         # Apply pagination and ordering (newest first)
-        stmt = (
-            stmt.order_by(col(Receipt.purchase_date).desc()).offset(skip).limit(limit)
-        )
+        stmt = stmt.order_by(col(Receipt.purchase_date).desc()).offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
 
         results = await self.session.exec(stmt)
         return results.all()
@@ -478,3 +480,97 @@ class ReceiptService:
         await self.session.refresh(receipt, ["items"])
 
         return receipt
+
+    async def export_to_csv(
+        self, *, filters: ReceiptFilters | None = None, user_id: int
+    ) -> str:
+        """Export receipts to CSV format.
+
+        Args:
+            filters: Optional dictionary of filter parameters (same as list method)
+            user_id: The ID of the user whose receipts to export
+
+        Returns:
+            CSV content as a string with RFC 4180 compliance
+
+        Note:
+            The CSV format flattens receipt data: one row per item.
+            Receipts without items will have one row with empty item fields.
+        """
+        # Get filtered receipts using existing list method
+        # Note: No limit applied to ensure complete export of all matching receipts
+        receipts = await self.list(filters=filters, user_id=user_id, skip=0, limit=None)
+
+        # Define CSV columns
+        fieldnames = [
+            "receipt_id",
+            "receipt_date",
+            "store_name",
+            "receipt_total",
+            "receipt_currency",
+            "payment_method",
+            "tax_amount",
+            "item_id",
+            "item_name",
+            "item_quantity",
+            "item_unit_price",
+            "item_total_price",
+            "item_currency",
+            "category_name",
+        ]
+
+        # Use StringIO for in-memory CSV generation
+        output = StringIO()
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+
+        # Write data rows
+        for receipt in receipts:
+            # Build base row with common receipt fields
+            base_row = {
+                "receipt_id": receipt.id,
+                "receipt_date": receipt.purchase_date.isoformat(),
+                "store_name": receipt.store_name,
+                "receipt_total": str(receipt.total_amount),
+                "receipt_currency": receipt.currency,
+                "payment_method": receipt.payment_method.value
+                if receipt.payment_method
+                else "",
+                "tax_amount": str(receipt.tax_amount)
+                if receipt.tax_amount is not None
+                else "",
+            }
+
+            # Handle receipts with no items
+            if not receipt.items:
+                writer.writerow(
+                    {
+                        **base_row,
+                        "item_id": "",
+                        "item_name": "",
+                        "item_quantity": "",
+                        "item_unit_price": "",
+                        "item_total_price": "",
+                        "item_currency": "",
+                        "category_name": "",
+                    }
+                )
+            else:
+                # One row per item, with receipt data repeated
+                for item in receipt.items:
+                    writer.writerow(
+                        {
+                            **base_row,
+                            "item_id": item.id,
+                            "item_name": item.name,
+                            "item_quantity": item.quantity,
+                            "item_unit_price": str(item.unit_price),
+                            "item_total_price": str(item.total_price),
+                            "item_currency": item.currency,
+                            "category_name": item.category.name
+                            if item.category
+                            else "",
+                        }
+                    )
+
+        return output.getvalue()
