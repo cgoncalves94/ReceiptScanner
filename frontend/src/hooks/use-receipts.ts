@@ -54,6 +54,29 @@ export function useScanReceipt() {
   });
 }
 
+export function useExportReceipts() {
+  return useMutation({
+    mutationFn: (filters?: ReceiptFilters) => api.exportReceipts(filters),
+    onSuccess: (blob) => {
+      // Create timestamp for filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const filename = `receipts_export_${timestamp}.csv`;
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
+  });
+}
+
 export function useUpdateReceipt() {
   const queryClient = useQueryClient();
 
