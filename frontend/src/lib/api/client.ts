@@ -183,6 +183,60 @@ class ApiClient {
     return this.request<string[]>("/receipts/stores");
   }
 
+  async exportReceipts(filters?: ReceiptFilters): Promise<Blob> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      if (filters.search) params.append("search", filters.search);
+      if (filters.store) params.append("store", filters.store);
+      if (filters.after) params.append("after", filters.after);
+      if (filters.before) params.append("before", filters.before);
+      if (filters.min_amount !== undefined)
+        params.append("min_amount", filters.min_amount.toString());
+      if (filters.max_amount !== undefined)
+        params.append("max_amount", filters.max_amount.toString());
+      // category_ids needs to be added multiple times for array params
+      if (filters.category_ids) {
+        filters.category_ids.forEach((id) =>
+          params.append("category_ids", id.toString())
+        );
+      }
+    }
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/receipts/export?${queryString}` : "/receipts/export";
+
+    const token = this.getToken();
+    const headers: Record<string, string> = {};
+
+    // Add Authorization header if token exists
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_V1}${endpoint}`, {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      // Handle 401 Unauthorized - token is invalid/expired
+      if (response.status === 401) {
+        this.removeToken();
+        if (typeof window !== "undefined") {
+          // Dispatch event for AuthErrorHandler to redirect via Next.js router
+          window.dispatchEvent(new CustomEvent("auth-error"));
+        }
+        throw new Error("Session expired. Please log in again.");
+      }
+
+      const error = await response.json().catch(() => ({ detail: "Export failed" }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
   // ============================================================================
   // Receipt Items
   // ============================================================================
