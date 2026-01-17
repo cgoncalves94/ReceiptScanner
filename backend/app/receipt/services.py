@@ -1,8 +1,10 @@
+import csv
 import os
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from io import StringIO
 from typing import TypedDict
 
 from fastapi import UploadFile
@@ -478,3 +480,97 @@ class ReceiptService:
         await self.session.refresh(receipt, ["items"])
 
         return receipt
+
+    async def export_to_csv(
+        self, *, filters: ReceiptFilters | None = None, user_id: int
+    ) -> str:
+        """Export receipts to CSV format.
+
+        Args:
+            filters: Optional dictionary of filter parameters (same as list method)
+            user_id: The ID of the user whose receipts to export
+
+        Returns:
+            CSV content as a string with RFC 4180 compliance
+
+        Note:
+            The CSV format flattens receipt data: one row per item.
+            Receipts without items will have one row with empty item fields.
+        """
+        # Get filtered receipts using existing list method
+        receipts = await self.list(filters=filters, user_id=user_id, skip=0, limit=10000)
+
+        # Define CSV columns
+        fieldnames = [
+            "receipt_id",
+            "receipt_date",
+            "store_name",
+            "receipt_total",
+            "receipt_currency",
+            "payment_method",
+            "tax_amount",
+            "item_id",
+            "item_name",
+            "item_quantity",
+            "item_unit_price",
+            "item_total_price",
+            "item_currency",
+            "category_name",
+        ]
+
+        # Use StringIO for in-memory CSV generation
+        output = StringIO()
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+
+        # Write data rows
+        for receipt in receipts:
+            # Handle receipts with no items
+            if not receipt.items:
+                writer.writerow(
+                    {
+                        "receipt_id": receipt.id,
+                        "receipt_date": receipt.purchase_date.isoformat(),
+                        "store_name": receipt.store_name,
+                        "receipt_total": str(receipt.total_amount),
+                        "receipt_currency": receipt.currency,
+                        "payment_method": receipt.payment_method.value
+                        if receipt.payment_method
+                        else "",
+                        "tax_amount": str(receipt.tax_amount) if receipt.tax_amount else "",
+                        "item_id": "",
+                        "item_name": "",
+                        "item_quantity": "",
+                        "item_unit_price": "",
+                        "item_total_price": "",
+                        "item_currency": "",
+                        "category_name": "",
+                    }
+                )
+            else:
+                # One row per item, with receipt data repeated
+                for item in receipt.items:
+                    writer.writerow(
+                        {
+                            "receipt_id": receipt.id,
+                            "receipt_date": receipt.purchase_date.isoformat(),
+                            "store_name": receipt.store_name,
+                            "receipt_total": str(receipt.total_amount),
+                            "receipt_currency": receipt.currency,
+                            "payment_method": receipt.payment_method.value
+                            if receipt.payment_method
+                            else "",
+                            "tax_amount": str(receipt.tax_amount)
+                            if receipt.tax_amount
+                            else "",
+                            "item_id": item.id,
+                            "item_name": item.name,
+                            "item_quantity": item.quantity,
+                            "item_unit_price": str(item.unit_price),
+                            "item_total_price": str(item.total_price),
+                            "item_currency": item.currency,
+                            "category_name": item.category.name if item.category else "",
+                        }
+                    )
+
+        return output.getvalue()
