@@ -43,16 +43,19 @@ receipt-scanner/
 ## Build & Development Commands
 
 ```bash
-# From root
+# From root (recommended)
 make dev              # Start db + backend (hot reload)
 make dev-frontend     # Start frontend (port 3000)
-make test             # Run backend tests
+make test             # Run all backend tests (auto-starts db)
+make test-unit        # Run unit tests only (no db needed)
+make test-integration # Run integration tests (auto-starts db)
+make test-cov         # Run tests with coverage report
 make setup            # Initial setup
 
-# Backend (cd backend)
+# Backend (cd backend) - for quick local commands
 make dev              # Run migrations + start server
 make test             # Run unit tests
-make lint             # Ruff + ty
+make check            # Run lint + typecheck
 make format           # Auto-fix
 
 # Frontend (cd frontend)

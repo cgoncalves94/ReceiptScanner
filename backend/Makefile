@@ -1,4 +1,4 @@
-.PHONY: help install dev run test test-unit test-integration test-all test-cov lint format typecheck check migrate clean
+.PHONY: help install install-dev dev run test test-integration test-cov lint format typecheck check migrate migration migrate-down migrate-history clean
 
 # Default target
 help:
@@ -12,12 +12,10 @@ help:
 	@echo "  make dev         Run migrations + start server (hot reload)"
 	@echo "  make run         Start server without migrations"
 	@echo ""
-	@echo "Testing:"
-	@echo "  make test            Run unit tests (no database required)"
-	@echo "  make test-unit       Run unit tests only"
-	@echo "  make test-integration Run integration tests"
-	@echo "  make test-all        Run all tests"
-	@echo "  make test-cov        Run tests with coverage report"
+	@echo "Testing (prefer 'make test' from project root for full setup):"
+	@echo "  make test              Run unit tests (no db required)"
+	@echo "  make test-integration  Run integration tests (requires db)"
+	@echo "  make test-cov          Run all tests with coverage"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make check       Run lint + typecheck"
@@ -52,16 +50,11 @@ dev: migrate
 run:
 	uv run uvicorn app.main:app --reload
 
-test: test-unit
-
-test-unit:
+test:
 	uv run pytest tests/unit/ -v --tb=short
 
 test-integration:
 	uv run pytest tests/integration/ -v --tb=short
-
-test-all:
-	uv run pytest tests/ -v --tb=short
 
 test-cov:
 	uv run pytest tests/ -v --cov=app --cov-report=html --cov-report=term
@@ -94,13 +87,6 @@ migrate-down:
 
 migrate-history:
 	uv run alembic history
-
-# Create test database (run once, requires Docker postgres to be running)
-test-db-create:
-	@echo "Creating test database..."
-	@docker exec receipt-postgres psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'test_db'" | grep -q 1 || \
-		docker exec receipt-postgres psql -U postgres -c "CREATE DATABASE test_db;"
-	@echo "Test database ready."
 
 # ============================================================================
 # Cleanup
