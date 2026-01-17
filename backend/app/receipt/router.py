@@ -1,9 +1,11 @@
 from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
+from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, File, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.auth.deps import CurrentUser, require_user_id
 
@@ -106,6 +108,82 @@ async def list_receipts(
         skip=skip, limit=limit, filters=filters or None, user_id=user_id
     )
     return receipts  # pragma: no cover
+
+
+@router.get("/export", status_code=status.HTTP_200_OK)
+async def export_receipts(
+    current_user: CurrentUser,
+    service: ReceiptDeps,
+    search: Annotated[
+        str | None,
+        Query(description="Search store name (case-insensitive partial match)"),
+    ] = None,
+    store: Annotated[
+        str | None,
+        Query(description="Exact store name match"),
+    ] = None,
+    after: Annotated[
+        datetime | None,
+        Query(description="Filter receipts on or after this date (ISO 8601 format)"),
+    ] = None,
+    before: Annotated[
+        datetime | None,
+        Query(description="Filter receipts on or before this date (ISO 8601 format)"),
+    ] = None,
+    category_ids: Annotated[
+        list[int] | None,
+        Query(
+            description="Filter by category IDs (receipts with items in these categories)"
+        ),
+    ] = None,
+    min_amount: Annotated[
+        Decimal | None,
+        Query(description="Minimum total amount", ge=0),
+    ] = None,
+    max_amount: Annotated[
+        Decimal | None,
+        Query(description="Maximum total amount", ge=0),
+    ] = None,
+) -> StreamingResponse:
+    """Export receipts to CSV format with optional filtering.
+
+    Returns a CSV file with all receipt and item data.
+    Filter options are the same as list_receipts endpoint.
+    """
+    user_id = require_user_id(current_user)
+    # Build filters dict only with provided values
+    filters: ReceiptFilters = {}
+    if search is not None:
+        filters["search"] = search
+    if store is not None:
+        filters["store"] = store
+    if after is not None:
+        filters["after"] = after
+    if before is not None:
+        filters["before"] = before
+    if category_ids is not None:
+        filters["category_ids"] = category_ids
+    if min_amount is not None:
+        filters["min_amount"] = min_amount
+    if max_amount is not None:
+        filters["max_amount"] = max_amount
+
+    # Generate CSV content
+    csv_content = await service.export_to_csv(filters=filters or None, user_id=user_id)
+
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"receipts_export_{timestamp}.csv"
+
+    # Convert string to bytes for streaming
+    csv_bytes = BytesIO(csv_content.encode("utf-8"))
+
+    # Return streaming response with proper headers
+    return StreamingResponse(
+        csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @router.get("/stores", response_model=list[str], status_code=status.HTTP_200_OK)
