@@ -3,6 +3,7 @@ export {
   useStores,
   useReceipt,
   useScanReceipt,
+  useExportReceipts,
   useUpdateReceipt,
   useDeleteReceipt,
   useUpdateReceiptItem,
