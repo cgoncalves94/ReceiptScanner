@@ -3,9 +3,8 @@ from typing import Annotated
 from fastapi import Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.analytics.services import AnalyticsService
 from app.core.deps import get_session
-
-from .services import AnalyticsService
 
 
 async def get_analytics_service(

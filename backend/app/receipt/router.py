@@ -8,9 +8,8 @@ from fastapi import APIRouter, File, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 
 from app.auth.deps import CurrentUser, require_user_id
-
-from .deps import ReceiptDeps
-from .models import (
+from app.receipt.deps import ReceiptDeps
+from app.receipt.models import (
     Receipt,
     ReceiptItem,
     ReceiptItemCreateRequest,
@@ -19,7 +18,7 @@ from .models import (
     ReceiptRead,
     ReceiptUpdate,
 )
-from .services import ReceiptFilters
+from app.receipt.services import ReceiptFilters
 
 router = APIRouter(prefix="/api/v1/receipts", tags=["receipts"])
 

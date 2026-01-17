@@ -62,18 +62,25 @@ down:
 logs:
 	$(COMPOSE) logs -f
 
-# Stop any container using port 5432 (enables worktree switching without manual cleanup)
+# Get current project name (docker compose lowercases directory name)
+PROJECT_NAME := $(shell basename $(CURDIR) | tr '[:upper:]' '[:lower:]')
+
+# Stop container on port 5432 only if it belongs to a different project (enables worktree switching)
 stop-port-conflicts:
 	@container=$$(docker ps -q --filter "publish=5432"); \
 	if [ -n "$$container" ]; then \
-		echo "Stopping container using port 5432..."; \
-		docker stop $$container >/dev/null; \
+		container_project=$$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' $$container 2>/dev/null); \
+		if [ "$$container_project" = "$(PROJECT_NAME)" ]; then \
+			echo "Database container already running for this project"; \
+		else \
+			echo "Stopping container from project '$$container_project' on port 5432..."; \
+			docker stop $$container >/dev/null; \
+		fi; \
 	fi
 
 db-up: stop-port-conflicts
-	$(COMPOSE) up -d db
-	@echo "Waiting for database to be ready..."
-	@sleep 3
+	@$(COMPOSE) up -d db --wait
+	@echo "Database ready"
 
 db-down:
 	$(COMPOSE) down db

@@ -3,15 +3,14 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, status
 
-from app.auth.deps import CurrentUser, require_user_id
-
-from .deps import AnalyticsDeps
-from .models import (
+from app.analytics.deps import AnalyticsDeps
+from app.analytics.models import (
     CategoryBreakdownResponse,
     SpendingSummary,
     SpendingTrendsResponse,
     TopStoresResponse,
 )
+from app.auth.deps import CurrentUser, require_user_id
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 

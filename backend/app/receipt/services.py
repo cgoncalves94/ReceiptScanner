@@ -17,8 +17,7 @@ from app.category.services import CategoryService
 from app.core.config import settings
 from app.core.exceptions import BadRequestError, NotFoundError, ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_agent import analyze_receipt
-
-from .models import (
+from app.receipt.models import (
     Receipt,
     ReceiptCreate,
     ReceiptItem,

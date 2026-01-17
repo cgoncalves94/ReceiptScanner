@@ -5,10 +5,9 @@ from datetime import UTC, datetime
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.auth.models import User, UserCreate, UserUpdate
+from app.auth.utils import hash_password, verify_password
 from app.core.exceptions import ConflictError, NotFoundError
-
-from .models import User, UserCreate, UserUpdate
-from .utils import hash_password, verify_password
 
 
 class AuthService:

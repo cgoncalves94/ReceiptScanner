@@ -3,9 +3,8 @@ from collections.abc import Sequence
 from fastapi import APIRouter, status
 
 from app.auth.deps import CurrentUser, require_user_id
-
-from .deps import CategoryDeps
-from .models import (
+from app.category.deps import CategoryDeps
+from app.category.models import (
     Category,
     CategoryCreate,
     CategoryRead,

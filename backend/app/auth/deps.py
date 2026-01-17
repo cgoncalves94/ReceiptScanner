@@ -7,12 +7,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.auth.models import User
+from app.auth.services import AuthService
+from app.auth.utils import decode_access_token
 from app.core.deps import get_session
 from app.core.exceptions import NotFoundError
-
-from .models import User
-from .services import AuthService
-from .utils import decode_access_token
 
 # HTTPBearer security scheme for extracting JWT tokens
 security = HTTPBearer()

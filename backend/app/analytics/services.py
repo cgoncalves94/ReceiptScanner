@@ -7,10 +7,7 @@ from sqlmodel import col, extract, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel.sql.expression import Select
 
-from app.category.models import Category
-from app.receipt.models import Receipt, ReceiptItem
-
-from .models import (
+from app.analytics.models import (
     CategoryBreakdownResponse,
     CategorySpending,
     CurrencyAmount,
@@ -20,6 +17,8 @@ from .models import (
     StoreVisit,
     TopStoresResponse,
 )
+from app.category.models import Category
+from app.receipt.models import Receipt, ReceiptItem
 
 
 class AnalyticsService:

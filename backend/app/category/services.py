@@ -4,10 +4,9 @@ from datetime import UTC, datetime
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.category.models import Category, CategoryCreate, CategoryUpdate
 from app.core.exceptions import ConflictError, NotFoundError
 from app.receipt.models import Receipt, ReceiptItem
-
-from .models import Category, CategoryCreate, CategoryUpdate
 
 
 class CategoryService:

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, status
 
-from .deps import AuthDeps, CurrentUser
-from .models import User, UserCreate, UserRead
-from .utils import create_access_token
+from app.auth.deps import AuthDeps, CurrentUser
+from app.auth.models import User, UserCreate, UserRead
+from app.auth.utils import create_access_token
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 

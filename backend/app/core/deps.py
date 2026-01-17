@@ -3,7 +3,7 @@ from typing import Any
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from .db import async_session_factory
+from app.core.db import async_session_factory
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, Any]:
