@@ -497,8 +497,8 @@ async def test_export_receipts_csv_structure(
     csv_content = response.content.decode("utf-8")
     lines = csv_content.strip().split("\n")
 
-    # Parse CSV header
-    header = lines[0].split(",")
+    # Parse CSV header (strip \r from CRLF line endings per RFC 4180)
+    header = lines[0].strip().split(",")
     expected_columns = [
         "receipt_id",
         "receipt_date",
