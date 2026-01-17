@@ -426,7 +426,13 @@ async def test_export_csv_payment_methods(
         [PaymentMethod.CASH, PaymentMethod.DEBIT_CARD, PaymentMethod.MOBILE_PAYMENT]
     ):
         item = create_mock_receipt_item(
-            idx + 10, f"Item {idx}", 1, Decimal("10.00"), Decimal("10.00"), "$", category
+            idx + 10,
+            f"Item {idx}",
+            1,
+            Decimal("10.00"),
+            Decimal("10.00"),
+            "$",
+            category,
         )
         receipt = create_mock_receipt(
             idx + 10,

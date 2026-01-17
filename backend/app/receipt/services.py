@@ -498,7 +498,9 @@ class ReceiptService:
             Receipts without items will have one row with empty item fields.
         """
         # Get filtered receipts using existing list method
-        receipts = await self.list(filters=filters, user_id=user_id, skip=0, limit=10000)
+        receipts = await self.list(
+            filters=filters, user_id=user_id, skip=0, limit=10000
+        )
 
         # Define CSV columns
         fieldnames = [
@@ -537,7 +539,9 @@ class ReceiptService:
                         "payment_method": receipt.payment_method.value
                         if receipt.payment_method
                         else "",
-                        "tax_amount": str(receipt.tax_amount) if receipt.tax_amount else "",
+                        "tax_amount": str(receipt.tax_amount)
+                        if receipt.tax_amount
+                        else "",
                         "item_id": "",
                         "item_name": "",
                         "item_quantity": "",
@@ -569,7 +573,9 @@ class ReceiptService:
                             "item_unit_price": str(item.unit_price),
                             "item_total_price": str(item.total_price),
                             "item_currency": item.currency,
-                            "category_name": item.category.name if item.category else "",
+                            "category_name": item.category.name
+                            if item.category
+                            else "",
                         }
                     )
 
