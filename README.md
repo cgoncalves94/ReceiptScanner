@@ -9,6 +9,8 @@ A full-stack receipt scanning application with AI-powered analysis. Upload recei
 - **User Authentication**: Register/login with JWT and per-user data isolation
 - **Multi-Currency Support**: Track spending in EUR, GBP, USD with real-time conversion
 - **Analytics Dashboard**: Monthly spending breakdown by category
+- **Advanced Filtering**: Search and filter receipts by store, category, date range, and amount
+- **Export to CSV/PDF**: Download filtered receipts as spreadsheet or PDF reports (with optional images)
 - **Dark Mode**: Modern dark-first UI design
 
 ## Tech Stack

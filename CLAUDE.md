@@ -90,6 +90,7 @@ backend/app/
 │   ├── router.py           # /api/v1/receipts endpoints
 │   ├── models.py           # Receipt, ReceiptItem + schemas
 │   ├── services.py         # ReceiptService (business logic)
+│   ├── exporters.py        # PDF/CSV export utilities
 │   └── deps.py             # ReceiptDeps = Annotated[ReceiptService, Depends(...)]
 ├── category/               # Same structure
 ├── analytics/              # Analytics domain (no models - query-only)
@@ -140,7 +141,7 @@ frontend/src/
 │   ├── analytics/          # Spending charts by category
 │   └── scan/               # Receipt upload with drag-drop
 ├── hooks/
-│   ├── use-receipts.ts     # useReceipts, useReceipt, useScanReceipt, useDeleteReceipt, useUpdateReceiptItem, useCreateReceiptItem, useDeleteReceiptItem
+│   ├── use-receipts.ts     # useReceipts, useReceipt, useScanReceipt, useDeleteReceipt, useUpdateReceiptItem, useCreateReceiptItem, useDeleteReceiptItem, useStores, useExportReceipts, useExportReceiptsPdf
 │   ├── use-categories.ts   # useCategories, useCreateCategory, useDeleteCategory, useCategoryItems
 │   ├── use-analytics.ts    # useAnalyticsSummary, useAnalyticsTrends, useTopStores, useCategoryBreakdown
 │   └── use-currency.ts     # useExchangeRates (Frankfurter API)
@@ -185,11 +186,14 @@ catch (error) {
 | `GET` | `/api/v1/auth/me` | Get current user |
 | `POST` | `/api/v1/receipts/scan` | Upload and analyze receipt |
 | `GET` | `/api/v1/receipts` | List receipts (supports filtering: search, store, after, before, category_ids, min_amount, max_amount) |
+| `GET` | `/api/v1/receipts/stores` | List unique store names |
+| `GET` | `/api/v1/receipts/export` | Export receipts to CSV (supports same filters as list) |
+| `GET` | `/api/v1/receipts/export/pdf` | Export receipts to PDF (include_images param) |
 | `GET` | `/api/v1/receipts/{id}` | Get receipt with items |
 | `PATCH` | `/api/v1/receipts/{id}` | Update receipt |
 | `DELETE` | `/api/v1/receipts/{id}` | Delete receipt |
-| `PATCH` | `/api/v1/receipts/{id}/items/{itemId}` | Update item (name, category) |
 | `POST` | `/api/v1/receipts/{id}/items` | Create new item |
+| `PATCH` | `/api/v1/receipts/{id}/items/{itemId}` | Update item (name, category) |
 | `DELETE` | `/api/v1/receipts/{id}/items/{itemId}` | Delete item |
 | `GET` | `/api/v1/receipts/category/{id}/items` | List items by category |
 | `GET` | `/api/v1/categories` | List categories |

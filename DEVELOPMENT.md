@@ -121,6 +121,7 @@ backend/app/
 │   ├── router.py           # API endpoints
 │   ├── models.py           # SQLModel models + schemas
 │   ├── services.py         # Business logic
+│   ├── exporters.py        # PDF/CSV export utilities
 │   └── deps.py             # Domain dependencies
 ├── category/               # Category domain (same structure)
 ├── analytics/              # Analytics domain (query-only, no DB models)
@@ -147,7 +148,7 @@ frontend/src/
 ├── components/
 │   └── ui/                 # shadcn/ui components
 ├── hooks/                  # TanStack Query hooks
-│   ├── use-receipts.ts     # Receipt mutations/queries
+│   ├── use-receipts.ts     # Receipt CRUD, stores, export (CSV/PDF)
 │   ├── use-categories.ts   # Category mutations/queries
 │   ├── use-analytics.ts    # Analytics queries (summary, trends, breakdowns)
 │   └── use-currency.ts     # Currency conversion
