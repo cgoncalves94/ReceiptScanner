@@ -90,6 +90,7 @@ function ReceiptsPageContent() {
   }, [searchParams]);
 
   const [filters, setFilters] = useState<ReceiptFilters>(initialFilters);
+  const [includeImages, setIncludeImages] = useState(false);
 
   // Fetch receipts with server-side filtering
   const { data: receipts, isLoading } = useReceipts(
@@ -120,9 +121,10 @@ function ReceiptsPageContent() {
 
   const handleExportPdf = async () => {
     try {
-      await exportPdfMutation.mutateAsync(
-        Object.keys(filters).length > 0 ? filters : undefined
-      );
+      await exportPdfMutation.mutateAsync({
+        filters: Object.keys(filters).length > 0 ? filters : undefined,
+        includeImages,
+      });
       toast.success("PDF report generated successfully!");
     } catch (error) {
       toast.error(
@@ -134,25 +136,36 @@ function ReceiptsPageContent() {
   return (
     <div className="space-y-6">
       {/* Export Buttons */}
-      <div className="flex justify-end gap-2">
-        <Button
-          onClick={handleExportPdf}
-          disabled={exportPdfMutation.isPending || isLoading || receipts?.length === 0}
-          variant="outline"
-          className="border-amber-500/20 hover:bg-amber-500/10 hover:text-amber-500"
-        >
-          {exportPdfMutation.isPending ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <FileText className="h-4 w-4 mr-2" />
-              Export PDF
-            </>
-          )}
-        </Button>
+      <div className="flex justify-end gap-4 items-center">
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeImages}
+              onChange={(e) => setIncludeImages(e.target.checked)}
+              className="w-4 h-4 rounded border-border text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"
+            />
+            <span className="text-muted-foreground">Include receipt images in PDF</span>
+          </label>
+          <Button
+            onClick={handleExportPdf}
+            disabled={exportPdfMutation.isPending || isLoading || receipts?.length === 0}
+            variant="outline"
+            className="border-amber-500/20 hover:bg-amber-500/10 hover:text-amber-500"
+          >
+            {exportPdfMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <FileText className="h-4 w-4 mr-2" />
+                Export PDF
+              </>
+            )}
+          </Button>
+        </div>
         <Button
           onClick={handleExport}
           disabled={exportMutation.isPending || isLoading || receipts?.length === 0}

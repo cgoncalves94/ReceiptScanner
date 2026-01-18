@@ -79,7 +79,8 @@ export function useExportReceipts() {
 
 export function useExportReceiptsPdf() {
   return useMutation({
-    mutationFn: (filters?: ReceiptFilters) => api.exportReceiptsPdf(filters),
+    mutationFn: ({ filters, includeImages }: { filters?: ReceiptFilters; includeImages?: boolean }) =>
+      api.exportReceiptsPdf(filters, { includeImages }),
     onSuccess: ({ blob, filename }) => {
       // Create download link using filename from backend
       const url = URL.createObjectURL(blob);

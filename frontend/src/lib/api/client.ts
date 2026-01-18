@@ -239,8 +239,14 @@ class ApiClient {
     return { blob, filename };
   }
 
-  async exportReceiptsPdf(filters?: ReceiptFilters): Promise<{ blob: Blob; filename: string }> {
+  async exportReceiptsPdf(filters?: ReceiptFilters, options?: { includeImages?: boolean }): Promise<{ blob: Blob; filename: string }> {
     const params = this.buildReceiptFilterParams(filters);
+
+    // Add includeImages parameter if specified
+    if (options?.includeImages) {
+      params.set("include_images", "true");
+    }
+
     const queryString = params.toString();
     const endpoint = queryString ? `/receipts/export/pdf?${queryString}` : "/receipts/export/pdf";
 
