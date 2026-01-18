@@ -204,6 +204,77 @@ async def export_receipts(
     )
 
 
+@router.get("/export/pdf", status_code=status.HTTP_200_OK)
+async def export_receipts_pdf(
+    current_user: CurrentUser,
+    service: ReceiptDeps,
+    search: Annotated[
+        str | None,
+        Query(description="Search store name (case-insensitive partial match)"),
+    ] = None,
+    store: Annotated[
+        str | None,
+        Query(description="Exact store name match"),
+    ] = None,
+    after: Annotated[
+        datetime | None,
+        Query(description="Filter receipts on or after this date (ISO 8601 format)"),
+    ] = None,
+    before: Annotated[
+        datetime | None,
+        Query(description="Filter receipts on or before this date (ISO 8601 format)"),
+    ] = None,
+    category_ids: Annotated[
+        list[int] | None,
+        Query(
+            description="Filter by category IDs (receipts with items in these categories)"
+        ),
+    ] = None,
+    min_amount: Annotated[
+        Decimal | None,
+        Query(description="Minimum total amount", ge=0),
+    ] = None,
+    max_amount: Annotated[
+        Decimal | None,
+        Query(description="Maximum total amount", ge=0),
+    ] = None,
+    include_images: Annotated[
+        bool,
+        Query(description="Include receipt images in the PDF"),
+    ] = False,
+) -> StreamingResponse:
+    """Export receipts to PDF format with optional filtering.
+
+    Returns a PDF file with all receipt and item data.
+    Optionally includes receipt images when include_images=true.
+    Filter options are the same as list_receipts endpoint.
+    """
+    user_id = require_user_id(current_user)
+    # Build filters dict using helper function
+    filters = build_receipt_filters(
+        search, store, after, before, category_ids, min_amount, max_amount
+    )
+
+    # Generate PDF content
+    pdf_content = await service.export_to_pdf(
+        filters=filters or None, user_id=user_id, include_images=include_images
+    )
+
+    # Generate filename with timestamp (UTC for consistency)
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    filename = f"receipts_export_{timestamp}.pdf"
+
+    # Convert bytes to BytesIO for streaming
+    pdf_bytes = BytesIO(pdf_content)
+
+    # Return streaming response with proper headers
+    return StreamingResponse(
+        pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @router.get("/stores", response_model=list[str], status_code=status.HTTP_200_OK)
 async def list_stores(
     current_user: CurrentUser,
