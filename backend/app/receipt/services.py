@@ -26,6 +26,7 @@ from app.receipt.models import (
     ReceiptItemUpdate,
     ReceiptUpdate,
 )
+from app.receipt.pdf_generator import ReceiptPDFGenerator
 
 
 class ReceiptFilters(TypedDict, total=False):
@@ -573,3 +574,35 @@ class ReceiptService:
                     )
 
         return output.getvalue()
+
+    async def export_to_pdf(
+        self,
+        *,
+        filters: ReceiptFilters | None = None,
+        user_id: int,
+        include_images: bool = False,
+    ) -> bytes:
+        """Export receipts to PDF format.
+
+        Args:
+            filters: Optional dictionary of filter parameters (same as list method)
+            user_id: The ID of the user whose receipts to export
+            include_images: Whether to include receipt images in the PDF
+
+        Returns:
+            PDF file content as bytes
+
+        Note:
+            The PDF includes a summary section with overall statistics and category
+            breakdown, followed by detailed sections for each receipt with items table.
+            Receipt images are optionally embedded if include_images is True.
+        """
+        # Get filtered receipts using existing list method
+        # Note: No limit applied to ensure complete export of all matching receipts
+        receipts = await self.list(filters=filters, user_id=user_id, skip=0, limit=None)
+
+        # Generate PDF using the PDF generator utility
+        generator = ReceiptPDFGenerator()
+        pdf_bytes = generator.generate(list(receipts), include_images=include_images)
+
+        return pdf_bytes
