@@ -116,6 +116,11 @@ export interface ReceiptFilters {
   max_amount?: number;
 }
 
+// PDF export options
+export interface PdfExportOptions {
+  includeImages: boolean;
+}
+
 // Analytics Types - Multi-currency support
 // Backend returns amounts grouped by original currency
 // Frontend converts to display currency using exchange rates
