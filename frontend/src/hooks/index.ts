@@ -4,6 +4,7 @@ export {
   useReceipt,
   useScanReceipt,
   useExportReceipts,
+  useExportReceiptsPdf,
   useUpdateReceipt,
   useDeleteReceipt,
   useUpdateReceiptItem,

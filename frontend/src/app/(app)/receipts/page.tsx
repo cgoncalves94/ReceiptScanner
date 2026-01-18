@@ -6,8 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Receipt, ChevronRight, Calendar, Scan, Download, Loader2 } from "lucide-react";
-import { useReceipts, useStores, useExportReceipts } from "@/hooks";
+import { Receipt, ChevronRight, Calendar, Scan, Download, Loader2, FileText } from "lucide-react";
+import { useReceipts, useStores, useExportReceipts, useExportReceiptsPdf } from "@/hooks";
 import { FilterBar } from "@/components/receipts/filter-bar";
 import { formatCurrency, formatDate, formatDistanceToNow } from "@/lib/format";
 import type { ReceiptFilters } from "@/types";
@@ -101,6 +101,7 @@ function ReceiptsPageContent() {
 
   // Export receipts mutation
   const exportMutation = useExportReceipts();
+  const exportPdfMutation = useExportReceiptsPdf();
 
   const hasFilters = Object.keys(filters).length > 0;
 
@@ -117,10 +118,41 @@ function ReceiptsPageContent() {
     }
   };
 
+  const handleExportPdf = async () => {
+    try {
+      await exportPdfMutation.mutateAsync(
+        Object.keys(filters).length > 0 ? filters : undefined
+      );
+      toast.success("PDF report generated successfully!");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to generate PDF report"
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Export Button */}
-      <div className="flex justify-end">
+      {/* Export Buttons */}
+      <div className="flex justify-end gap-2">
+        <Button
+          onClick={handleExportPdf}
+          disabled={exportPdfMutation.isPending || isLoading || receipts?.length === 0}
+          variant="outline"
+          className="border-amber-500/20 hover:bg-amber-500/10 hover:text-amber-500"
+        >
+          {exportPdfMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <FileText className="h-4 w-4 mr-2" />
+              Export PDF
+            </>
+          )}
+        </Button>
         <Button
           onClick={handleExport}
           disabled={exportMutation.isPending || isLoading || receipts?.length === 0}
