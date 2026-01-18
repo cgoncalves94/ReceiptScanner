@@ -239,6 +239,53 @@ class ApiClient {
     return { blob, filename };
   }
 
+  async exportReceiptsPdf(filters?: ReceiptFilters): Promise<{ blob: Blob; filename: string }> {
+    const params = this.buildReceiptFilterParams(filters);
+    const queryString = params.toString();
+    const endpoint = queryString ? `/receipts/export/pdf?${queryString}` : "/receipts/export/pdf";
+
+    const token = this.getToken();
+    const headers: Record<string, string> = {};
+
+    // Add Authorization header if token exists
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_V1}${endpoint}`, {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      // Handle 401 Unauthorized - token is invalid/expired
+      if (response.status === 401) {
+        this.removeToken();
+        if (typeof window !== "undefined") {
+          // Dispatch event for AuthErrorHandler to redirect via Next.js router
+          window.dispatchEvent(new CustomEvent("auth-error"));
+        }
+        throw new Error("Session expired. Please log in again.");
+      }
+
+      const error = await response.json().catch(() => ({ detail: "Export failed" }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    // Extract filename from Content-Disposition header
+    const disposition = response.headers.get("Content-Disposition");
+    let filename = "receipts_export.pdf"; // Default fallback
+    if (disposition?.includes("attachment")) {
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+      if (filenameMatch?.[1]) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    const blob = await response.blob();
+    return { blob, filename };
+  }
+
   // ============================================================================
   // Receipt Items
   // ============================================================================
