@@ -17,6 +17,7 @@ from app.category.services import CategoryService
 from app.core.config import settings
 from app.core.exceptions import BadRequestError, NotFoundError, ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_agent import analyze_receipt
+from app.receipt.exporters import ReceiptPDFGenerator
 from app.receipt.models import (
     Receipt,
     ReceiptCreate,
@@ -26,7 +27,6 @@ from app.receipt.models import (
     ReceiptItemUpdate,
     ReceiptUpdate,
 )
-from app.receipt.pdf_generator import ReceiptPDFGenerator
 
 
 class ReceiptFilters(TypedDict, total=False):
@@ -601,7 +601,7 @@ class ReceiptService:
         # Note: No limit applied to ensure complete export of all matching receipts
         receipts = await self.list(filters=filters, user_id=user_id, skip=0, limit=None)
 
-        # Generate PDF using the PDF generator utility
+        # Generate PDF using the PDF generator
         generator = ReceiptPDFGenerator()
         pdf_bytes = generator.generate(list(receipts), include_images=include_images)
 
