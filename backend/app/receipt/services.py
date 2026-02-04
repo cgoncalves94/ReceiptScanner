@@ -451,6 +451,7 @@ class ReceiptService:
         receipt = await self.session.scalar(stmt)
         if not receipt:
             raise NotFoundError(f"Receipt with id {receipt_id} not found")
+        await self.session.refresh(receipt, ["items"])
 
         # Validate currency matches the receipt
         if item_in.currency != receipt.currency:
@@ -475,10 +476,7 @@ class ReceiptService:
 
         self.session.add(item)
 
-        await self.session.flush()
-        await self.session.refresh(receipt, ["items"])
-        if item not in receipt.items:
-            receipt.items.append(item)
+        receipt.items.append(item)
 
         # Update the receipt total
         receipt.total_amount = self._recalculate_total(receipt)

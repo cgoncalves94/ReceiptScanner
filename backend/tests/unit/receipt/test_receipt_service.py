@@ -552,7 +552,7 @@ async def test_create_item(
     # Total should be original (10.00) + new item total (2 * 5.50 = 11.00) = 21.00
     assert updated_receipt.total_amount == Decimal("21.00")
     mock_session.add.assert_called()
-    assert mock_session.flush.call_count == 2
+    mock_session.flush.assert_called_once()
 
 
 @pytest.mark.asyncio
