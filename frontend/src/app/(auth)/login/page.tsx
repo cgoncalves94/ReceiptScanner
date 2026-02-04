@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/login-form";
@@ -12,7 +12,6 @@ import type { LoginCredentials } from "@/types";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const loginMutation = useLogin();
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +20,7 @@ export default function LoginPage() {
     try {
       await loginMutation.mutateAsync(credentials);
       toast.success("Login successful!");
-      const redirect = searchParams.get("redirect");
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
       const destination =
         redirect && redirect.startsWith("/") && !redirect.startsWith("//")
           ? redirect
