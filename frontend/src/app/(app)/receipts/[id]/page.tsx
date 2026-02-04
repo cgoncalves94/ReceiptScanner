@@ -413,7 +413,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/${receipt.image_path}`}
+                src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/receipts/${receipt.id}/image`}
                 alt="Receipt"
                 className="w-full max-h-150 object-contain"
               />
@@ -560,7 +560,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
             </DialogHeader>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/${receipt.image_path}`}
+              src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/receipts/${receipt.id}/image`}
               alt="Receipt"
               className="w-full h-full max-h-[85vh] object-contain"
             />

@@ -6,7 +6,6 @@ import logfire
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import __author__
@@ -78,10 +77,6 @@ app.include_router(auth_router)
 app.include_router(receipt_router)
 app.include_router(category_router)
 app.include_router(analytics_router)
-
-# Serve uploaded files (receipt images)
-app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
-
 
 # Define the root endpoint
 @app.get("/", include_in_schema=False)

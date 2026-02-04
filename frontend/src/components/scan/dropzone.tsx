@@ -4,12 +4,16 @@ import { useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Upload, Image as ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface DropzoneProps {
   onFileSelect: (file: File) => void;
   disabled?: boolean;
   fullPage?: boolean;
 }
+
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_SIZE_MB = 10;
 
 export function Dropzone({ onFileSelect, disabled, fullPage }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -19,6 +23,12 @@ export function Dropzone({ onFileSelect, disabled, fullPage }: DropzoneProps) {
   const handleFile = useCallback(
     (file: File) => {
       if (!file.type.startsWith("image/")) {
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(
+          `File is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`
+        );
         return;
       }
 

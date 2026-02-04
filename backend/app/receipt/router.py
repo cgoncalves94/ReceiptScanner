@@ -1,3 +1,4 @@
+import mimetypes
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -5,9 +6,9 @@ from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, File, Query, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
-from app.auth.deps import CurrentUser, require_user_id
+from app.auth.deps import CurrentUser, CurrentUserFromRequest, require_user_id
 from app.receipt.deps import ReceiptDeps
 from app.receipt.models import (
     Receipt,
@@ -294,6 +295,23 @@ async def get_receipt(
     """Get a receipt by ID with all its items."""
     user_id = require_user_id(current_user)
     return await service.get(receipt_id, user_id=user_id)
+
+
+@router.get(
+    "/{receipt_id}/image",
+    status_code=status.HTTP_200_OK,
+)
+async def get_receipt_image(
+    receipt_id: int,
+    current_user: CurrentUserFromRequest,
+    service: ReceiptDeps,
+) -> FileResponse:
+    """Get a receipt image for the current user."""
+    user_id = require_user_id(current_user)
+    receipt = await service.get(receipt_id, user_id=user_id)
+    image_path = service.resolve_image_path(receipt.image_path)
+    media_type, _ = mimetypes.guess_type(image_path.name)
+    return FileResponse(image_path, media_type=media_type or "application/octet-stream")
 
 
 @router.get(

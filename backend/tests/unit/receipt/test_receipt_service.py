@@ -351,6 +351,57 @@ async def test_update_receipt_item(
 
 
 @pytest.mark.asyncio
+async def test_update_receipt_item_recomputes_total(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test updating a receipt item recomputes totals."""
+    # Arrange
+    item = ReceiptItem(
+        id=1,
+        name="Original Item",
+        quantity=1,
+        unit_price=Decimal("5.00"),
+        total_price=Decimal("5.00"),
+        currency="$",
+        category_id=1,
+        receipt_id=1,
+    )
+    other_item = ReceiptItem(
+        id=2,
+        name="Other Item",
+        quantity=1,
+        unit_price=Decimal("10.00"),
+        total_price=Decimal("10.00"),
+        currency="$",
+        category_id=1,
+        receipt_id=1,
+    )
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("15.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[item, other_item],
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.flush = AsyncMock()
+    mock_session.refresh = AsyncMock()
+
+    update_data = ReceiptItemUpdate(quantity=2)
+
+    # Act
+    updated_receipt = await receipt_service.update_item(
+        receipt_id=1, item_id=1, item_in=update_data, user_id=TEST_USER_ID
+    )
+
+    # Assert
+    assert item.total_price == Decimal("10.00")
+    assert updated_receipt.total_amount == Decimal("20.00")
+    mock_session.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_update_nonexistent_receipt_item(
     receipt_service: ReceiptService, mock_session: AsyncMock
 ) -> None:
@@ -394,6 +445,7 @@ async def test_update_receipt_with_metadata(
         tax_amount=None,
         tags=[],
     )
+    assert existing_receipt.id is not None
 
     # Mock the scalar method for get
     mock_session.scalar.return_value = existing_receipt
@@ -462,13 +514,22 @@ async def test_create_item(
 ) -> None:
     """Test creating a receipt item and updating receipt total."""
     # Arrange
+    existing_item = ReceiptItem(
+        id=2,
+        name="Existing Item",
+        quantity=1,
+        unit_price=Decimal("10.00"),
+        total_price=Decimal("10.00"),
+        currency="$",
+        receipt_id=1,
+    )
     receipt = Receipt(
         id=1,
         store_name="Test Store",
         total_amount=Decimal("10.00"),
         currency="$",
         image_path="/path/to/image.jpg",
-        items=[],
+        items=[existing_item],
     )
     mock_session.scalar.return_value = receipt
     mock_session.flush = AsyncMock()
@@ -491,7 +552,7 @@ async def test_create_item(
     # Total should be original (10.00) + new item total (2 * 5.50 = 11.00) = 21.00
     assert updated_receipt.total_amount == Decimal("21.00")
     mock_session.add.assert_called()
-    mock_session.flush.assert_called_once()
+    assert mock_session.flush.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -532,13 +593,22 @@ async def test_delete_item(
         currency="$",
         receipt_id=1,
     )
+    remaining_item = ReceiptItem(
+        id=2,
+        name="Remaining Item",
+        quantity=1,
+        unit_price=Decimal("10.00"),
+        total_price=Decimal("10.00"),
+        currency="$",
+        receipt_id=1,
+    )
     receipt = Receipt(
         id=1,
         store_name="Test Store",
         total_amount=Decimal("15.00"),
         currency="$",
         image_path="/path/to/image.jpg",
-        items=[item],
+        items=[item, remaining_item],
     )
     mock_session.scalar.return_value = receipt
     mock_session.delete = AsyncMock()
@@ -554,7 +624,7 @@ async def test_delete_item(
     # Total should be original (15.00) - deleted item (5.00) = 10.00
     assert updated_receipt.total_amount == Decimal("10.00")
     mock_session.delete.assert_called_once_with(item)
-    mock_session.flush.assert_called_once()
+    assert mock_session.flush.call_count == 2
 
 
 @pytest.mark.asyncio

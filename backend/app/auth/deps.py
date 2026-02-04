@@ -3,7 +3,7 @@
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -15,6 +15,53 @@ from app.core.exceptions import NotFoundError
 
 # HTTPBearer security scheme for extracting JWT tokens
 security = HTTPBearer()
+TOKEN_COOKIE_KEY = "receipt_scanner_token"  # noqa: S105
+
+
+def _unauthorized() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _inactive() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="User account is inactive",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def _get_user_from_token(token: str, service: AuthService) -> User:
+    try:
+        # Decode the JWT token
+        payload = decode_access_token(token)
+        user_id_str: str | None = payload.get("sub")
+
+        if user_id_str is None:
+            raise _unauthorized()
+
+        # Convert string ID back to int
+        try:
+            user_id = int(user_id_str)
+        except (ValueError, TypeError):
+            raise _unauthorized() from None
+
+    except jwt.InvalidTokenError as err:
+        raise _unauthorized() from err
+
+    # Get the user from the database
+    try:
+        user = await service.get_user_by_id(user_id)
+    except NotFoundError:
+        raise _unauthorized() from None
+
+    if not user.is_active:
+        raise _inactive()
+
+    return user
 
 
 async def get_auth_service(
@@ -41,60 +88,37 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    token = credentials.credentials
+    return await _get_user_from_token(credentials.credentials, service)
 
-    try:
-        # Decode the JWT token
-        payload = decode_access_token(token)
-        user_id_str: str | None = payload.get("sub")
 
-        if user_id_str is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+async def get_current_user_from_request(
+    request: Request,
+    service: AuthService = Depends(get_auth_service),
+) -> User:
+    """Get current user from Authorization header or auth cookie."""
+    token: str | None = None
 
-        # Convert string ID back to int
-        try:
-            user_id = int(user_id_str)
-        except (ValueError, TypeError):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            ) from None
+    auth_header = request.headers.get("Authorization")
+    if auth_header:
+        scheme, _, param = auth_header.partition(" ")
+        if scheme.lower() == "bearer" and param:
+            token = param
+        else:
+            token = None
 
-    except jwt.InvalidTokenError as err:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from err
+    if not token:
+        token = request.cookies.get(TOKEN_COOKIE_KEY)
 
-    # Get the user from the database
-    try:
-        user = await service.get_user_by_id(user_id)
-    except NotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from None
+    if not token:
+        raise _unauthorized()
 
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User account is inactive",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return user
+    return await _get_user_from_token(token, service)
 
 
 # Type aliases for dependency injection
 AuthDeps = Annotated[AuthService, Depends(get_auth_service)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentUserFromRequest = Annotated[User, Depends(get_current_user_from_request)]
 
 
 def require_user_id(user: User) -> int:

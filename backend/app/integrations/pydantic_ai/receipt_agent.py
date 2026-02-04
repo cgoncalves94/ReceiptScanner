@@ -170,7 +170,7 @@ async def analyze_receipt(
     try:
         # Convert PIL Image to bytes
         img_byte_arr = BytesIO()
-        image.save(img_byte_arr, format=image.format or "PNG")
+        image.save(img_byte_arr, format="PNG")
         img_bytes = img_byte_arr.getvalue()
 
         # Create dependencies

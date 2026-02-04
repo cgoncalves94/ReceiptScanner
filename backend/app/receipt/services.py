@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from io import StringIO
+from pathlib import Path
 from typing import TypedDict
 
 from fastapi import UploadFile
@@ -52,6 +53,32 @@ class ReceiptService:
         self.session = session
         self.category_service = category_service
 
+    def _recalculate_total(self, receipt: Receipt) -> Decimal:
+        """Recalculate receipt total from item totals."""
+        return sum((item.total_price for item in receipt.items), Decimal("0"))
+
+    def resolve_image_path(self, image_path: str) -> Path:
+        """Resolve and validate receipt image path within upload directory."""
+        upload_root = settings.UPLOAD_DIR.resolve()
+        upload_dir = settings.UPLOAD_DIR
+        path = Path(image_path)
+
+        if path.is_absolute():
+            candidate = path
+        elif upload_dir.parts and path.parts[: len(upload_dir.parts)] == upload_dir.parts:
+            candidate = (Path.cwd() / path).resolve(strict=False)
+        else:
+            candidate = (upload_root / path).resolve(strict=False)
+
+        resolved = candidate.resolve(strict=False)
+
+        if upload_root not in resolved.parents and resolved != upload_root:
+            raise NotFoundError("Receipt image not found")
+        if not resolved.exists() or not resolved.is_file():
+            raise NotFoundError("Receipt image not found")
+
+        return resolved
+
     async def create(self, receipt_in: ReceiptCreate, user_id: int) -> Receipt:
         """Create a new receipt."""
         receipt = Receipt(**receipt_in.model_dump(), user_id=user_id)
@@ -81,12 +108,22 @@ class ReceiptService:
         unique_filename = f"{uuid.uuid4()}{file_ext}"
         image_path = settings.UPLOAD_DIR / unique_filename
 
-        # Save the uploaded file
-        with open(image_path, "wb") as f:
-            content = await image_file.read()
-            f.write(content)
-
         try:
+            # Save the uploaded file with size enforcement
+            max_bytes = settings.max_upload_size_bytes
+            bytes_read = 0
+            with open(image_path, "wb") as f:
+                while True:
+                    chunk = await image_file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    bytes_read += len(chunk)
+                    if bytes_read > max_bytes:
+                        raise BadRequestError(
+                            f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE_MB}MB."
+                        )
+                    f.write(chunk)
+
             # Open and validate the image
             try:
                 pil_image = Image.open(image_path)
@@ -329,7 +366,11 @@ class ReceiptService:
         # Update item fields
         update_data = item_in.model_dump(exclude_unset=True)
         item.sqlmodel_update(update_data)
+        item.total_price = item.unit_price * item.quantity
         item.updated_at = datetime.now(UTC)
+
+        receipt.total_amount = self._recalculate_total(receipt)
+        receipt.updated_at = datetime.now(UTC)
 
         await self.session.flush()
         await self.session.refresh(receipt, ["items"])
@@ -432,8 +473,13 @@ class ReceiptService:
 
         self.session.add(item)
 
+        await self.session.flush()
+        await self.session.refresh(receipt, ["items"])
+        if item not in receipt.items:
+            receipt.items.append(item)
+
         # Update the receipt total
-        receipt.total_amount = receipt.total_amount + total_price
+        receipt.total_amount = self._recalculate_total(receipt)
         receipt.updated_at = datetime.now(UTC)
 
         await self.session.flush()
@@ -470,12 +516,18 @@ class ReceiptService:
                 f"Item with id {item_id} not found in receipt {receipt_id}"
             )
 
-        # Update the receipt total before deleting
-        receipt.total_amount = receipt.total_amount - item.total_price
-        receipt.updated_at = datetime.now(UTC)
+        if item in receipt.items:
+            receipt.items.remove(item)
 
         # Delete the item
         await self.session.delete(item)
+        await self.session.flush()
+        await self.session.refresh(receipt, ["items"])
+
+        # Update the receipt total
+        receipt.total_amount = self._recalculate_total(receipt)
+        receipt.updated_at = datetime.now(UTC)
+
         await self.session.flush()
         await self.session.refresh(receipt, ["items"])
 

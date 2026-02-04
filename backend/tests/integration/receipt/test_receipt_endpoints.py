@@ -1,11 +1,15 @@
 """Tests for the receipt API endpoints."""
 
 import json
+from decimal import Decimal
+from io import BytesIO
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.category.models import Category
+from app.core.config import settings
 from app.receipt.models import Receipt, ReceiptItem
 
 
@@ -191,7 +195,6 @@ async def test_create_receipt_item(
     auth_headers: dict[str, str],
 ) -> None:
     """Test creating a receipt item."""
-    original_total = float(test_receipt.total_amount)
     item_data = {
         "name": "New Item",
         "quantity": 2,
@@ -216,8 +219,7 @@ async def test_create_receipt_item(
     assert float(data["items"][0]["total_price"]) == 11.00  # 2 * 5.50
     assert data["items"][0]["category_id"] == test_category.id
     # Check the receipt total was updated (use approx due to floating point)
-    expected_total = original_total + 11.00
-    assert abs(float(data["total_amount"]) - expected_total) < 0.01
+    assert abs(float(data["total_amount"]) - 11.00) < 0.01
 
 
 @pytest.mark.asyncio
@@ -541,3 +543,83 @@ async def test_export_receipts_with_amount_filter(
     csv_content = response.content.decode("utf-8")
     # CSV should have content
     assert len(csv_content) > 100  # More than just header
+
+
+@pytest.mark.asyncio
+async def test_get_receipt_image_requires_auth(
+    test_client: TestClient,
+    test_session,
+    test_user,
+    test_uploads_dir: Path,
+    test_image: BytesIO,
+) -> None:
+    """Test that receipt image endpoint requires authentication."""
+    image_path = test_uploads_dir / "receipt_auth.png"
+    image_path.write_bytes(test_image.getvalue())
+
+    receipt = Receipt(
+        store_name="Image Store",
+        total_amount=Decimal("1.00"),
+        currency="$",
+        image_path=str(image_path),
+        user_id=test_user.id,
+    )
+    test_session.add(receipt)
+    await test_session.commit()
+    await test_session.refresh(receipt)
+
+    response = test_client.get(f"/api/v1/receipts/{receipt.id}/image")
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_get_receipt_image_returns_file(
+    test_client: TestClient,
+    test_session,
+    test_user,
+    auth_headers: dict[str, str],
+    test_uploads_dir: Path,
+    test_image: BytesIO,
+) -> None:
+    """Test that receipt image endpoint returns the image for authorized users."""
+    image_path = test_uploads_dir / "receipt.png"
+    image_bytes = test_image.getvalue()
+    image_path.write_bytes(image_bytes)
+
+    receipt = Receipt(
+        store_name="Image Store",
+        total_amount=Decimal("1.00"),
+        currency="$",
+        image_path=str(image_path),
+        user_id=test_user.id,
+    )
+    test_session.add(receipt)
+    await test_session.commit()
+    await test_session.refresh(receipt)
+
+    response = test_client.get(
+        f"/api/v1/receipts/{receipt.id}/image", headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == image_bytes
+
+
+@pytest.mark.asyncio
+async def test_scan_receipt_rejects_large_upload(
+    test_client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """Test that oversized uploads are rejected."""
+    oversized = BytesIO(b"a" * (settings.max_upload_size_bytes + 1))
+
+    response = test_client.post(
+        "/api/v1/receipts/scan",
+        files={"image": ("large.png", oversized, "image/png")},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400
+    assert "File too large" in response.json()["detail"]
