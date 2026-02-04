@@ -65,7 +65,9 @@ class ReceiptService:
 
         if path.is_absolute():
             candidate = path
-        elif upload_dir.parts and path.parts[: len(upload_dir.parts)] == upload_dir.parts:
+        elif (
+            upload_dir.parts and path.parts[: len(upload_dir.parts)] == upload_dir.parts
+        ):
             candidate = (Path.cwd() / path).resolve(strict=False)
         else:
             candidate = (upload_root / path).resolve(strict=False)

@@ -78,6 +78,7 @@ app.include_router(receipt_router)
 app.include_router(category_router)
 app.include_router(analytics_router)
 
+
 # Define the root endpoint
 @app.get("/", include_in_schema=False)
 async def root() -> dict[str, str]:
