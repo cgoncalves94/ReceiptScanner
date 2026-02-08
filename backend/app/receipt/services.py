@@ -97,9 +97,7 @@ class ReceiptService:
         2. Preferring earlier lines when counts tie
         """
         n_items = len(item_totals_cents)
-        best_by_sum: dict[int, tuple[int, int, tuple[int, ...]]] = {
-            0: (0, 0, ())
-        }
+        best_by_sum: dict[int, tuple[int, int, tuple[int, ...]]] = {0: (0, 0, ())}
 
         for idx, amount_cents in enumerate(item_totals_cents):
             existing_states = list(best_by_sum.items())
@@ -191,7 +189,9 @@ class ReceiptService:
         self, items: ReceiptItemList, expected_total: Decimal
     ) -> tuple[ReceiptItemAdjustmentList, str | None]:
         """Build deterministic remove-adjustments when AI returns no actionable output."""
-        _, removed_items, note = self._dedupe_scanned_items_by_total(items, expected_total)
+        _, removed_items, note = self._dedupe_scanned_items_by_total(
+            items, expected_total
+        )
         adjustments: ReceiptItemAdjustmentList = []
         for item in removed_items:
             if item.id is None:
@@ -248,7 +248,9 @@ class ReceiptService:
         await self.session.flush()
         return receipt
 
-    async def create_from_scan(self, image_file: UploadFile, user_id: int) -> ReceiptRead:
+    async def create_from_scan(
+        self, image_file: UploadFile, user_id: int
+    ) -> ReceiptRead:
         """Create a receipt from an uploaded image file.
 
         This method:
@@ -360,8 +362,8 @@ class ReceiptService:
                 receipt_items.append(receipt_item)
 
             # Add items to database
-            receipt_items, removed_items, auto_note = self._dedupe_scanned_items_by_total(
-                receipt_items, receipt.total_amount
+            receipt_items, removed_items, auto_note = (
+                self._dedupe_scanned_items_by_total(receipt_items, receipt.total_amount)
             )
             if auto_note:
                 receipt.notes = (
@@ -617,9 +619,7 @@ class ReceiptService:
 
         notes: list[str] = []
 
-        valid_item_ids = {
-            item.id for item in receipt.items if item.id is not None
-        }
+        valid_item_ids = {item.id for item in receipt.items if item.id is not None}
 
         adjustments_by_id: dict[int, ReceiptItemAdjustment] = {}
         for adjustment in analysis.adjustments:
@@ -645,8 +645,10 @@ class ReceiptService:
             )
 
         if not adjustments_by_id and abs(difference) > Decimal("0.05"):
-            fallback_adjustments, fallback_note = self._fallback_duplicate_removal_adjustments(
-                list(receipt.items), receipt_total
+            fallback_adjustments, fallback_note = (
+                self._fallback_duplicate_removal_adjustments(
+                    list(receipt.items), receipt_total
+                )
             )
             if fallback_adjustments:
                 notes.append(
@@ -655,7 +657,10 @@ class ReceiptService:
                 if fallback_note:
                     notes.append(fallback_note)
                 adjustments_by_id.update(
-                    {adjustment.item_id: adjustment for adjustment in fallback_adjustments}
+                    {
+                        adjustment.item_id: adjustment
+                        for adjustment in fallback_adjustments
+                    }
                 )
 
         # Validate adjustments and compute adjusted total

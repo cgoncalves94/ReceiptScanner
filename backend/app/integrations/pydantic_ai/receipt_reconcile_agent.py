@@ -143,6 +143,4 @@ async def analyze_reconciliation(
         return result.output
 
     except Exception as e:
-        raise ServiceUnavailableError(
-            f"Error reconciling receipt: {str(e)}"
-        ) from e
+        raise ServiceUnavailableError(f"Error reconciling receipt: {str(e)}") from e

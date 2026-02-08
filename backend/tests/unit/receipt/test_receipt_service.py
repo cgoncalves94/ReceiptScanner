@@ -938,7 +938,9 @@ async def test_reconcile_items_uses_deterministic_fallback_for_inconsistent_ai(
             currency="GBP",
             receipt_id=1,
         )
-        for index, (name, amount) in enumerate(zip(names, amounts, strict=True), start=1)
+        for index, (name, amount) in enumerate(
+            zip(names, amounts, strict=True), start=1
+        )
     ]
     receipt_image = tmp_path / "receipt.png"
     Image.new("RGB", (10, 10), "white").save(receipt_image)
@@ -972,7 +974,9 @@ async def test_reconcile_items_uses_deterministic_fallback_for_inconsistent_ai(
     )
     monkeypatch.setattr(receipt_service, "resolve_image_path", lambda _: receipt_image)
 
-    suggestion = await receipt_service.reconcile_items(receipt_id=1, user_id=TEST_USER_ID)
+    suggestion = await receipt_service.reconcile_items(
+        receipt_id=1, user_id=TEST_USER_ID
+    )
 
     assert suggestion.difference == Decimal("34.30")
     assert suggestion.remaining_difference == Decimal("0")
