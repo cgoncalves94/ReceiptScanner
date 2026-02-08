@@ -20,7 +20,12 @@ export default function LoginPage() {
     try {
       await loginMutation.mutateAsync(credentials);
       toast.success("Login successful!");
-      router.push("/");
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
+      const destination =
+        redirect && redirect.startsWith("/") && !redirect.startsWith("//")
+          ? redirect
+          : "/";
+      router.push(destination);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed";
       setError(message);

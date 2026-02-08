@@ -57,7 +57,6 @@ async def validation_exception_handler(
         ]
         # Log detailed validation errors
         logger.info(f"Request validation error: {error_details}")
-        logger.info(f"Invalid data: {exc.body}")
     elif isinstance(exc, PydanticValidationError):
         error_details = [
             f"Field '{' -> '.join(str(loc) for loc in error['loc'])}' {error['msg']}"

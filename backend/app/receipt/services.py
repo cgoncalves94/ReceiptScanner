@@ -1,10 +1,12 @@
 import csv
 import os
 import uuid
+from collections import Counter
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from io import StringIO
+from pathlib import Path
 from typing import TypedDict
 
 from fastapi import UploadFile
@@ -17,15 +19,22 @@ from app.category.services import CategoryService
 from app.core.config import settings
 from app.core.exceptions import BadRequestError, NotFoundError, ServiceUnavailableError
 from app.integrations.pydantic_ai.receipt_agent import analyze_receipt
+from app.integrations.pydantic_ai.receipt_reconcile_agent import (
+    analyze_reconciliation,
+)
 from app.receipt.exporters import ReceiptPDFGenerator
 from app.receipt.models import (
     Receipt,
     ReceiptCreate,
     ReceiptItem,
+    ReceiptItemAdjustment,
     ReceiptItemCreate,
     ReceiptItemCreateRequest,
     ReceiptItemUpdate,
+    ReceiptRead,
+    ReceiptReconcileSuggestion,
     ReceiptUpdate,
+    ScanRemovedItem,
 )
 
 
@@ -41,6 +50,11 @@ class ReceiptFilters(TypedDict, total=False):
     max_amount: Decimal | None
 
 
+CentsList = list[int]
+ReceiptItemList = list[ReceiptItem]
+ReceiptItemAdjustmentList = list[ReceiptItemAdjustment]
+
+
 class ReceiptService:
     """Service for managing receipts and receipt items."""
 
@@ -52,6 +66,181 @@ class ReceiptService:
         self.session = session
         self.category_service = category_service
 
+    def _recalculate_total(self, receipt: Receipt) -> Decimal:
+        """Recalculate receipt total from item totals."""
+        return sum((item.total_price for item in receipt.items), Decimal("0"))
+
+    @staticmethod
+    def _to_cents(amount: Decimal) -> int:
+        """Convert a decimal amount to integer cents."""
+        return int((amount * 100).quantize(Decimal("1")))
+
+    @staticmethod
+    def _is_better_subset(
+        candidate: tuple[int, int, tuple[int, ...]],
+        current: tuple[int, int, tuple[int, ...]],
+    ) -> bool:
+        """Compare subset candidates by count first, then by earlier-line preference."""
+        candidate_count, candidate_score, _ = candidate
+        current_count, current_score, _ = current
+        if candidate_count != current_count:
+            return candidate_count > current_count
+        return candidate_score > current_score
+
+    def _find_subset_indices_matching_total(
+        self, item_totals_cents: CentsList, target_cents: int
+    ) -> set[int] | None:
+        """Find subset indices that sum exactly to target cents.
+
+        Returns the highest-confidence subset by:
+        1. Keeping the most lines
+        2. Preferring earlier lines when counts tie
+        """
+        n_items = len(item_totals_cents)
+        best_by_sum: dict[int, tuple[int, int, tuple[int, ...]]] = {0: (0, 0, ())}
+
+        for idx, amount_cents in enumerate(item_totals_cents):
+            existing_states = list(best_by_sum.items())
+            for current_sum, state in existing_states:
+                next_sum = current_sum + amount_cents
+                if next_sum > target_cents:
+                    continue
+
+                count, score, indices = state
+                # Larger score means the subset keeps earlier lines.
+                candidate = (count + 1, score + (n_items - idx), indices + (idx,))
+                current_best = best_by_sum.get(next_sum)
+                if current_best is None or self._is_better_subset(
+                    candidate, current_best
+                ):
+                    best_by_sum[next_sum] = candidate
+
+        result = best_by_sum.get(target_cents)
+        if result is None:
+            return None
+        return set(result[2])
+
+    def _dedupe_scanned_items_by_total(
+        self,
+        items: ReceiptItemList,
+        expected_total: Decimal,
+        *,
+        tolerance: Decimal = Decimal("0.05"),
+    ) -> tuple[ReceiptItemList, ReceiptItemList, str | None]:
+        """Drop clearly duplicated OCR lines when item sum exceeds receipt total.
+
+        The heuristic only applies when:
+        - an exact subset matches receipt total, and
+        - every removed line has at least one duplicate signature.
+        """
+        if not items:
+            return items, [], None
+
+        item_totals_cents = [self._to_cents(item.total_price) for item in items]
+        current_total_cents = sum(item_totals_cents)
+        expected_total_cents = self._to_cents(expected_total)
+        tolerance_cents = self._to_cents(tolerance)
+
+        if abs(current_total_cents - expected_total_cents) <= tolerance_cents:
+            return items, [], None
+        if current_total_cents <= expected_total_cents:
+            return items, [], None
+
+        # Guard runtime for very large receipts.
+        if len(items) > 120 or expected_total_cents > 500_000:
+            return items, [], None
+
+        keep_indices = self._find_subset_indices_matching_total(
+            item_totals_cents, expected_total_cents
+        )
+        if not keep_indices or len(keep_indices) == len(items):
+            return items, [], None
+
+        removed_indices = sorted(set(range(len(items))) - keep_indices)
+        signatures = [
+            (
+                item.name.strip().upper(),
+                self._to_cents(item.total_price),
+                item.currency,
+            )
+            for item in items
+        ]
+        signature_counts = Counter(signatures)
+
+        # Only auto-drop lines that look duplicated in extracted output.
+        if any(signature_counts[signatures[idx]] < 2 for idx in removed_indices):
+            return items, [], None
+
+        filtered_items = [items[idx] for idx in sorted(keep_indices)]
+        removed_items = [items[idx] for idx in removed_indices]
+        filtered_total_cents = sum(
+            self._to_cents(item.total_price) for item in filtered_items
+        )
+        if abs(filtered_total_cents - expected_total_cents) > tolerance_cents:
+            return items, [], None
+
+        note = (
+            f"Auto-removed {len(removed_indices)} likely duplicate line(s) "
+            "to align item sum with receipt total."
+        )
+        return filtered_items, removed_items, note
+
+    def _fallback_duplicate_removal_adjustments(
+        self, items: ReceiptItemList, expected_total: Decimal
+    ) -> tuple[ReceiptItemAdjustmentList, str | None]:
+        """Build deterministic remove-adjustments when AI returns no actionable output."""
+        _, removed_items, note = self._dedupe_scanned_items_by_total(
+            items, expected_total
+        )
+        adjustments: ReceiptItemAdjustmentList = []
+        for item in removed_items:
+            if item.id is None:
+                continue
+            adjustments.append(
+                ReceiptItemAdjustment(
+                    item_id=item.id,
+                    remove=True,
+                    reason="Likely duplicated OCR line based on repeated signatures and total mismatch.",
+                )
+            )
+        return adjustments, note
+
+    @staticmethod
+    def _normalize_reconcile_reason(reason: str | None) -> str:
+        """Normalize reconcile reasons to a concise single sentence for UI."""
+        if not reason:
+            return "Likely duplicate/noise line."
+        compact = " ".join(reason.replace("\n", " ").split())
+        if ". " in compact:
+            compact = compact.split(". ", 1)[0]
+        if len(compact) > 180:
+            compact = f"{compact[:177].rstrip()}..."
+        return compact
+
+    def resolve_image_path(self, image_path: str) -> Path:
+        """Resolve and validate receipt image path within upload directory."""
+        upload_root = settings.UPLOAD_DIR.resolve()
+        upload_dir = settings.UPLOAD_DIR
+        path = Path(image_path)
+
+        if path.is_absolute():
+            candidate = path
+        elif (
+            upload_dir.parts and path.parts[: len(upload_dir.parts)] == upload_dir.parts
+        ):
+            candidate = (Path.cwd() / path).resolve(strict=False)
+        else:
+            candidate = (upload_root / path).resolve(strict=False)
+
+        resolved = candidate.resolve(strict=False)
+
+        if upload_root not in resolved.parents and resolved != upload_root:
+            raise NotFoundError("Receipt image not found")
+        if not resolved.exists() or not resolved.is_file():
+            raise NotFoundError("Receipt image not found")
+
+        return resolved
+
     async def create(self, receipt_in: ReceiptCreate, user_id: int) -> Receipt:
         """Create a new receipt."""
         receipt = Receipt(**receipt_in.model_dump(), user_id=user_id)
@@ -59,7 +248,9 @@ class ReceiptService:
         await self.session.flush()
         return receipt
 
-    async def create_from_scan(self, image_file: UploadFile, user_id: int) -> Receipt:
+    async def create_from_scan(
+        self, image_file: UploadFile, user_id: int
+    ) -> ReceiptRead:
         """Create a receipt from an uploaded image file.
 
         This method:
@@ -81,12 +272,22 @@ class ReceiptService:
         unique_filename = f"{uuid.uuid4()}{file_ext}"
         image_path = settings.UPLOAD_DIR / unique_filename
 
-        # Save the uploaded file
-        with open(image_path, "wb") as f:
-            content = await image_file.read()
-            f.write(content)
-
         try:
+            # Save the uploaded file with size enforcement
+            max_bytes = settings.max_upload_size_bytes
+            bytes_read = 0
+            with open(image_path, "wb") as f:
+                while True:
+                    chunk = await image_file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    bytes_read += len(chunk)
+                    if bytes_read > max_bytes:
+                        raise BadRequestError(
+                            f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE_MB}MB."
+                        )
+                    f.write(chunk)
+
             # Open and validate the image
             try:
                 pil_image = Image.open(image_path)
@@ -161,12 +362,36 @@ class ReceiptService:
                 receipt_items.append(receipt_item)
 
             # Add items to database
+            receipt_items, removed_items, auto_note = (
+                self._dedupe_scanned_items_by_total(receipt_items, receipt.total_amount)
+            )
+            if auto_note:
+                receipt.notes = (
+                    f"{receipt.notes}\n{auto_note}".strip()
+                    if receipt.notes
+                    else auto_note
+                )
+
             for item in receipt_items:
                 self.session.add(item)
             await self.session.flush()
 
             # Get the updated receipt with items
-            return await self.get(receipt_id, user_id=user_id)
+            scanned_receipt = await self.get(receipt_id, user_id=user_id)
+            scan_response = ReceiptRead.model_validate(scanned_receipt)
+            if removed_items:
+                scan_response.scan_removed_items = [
+                    ScanRemovedItem(
+                        name=item.name,
+                        quantity=item.quantity,
+                        unit_price=item.unit_price,
+                        total_price=item.total_price,
+                        currency=item.currency,
+                        category_id=item.category_id,
+                    )
+                    for item in removed_items
+                ]
+            return scan_response
 
         except Exception:
             # Clean up the saved file on any failure
@@ -329,12 +554,147 @@ class ReceiptService:
         # Update item fields
         update_data = item_in.model_dump(exclude_unset=True)
         item.sqlmodel_update(update_data)
+        item.total_price = item.unit_price * item.quantity
         item.updated_at = datetime.now(UTC)
+
+        receipt.updated_at = datetime.now(UTC)
 
         await self.session.flush()
         await self.session.refresh(receipt, ["items"])
 
         return receipt
+
+    async def reconcile_items(
+        self, receipt_id: int, user_id: int
+    ) -> ReceiptReconcileSuggestion:
+        """Suggest AI-based adjustments to reconcile items with receipt total."""
+        receipt = await self.get(receipt_id, user_id)
+
+        if not receipt.items:
+            raise BadRequestError("Receipt has no items to reconcile")
+
+        receipt_total = Decimal(str(receipt.total_amount))
+        items_total = sum((item.total_price for item in receipt.items), Decimal("0"))
+        difference = items_total - receipt_total
+
+        if abs(difference) <= Decimal("0.05"):
+            return ReceiptReconcileSuggestion(
+                receipt_id=receipt_id,
+                receipt_total=receipt_total,
+                items_total=items_total,
+                difference=difference,
+                adjusted_items_total=items_total,
+                remaining_difference=Decimal("0"),
+                adjustments=[],
+                notes="Items already match receipt total.",
+            )
+
+        # Load receipt image for AI reconciliation
+        image_path = self.resolve_image_path(receipt.image_path)
+        try:
+            image = Image.open(image_path)
+        except Exception as e:
+            raise BadRequestError(f"Invalid receipt image: {e}") from e
+
+        items_context: list[dict[str, str | int | Decimal]] = []
+        for item in receipt.items:
+            if item.id is None:
+                raise ServiceUnavailableError("Receipt item missing ID")
+            items_context.append(
+                {
+                    "id": item.id,
+                    "name": item.name,
+                    "quantity": item.quantity,
+                    "unit_price": item.unit_price,
+                    "total_price": item.total_price,
+                    "currency": item.currency,
+                }
+            )
+
+        analysis = await analyze_reconciliation(
+            image=image,
+            receipt_total=str(receipt_total),
+            items=items_context,
+        )
+
+        notes: list[str] = []
+
+        valid_item_ids = {item.id for item in receipt.items if item.id is not None}
+
+        adjustments_by_id: dict[int, ReceiptItemAdjustment] = {}
+        for adjustment in analysis.adjustments:
+            if adjustment.item_id not in valid_item_ids:
+                notes.append(
+                    f"Ignored adjustment for unknown item id {adjustment.item_id}."
+                )
+                continue
+            if adjustment.item_id in adjustments_by_id:
+                notes.append(
+                    f"Ignored duplicate adjustment for item id {adjustment.item_id}."
+                )
+                continue
+            if not adjustment.remove:
+                notes.append(
+                    f"Ignored non-remove adjustment for item id {adjustment.item_id}."
+                )
+                continue
+            adjustments_by_id[adjustment.item_id] = ReceiptItemAdjustment(
+                item_id=adjustment.item_id,
+                remove=True,
+                reason=self._normalize_reconcile_reason(adjustment.reason),
+            )
+
+        if not adjustments_by_id and abs(difference) > Decimal("0.05"):
+            fallback_adjustments, fallback_note = (
+                self._fallback_duplicate_removal_adjustments(
+                    list(receipt.items), receipt_total
+                )
+            )
+            if fallback_adjustments:
+                notes.append(
+                    "Applied deterministic duplicate-line fallback because AI returned no actionable adjustments."
+                )
+                if fallback_note:
+                    notes.append(fallback_note)
+                adjustments_by_id.update(
+                    {
+                        adjustment.item_id: adjustment
+                        for adjustment in fallback_adjustments
+                    }
+                )
+
+        # Validate adjustments and compute adjusted total
+        adjusted_total = Decimal("0")
+        for item in receipt.items:
+            if item.id is None:
+                raise ServiceUnavailableError("Receipt item missing ID")
+            adjustment = adjustments_by_id.get(item.id)
+            if adjustment and adjustment.remove:
+                continue
+            adjusted_total += item.total_price
+
+        remaining_difference = adjusted_total - receipt_total
+        if abs(remaining_difference) > Decimal("0.05"):
+            notes.append(
+                "AI suggestions did not fully reconcile the total. "
+                f"Remaining difference: {remaining_difference}"
+            )
+
+        if not adjustments_by_id and abs(difference) > Decimal("0.05"):
+            notes.append("AI did not provide actionable adjustments.")
+
+        notes_text = " ".join(notes) if notes else None
+
+        return ReceiptReconcileSuggestion(
+            receipt_id=receipt_id,
+            receipt_total=receipt_total,
+            items_total=items_total,
+            difference=difference,
+            adjusted_items_total=adjusted_total,
+            remaining_difference=remaining_difference,
+            adjustments=list(adjustments_by_id.values()),
+            notes=notes_text,
+        )
 
     async def create_items(
         self, receipt_id: int, items_in: Sequence[ReceiptItemCreate], user_id: int
@@ -389,7 +749,7 @@ class ReceiptService:
     async def create_item(
         self, receipt_id: int, item_in: ReceiptItemCreateRequest, user_id: int
     ) -> Receipt:
-        """Create a single receipt item and update the receipt total.
+        """Create a single receipt item.
 
         Args:
             receipt_id: The ID of the receipt to add the item to
@@ -408,6 +768,7 @@ class ReceiptService:
         receipt = await self.session.scalar(stmt)
         if not receipt:
             raise NotFoundError(f"Receipt with id {receipt_id} not found")
+        await self.session.refresh(receipt, ["items"])
 
         # Validate currency matches the receipt
         if item_in.currency != receipt.currency:
@@ -432,8 +793,7 @@ class ReceiptService:
 
         self.session.add(item)
 
-        # Update the receipt total
-        receipt.total_amount = receipt.total_amount + total_price
+        receipt.items.append(item)
         receipt.updated_at = datetime.now(UTC)
 
         await self.session.flush()
@@ -442,7 +802,7 @@ class ReceiptService:
         return receipt
 
     async def delete_item(self, receipt_id: int, item_id: int, user_id: int) -> Receipt:
-        """Delete a receipt item and update the receipt total.
+        """Delete a receipt item.
 
         Args:
             receipt_id: The ID of the receipt
@@ -470,14 +830,15 @@ class ReceiptService:
                 f"Item with id {item_id} not found in receipt {receipt_id}"
             )
 
-        # Update the receipt total before deleting
-        receipt.total_amount = receipt.total_amount - item.total_price
-        receipt.updated_at = datetime.now(UTC)
+        if item in receipt.items:
+            receipt.items.remove(item)
 
         # Delete the item
         await self.session.delete(item)
         await self.session.flush()
         await self.session.refresh(receipt, ["items"])
+
+        receipt.updated_at = datetime.now(UTC)
 
         return receipt
 

@@ -269,6 +269,17 @@ class ReceiptItemRead(ReceiptItemBase):
     model_config = SQLModelConfig(from_attributes=True)
 
 
+class ScanRemovedItem(SQLModel):
+    """Scan-time item removed by deterministic duplicate cleanup."""
+
+    name: str
+    quantity: int
+    unit_price: Decimal
+    total_price: Decimal
+    currency: str
+    category_id: int | None = None
+
+
 class ReceiptRead(ReceiptBase):
     """Schema for reading a receipt."""
 
@@ -277,5 +288,27 @@ class ReceiptRead(ReceiptBase):
     updated_at: datetime
     tags: list[str]
     items: list[ReceiptItemRead]
+    scan_removed_items: list[ScanRemovedItem] | None = None
 
     model_config = SQLModelConfig(from_attributes=True)
+
+
+class ReceiptItemAdjustment(SQLModel):
+    """Suggested adjustment for a receipt item."""
+
+    item_id: int
+    remove: bool = True
+    reason: str | None = None
+
+
+class ReceiptReconcileSuggestion(SQLModel):
+    """AI reconciliation suggestion for a receipt mismatch."""
+
+    receipt_id: int
+    receipt_total: Decimal
+    items_total: Decimal
+    difference: Decimal
+    adjusted_items_total: Decimal
+    remaining_difference: Decimal
+    adjustments: list[ReceiptItemAdjustment]
+    notes: str | None = None

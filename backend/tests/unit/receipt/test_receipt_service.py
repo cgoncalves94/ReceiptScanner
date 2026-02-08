@@ -1,10 +1,15 @@
 """Unit tests for the receipt domain."""
 
 from decimal import Decimal
+from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from PIL import Image
 
+from app.auth.models import User  # noqa: F401
 from app.category.services import CategoryService
 from app.core.exceptions import BadRequestError, NotFoundError
 from app.receipt.models import (
@@ -351,6 +356,57 @@ async def test_update_receipt_item(
 
 
 @pytest.mark.asyncio
+async def test_update_receipt_item_does_not_change_receipt_total(
+    receipt_service: ReceiptService, mock_session: AsyncMock
+) -> None:
+    """Test updating a receipt item does not change receipt total."""
+    # Arrange
+    item = ReceiptItem(
+        id=1,
+        name="Original Item",
+        quantity=1,
+        unit_price=Decimal("5.00"),
+        total_price=Decimal("5.00"),
+        currency="$",
+        category_id=1,
+        receipt_id=1,
+    )
+    other_item = ReceiptItem(
+        id=2,
+        name="Other Item",
+        quantity=1,
+        unit_price=Decimal("10.00"),
+        total_price=Decimal("10.00"),
+        currency="$",
+        category_id=1,
+        receipt_id=1,
+    )
+    receipt = Receipt(
+        id=1,
+        store_name="Test Store",
+        total_amount=Decimal("15.00"),
+        currency="$",
+        image_path="/path/to/image.jpg",
+        items=[item, other_item],
+    )
+    mock_session.scalar.return_value = receipt
+    mock_session.flush = AsyncMock()
+    mock_session.refresh = AsyncMock()
+
+    update_data = ReceiptItemUpdate(quantity=2)
+
+    # Act
+    updated_receipt = await receipt_service.update_item(
+        receipt_id=1, item_id=1, item_in=update_data, user_id=TEST_USER_ID
+    )
+
+    # Assert
+    assert item.total_price == Decimal("10.00")
+    assert updated_receipt.total_amount == Decimal("15.00")
+    mock_session.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_update_nonexistent_receipt_item(
     receipt_service: ReceiptService, mock_session: AsyncMock
 ) -> None:
@@ -394,6 +450,7 @@ async def test_update_receipt_with_metadata(
         tax_amount=None,
         tags=[],
     )
+    assert existing_receipt.id is not None
 
     # Mock the scalar method for get
     mock_session.scalar.return_value = existing_receipt
@@ -460,15 +517,24 @@ def test_payment_method_enum_values():
 async def test_create_item(
     receipt_service: ReceiptService, mock_session: AsyncMock
 ) -> None:
-    """Test creating a receipt item and updating receipt total."""
+    """Test creating a receipt item without changing receipt total."""
     # Arrange
+    existing_item = ReceiptItem(
+        id=2,
+        name="Existing Item",
+        quantity=1,
+        unit_price=Decimal("10.00"),
+        total_price=Decimal("10.00"),
+        currency="$",
+        receipt_id=1,
+    )
     receipt = Receipt(
         id=1,
         store_name="Test Store",
         total_amount=Decimal("10.00"),
         currency="$",
         image_path="/path/to/image.jpg",
-        items=[],
+        items=[existing_item],
     )
     mock_session.scalar.return_value = receipt
     mock_session.flush = AsyncMock()
@@ -488,8 +554,7 @@ async def test_create_item(
     )
 
     # Assert
-    # Total should be original (10.00) + new item total (2 * 5.50 = 11.00) = 21.00
-    assert updated_receipt.total_amount == Decimal("21.00")
+    assert updated_receipt.total_amount == Decimal("10.00")
     mock_session.add.assert_called()
     mock_session.flush.assert_called_once()
 
@@ -521,7 +586,7 @@ async def test_create_item_nonexistent_receipt(
 async def test_delete_item(
     receipt_service: ReceiptService, mock_session: AsyncMock
 ) -> None:
-    """Test deleting a receipt item and updating receipt total."""
+    """Test deleting a receipt item without changing receipt total."""
     # Arrange
     item = ReceiptItem(
         id=1,
@@ -532,13 +597,22 @@ async def test_delete_item(
         currency="$",
         receipt_id=1,
     )
+    remaining_item = ReceiptItem(
+        id=2,
+        name="Remaining Item",
+        quantity=1,
+        unit_price=Decimal("10.00"),
+        total_price=Decimal("10.00"),
+        currency="$",
+        receipt_id=1,
+    )
     receipt = Receipt(
         id=1,
         store_name="Test Store",
         total_amount=Decimal("15.00"),
         currency="$",
         image_path="/path/to/image.jpg",
-        items=[item],
+        items=[item, remaining_item],
     )
     mock_session.scalar.return_value = receipt
     mock_session.delete = AsyncMock()
@@ -551,10 +625,9 @@ async def test_delete_item(
     )
 
     # Assert
-    # Total should be original (15.00) - deleted item (5.00) = 10.00
-    assert updated_receipt.total_amount == Decimal("10.00")
+    assert updated_receipt.total_amount == Decimal("15.00")
     mock_session.delete.assert_called_once_with(item)
-    mock_session.flush.assert_called_once()
+    assert mock_session.flush.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -724,3 +797,190 @@ async def test_list_receipts_with_no_filters(
     # Assert
     assert len(result) == 3
     mock_session.exec.assert_called_once()
+
+
+def test_dedupe_scanned_items_by_total_removes_duplicate_lines(
+    receipt_service: ReceiptService,
+) -> None:
+    """Auto-dedupe should remove duplicate-looking OCR lines when sums mismatch."""
+    # This mirrors the Tesco-style duplicated line extraction issue.
+    amounts = [
+        Decimal("2.10"),
+        Decimal("1.80"),
+        Decimal("1.80"),
+        Decimal("10.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("4.60"),
+        Decimal("2.10"),
+        Decimal("1.80"),
+        Decimal("1.80"),
+        Decimal("10.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("4.60"),
+    ]
+    names = [
+        "TAPE MEASURE",
+        "PROTEIN COOKIE",
+        "PROTEIN COOKIE",
+        "CONDOMS",
+        "PROCECCO",
+        "PROCECCO",
+        "PROCECCO",
+        "SAUVIGNON BLNC",
+        "SAUVIGNON BLNC",
+        "KRONENBOURG",
+        "TAPE MEASURE",
+        "PROTEIN COOKIE",
+        "PROTEIN COOKIE",
+        "CONDOMS",
+        "SAUVIGNON BLNC",
+        "SAUVIGNON BLNC",
+        "KRONENBOURG",
+    ]
+    items = cast(
+        list[ReceiptItem],
+        [
+            SimpleNamespace(name=name, total_price=amount, currency="GBP")
+            for name, amount in zip(names, amounts, strict=True)
+        ],
+    )
+
+    filtered, removed, note = receipt_service._dedupe_scanned_items_by_total(
+        items, Decimal("55.30")
+    )
+
+    assert len(filtered) < len(items)
+    assert len(removed) > 0
+    assert sum(item.total_price for item in filtered) == Decimal("55.30")
+    assert note is not None
+
+
+def test_dedupe_scanned_items_by_total_keeps_unique_lines(
+    receipt_service: ReceiptService,
+) -> None:
+    """Auto-dedupe should not remove unique lines, even if a subset matches."""
+    items = cast(
+        list[ReceiptItem],
+        [
+            SimpleNamespace(name="A", total_price=Decimal("5.00"), currency="GBP"),
+            SimpleNamespace(name="B", total_price=Decimal("4.00"), currency="GBP"),
+            SimpleNamespace(name="C", total_price=Decimal("3.00"), currency="GBP"),
+        ],
+    )
+
+    filtered, removed, note = receipt_service._dedupe_scanned_items_by_total(
+        items, Decimal("9.00")
+    )
+
+    assert len(filtered) == len(items)
+    assert len(removed) == 0
+    assert note is None
+
+
+@pytest.mark.asyncio
+async def test_reconcile_items_uses_deterministic_fallback_for_inconsistent_ai(
+    receipt_service: ReceiptService,
+    mock_session: AsyncMock,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """When AI returns no actions despite mismatch, fallback should suggest removals."""
+    amounts = [
+        Decimal("2.10"),
+        Decimal("1.80"),
+        Decimal("1.80"),
+        Decimal("10.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("4.60"),
+        Decimal("2.10"),
+        Decimal("1.80"),
+        Decimal("1.80"),
+        Decimal("10.00"),
+        Decimal("7.00"),
+        Decimal("7.00"),
+        Decimal("4.60"),
+    ]
+    names = [
+        "TAPE MEASURE",
+        "PROTEIN COOKIE",
+        "PROTEIN COOKIE",
+        "CONDOMS",
+        "PROCECCO",
+        "PROCECCO",
+        "PROCECCO",
+        "SAUVIGNON BLNC",
+        "SAUVIGNON BLNC",
+        "KRONENBOURG",
+        "TAPE MEASURE",
+        "PROTEIN COOKIE",
+        "PROTEIN COOKIE",
+        "CONDOMS",
+        "SAUVIGNON BLNC",
+        "SAUVIGNON BLNC",
+        "KRONENBOURG",
+    ]
+    items = [
+        ReceiptItem(
+            id=index,
+            name=name,
+            quantity=1,
+            unit_price=amount,
+            total_price=amount,
+            currency="GBP",
+            receipt_id=1,
+        )
+        for index, (name, amount) in enumerate(
+            zip(names, amounts, strict=True), start=1
+        )
+    ]
+    receipt_image = tmp_path / "receipt.png"
+    Image.new("RGB", (10, 10), "white").save(receipt_image)
+    receipt = Receipt(
+        id=1,
+        store_name="Tesco",
+        total_amount=Decimal("55.30"),
+        currency="GBP",
+        image_path=str(receipt_image),
+        items=items,
+    )
+
+    mock_session.scalar.return_value = receipt
+    mock_session.refresh = AsyncMock()
+
+    async def fake_analyze_reconciliation(
+        image: object, receipt_total: str, items: list[dict[str, object]]
+    ) -> SimpleNamespace:
+        del image, receipt_total, items
+        return SimpleNamespace(
+            adjustments=[],
+            notes=(
+                "The provided items exactly match the receipt image, and no "
+                "adjustments are necessary."
+            ),
+        )
+
+    monkeypatch.setattr(
+        "app.receipt.services.analyze_reconciliation",
+        fake_analyze_reconciliation,
+    )
+    monkeypatch.setattr(receipt_service, "resolve_image_path", lambda _: receipt_image)
+
+    suggestion = await receipt_service.reconcile_items(
+        receipt_id=1, user_id=TEST_USER_ID
+    )
+
+    assert suggestion.difference == Decimal("34.30")
+    assert suggestion.remaining_difference == Decimal("0")
+    assert len(suggestion.adjustments) > 0
+    assert all(adjustment.remove for adjustment in suggestion.adjustments)
+    assert suggestion.notes is not None
+    assert "deterministic duplicate-line fallback" in suggestion.notes

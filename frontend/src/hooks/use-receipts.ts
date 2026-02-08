@@ -2,7 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Receipt, ReceiptUpdate, ReceiptItemCreate, ReceiptItemUpdate, ReceiptFilters } from "@/types";
+import type {
+  Receipt,
+  ReceiptFilters,
+  ReceiptItemCreate,
+  ReceiptItemUpdate,
+  ReceiptReconcileSuggestion,
+  ReceiptUpdate,
+} from "@/types";
 
 const RECEIPTS_KEY = ["receipts"];
 const STORES_KEY = ["receipts", "stores"];
@@ -121,6 +128,12 @@ export function useUpdateReceipt() {
       // Invalidate stores cache if store name changed
       queryClient.invalidateQueries({ queryKey: STORES_KEY });
     },
+  });
+}
+
+export function useReconcileReceipt() {
+  return useMutation<ReceiptReconcileSuggestion, Error, number>({
+    mutationFn: (receiptId: number) => api.reconcileReceipt(receiptId),
   });
 }
 

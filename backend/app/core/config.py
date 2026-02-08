@@ -38,6 +38,7 @@ class Settings(BaseSettings):
 
     # File upload settings
     UPLOAD_DIR: Path = Path("uploads")
+    MAX_UPLOAD_SIZE_MB: int = 10
 
     # CORS Settings
     ALLOWED_ORIGINS: list[AnyHttpUrl] = []
@@ -103,6 +104,11 @@ class Settings(BaseSettings):
     def setup_directories(self) -> None:
         """Create necessary directories."""
         self.UPLOAD_DIR.mkdir(exist_ok=True)
+
+    @property
+    def max_upload_size_bytes(self) -> int:
+        """Maximum upload size in bytes."""
+        return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
 
 # Create global settings instance

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,18 +48,33 @@ import {
   DollarSign,
   Plus,
 } from "lucide-react";
-import { useReceipt, useDeleteReceipt, useUpdateReceipt, useUpdateReceiptItem, useDeleteReceiptItem, useCategories } from "@/hooks";
+import {
+  useReceipt,
+  useDeleteReceipt,
+  useUpdateReceipt,
+  useUpdateReceiptItem,
+  useDeleteReceiptItem,
+  useReconcileReceipt,
+  useCategories,
+} from "@/hooks";
 import { AddItemDialog } from "@/components/receipts/add-item-dialog";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import type { ReceiptItem, ReceiptUpdate } from "@/types";
+import type {
+  ReceiptItem,
+  ReceiptReconcileSuggestion,
+  ReceiptUpdate,
+} from "@/types";
 import { PAYMENT_METHOD_LABELS } from "@/types";
 import { MetadataForm } from "@/components/receipts/metadata-form";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
+
+const roundCurrency = (value: number) =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
 
 export default function ReceiptDetailPage({ params }: PageProps) {
   const { id } = use(params);
@@ -71,6 +86,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   const deleteMutation = useDeleteReceipt();
   const updateMutation = useUpdateReceipt();
   const updateItemMutation = useUpdateReceiptItem();
+  const reconcileMutation = useReconcileReceipt();
   const deleteItemMutation = useDeleteReceiptItem();
 
   // Create a map for quick category lookup
@@ -82,20 +98,90 @@ export default function ReceiptDetailPage({ params }: PageProps) {
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const [reconcileDialogOpen, setReconcileDialogOpen] = useState(false);
+  const [reconcileSuggestion, setReconcileSuggestion] =
+    useState<ReceiptReconcileSuggestion | null>(null);
+  const [aiAnalyzedFingerprint, setAiAnalyzedFingerprint] = useState<
+    string | null
+  >(null);
+  const [isReconciling, setIsReconciling] = useState(false);
   const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<ReceiptItem | null>(null);
   const [isDeleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
+  const [editQuantity, setEditQuantity] = useState("");
+  const [editUnitPrice, setEditUnitPrice] = useState("");
+
+  const { receiptTotal, itemsTotal, delta, hasMismatch } = useMemo(() => {
+    if (!receipt) {
+      return { receiptTotal: 0, itemsTotal: 0, delta: 0, hasMismatch: false };
+    }
+
+    const receiptValue = roundCurrency(Number(receipt.total_amount));
+    const itemsValue = roundCurrency(
+      receipt.items.reduce((sum, item) => sum + Number(item.total_price), 0)
+    );
+    const difference = roundCurrency(itemsValue - receiptValue);
+    return {
+      receiptTotal: receiptValue,
+      itemsTotal: itemsValue,
+      delta: difference,
+      hasMismatch: Math.abs(difference) > 0.05,
+    };
+  }, [receipt]);
+
+  const itemById = useMemo(() => {
+    return new Map(receipt?.items.map((item) => [item.id, item]) ?? []);
+  }, [receipt]);
+
+  const receiptStateFingerprint = useMemo(() => {
+    if (!receipt) return "";
+    const itemsSignature = [...receipt.items]
+      .sort((a, b) => a.id - b.id)
+      .map(
+        (item) =>
+          `${item.id}:${item.quantity}:${Number(item.unit_price)}:${Number(item.total_price)}`
+      )
+      .join("|");
+    return `${receipt.id}:${Number(receipt.total_amount)}:${itemsSignature}`;
+  }, [receipt]);
+
+  const isAiAlreadyAnalyzed =
+    aiAnalyzedFingerprint !== null && aiAnalyzedFingerprint === receiptStateFingerprint;
+  useEffect(() => {
+    if (aiAnalyzedFingerprint && aiAnalyzedFingerprint !== receiptStateFingerprint) {
+      setReconcileSuggestion(null);
+    }
+  }, [aiAnalyzedFingerprint, receiptStateFingerprint]);
 
   const openEditItem = (item: ReceiptItem) => {
     setEditingItem(item);
     setEditName(item.name);
     setEditCategoryId(item.category_id?.toString() ?? "");
+    setEditQuantity(item.quantity ?? item.quantity === 0 ? String(item.quantity) : "");
+    setEditUnitPrice(item.unit_price ?? item.unit_price === 0 ? String(item.unit_price) : "");
   };
 
   const handleUpdateItem = async () => {
     if (!editingItem) return;
+
+    const quantityValue = editQuantity.trim();
+    const unitPriceValue = editUnitPrice.trim();
+    const quantity =
+      quantityValue === "" ? undefined : Number.parseInt(quantityValue, 10);
+    const unitPrice =
+      unitPriceValue === "" ? undefined : Number.parseFloat(unitPriceValue);
+
+    if (quantityValue !== "" && Number.isNaN(quantity)) {
+      toast.error("Quantity must be a whole number");
+      return;
+    }
+
+    if (unitPriceValue !== "" && Number.isNaN(unitPrice)) {
+      toast.error("Unit price must be a number");
+      return;
+    }
 
     try {
       await updateItemMutation.mutateAsync({
@@ -104,6 +190,8 @@ export default function ReceiptDetailPage({ params }: PageProps) {
         data: {
           name: editName.trim() || undefined,
           category_id: editCategoryId ? parseInt(editCategoryId) : undefined,
+          quantity,
+          unit_price: unitPrice,
         },
       });
       toast.success("Item updated");
@@ -113,6 +201,72 @@ export default function ReceiptDetailPage({ params }: PageProps) {
         error instanceof Error ? error.message : "Failed to update item"
       );
       updateItemMutation.reset();
+    }
+  };
+
+  const handleRunAiReconcile = async () => {
+    if (isAiAlreadyAnalyzed) {
+      return;
+    }
+    try {
+      const suggestion = await reconcileMutation.mutateAsync(receiptId);
+      setReconcileSuggestion(suggestion);
+      setAiAnalyzedFingerprint(receiptStateFingerprint);
+      if (suggestion.adjustments.length === 0) {
+        toast.info("AI did not find any safe adjustments");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to run AI reconcile"
+      );
+      reconcileMutation.reset();
+    }
+  };
+
+  const handleApplyAiSuggestions = async () => {
+    if (!reconcileSuggestion || reconcileSuggestion.adjustments.length === 0) {
+      toast.error("No AI adjustments to apply");
+      return;
+    }
+    if (!receipt) {
+      toast.error("Receipt data not loaded");
+      return;
+    }
+
+    setIsReconciling(true);
+    try {
+      for (const adjustment of reconcileSuggestion.adjustments) {
+        await deleteItemMutation.mutateAsync({
+          receiptId,
+          itemId: adjustment.item_id,
+        });
+      }
+      toast.success("Applied AI adjustments");
+      setReconcileDialogOpen(false);
+      setReconcileSuggestion(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to apply AI adjustments"
+      );
+      deleteItemMutation.reset();
+    } finally {
+      setIsReconciling(false);
+    }
+  };
+
+  const handleSetReceiptTotal = async () => {
+    try {
+      await updateMutation.mutateAsync({
+        id: receiptId,
+        data: { total_amount: itemsTotal },
+      });
+      toast.success("Receipt total updated");
+      setReconcileDialogOpen(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update receipt total"
+      );
+      updateMutation.reset();
     }
   };
 
@@ -225,8 +379,18 @@ export default function ReceiptDetailPage({ params }: PageProps) {
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold tabular-nums">
-                {formatCurrency(Number(receipt.total_amount), receipt.currency)}
+                {formatCurrency(receiptTotal, receipt.currency)}
               </p>
+              {hasMismatch && (
+                <div className="mt-2 flex justify-end">
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/40 text-amber-500 text-xs"
+                  >
+                    Items don&apos;t match
+                  </Badge>
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -305,9 +469,50 @@ export default function ReceiptDetailPage({ params }: PageProps) {
 
           <Separator className="my-4" />
 
-          <div className="flex items-center justify-between text-lg font-semibold">
-            <span>Total</span>
-            <span className="tabular-nums">{formatCurrency(Number(receipt.total_amount), receipt.currency)}</span>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-lg font-semibold">
+              <div className="flex items-center gap-2">
+                <span>Receipt total</span>
+                {hasMismatch && (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/40 text-amber-500 text-xs"
+                  >
+                    Items don&apos;t match
+                  </Badge>
+                )}
+              </div>
+              <span className="tabular-nums">
+                {formatCurrency(receiptTotal, receipt.currency)}
+              </span>
+            </div>
+
+            {hasMismatch && (
+              <>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Items total</span>
+                  <span className="tabular-nums">
+                    {formatCurrency(itemsTotal, receipt.currency)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Difference</span>
+                  <span className="tabular-nums text-amber-500">
+                    {(delta >= 0 ? "+" : "-") +
+                      formatCurrency(Math.abs(delta), receipt.currency)}
+                  </span>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setReconcileDialogOpen(true)}
+                  >
+                    Fix mismatch
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -413,7 +618,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/${receipt.image_path}`}
+                src={`/api/receipts/${receipt.id}/image`}
                 alt="Receipt"
                 className="w-full max-h-150 object-contain"
               />
@@ -492,6 +697,30 @@ export default function ReceiptDetailPage({ params }: PageProps) {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-item-quantity">Quantity</Label>
+                <Input
+                  id="edit-item-quantity"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={editQuantity}
+                  onChange={(e) => setEditQuantity(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-item-unit-price">Unit Price</Label>
+                <Input
+                  id="edit-item-unit-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editUnitPrice}
+                  onChange={(e) => setEditUnitPrice(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setEditingItem(null)}>
@@ -550,6 +779,132 @@ export default function ReceiptDetailPage({ params }: PageProps) {
         currency={receipt.currency}
       />
 
+      {/* Reconcile Totals Dialog */}
+      <Dialog
+        open={reconcileDialogOpen}
+        onOpenChange={setReconcileDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fix total mismatch</DialogTitle>
+            <DialogDescription>
+              Items don&apos;t match the receipt total. Choose how to reconcile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-border/60 p-3 text-sm space-y-2">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Receipt total</span>
+                <span className="tabular-nums">
+                  {formatCurrency(receiptTotal, receipt.currency)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Items total</span>
+                <span className="tabular-nums">
+                  {formatCurrency(itemsTotal, receipt.currency)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between font-medium">
+                <span>Difference</span>
+                <span className="tabular-nums text-amber-500">
+                  {(delta >= 0 ? "+" : "-") +
+                    formatCurrency(Math.abs(delta), receipt.currency)}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="rounded-md border border-border/60 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">AI reconcile items</p>
+                    <p className="text-xs text-muted-foreground">
+                      Removes likely duplicate/noise item lines.
+                    </p>
+                  </div>
+                  {reconcileSuggestion === null && (
+                    <Button
+                      size="sm"
+                      className="bg-amber-500 hover:bg-amber-600 text-black"
+                      onClick={handleRunAiReconcile}
+                      disabled={
+                        reconcileMutation.isPending ||
+                        isReconciling ||
+                        isAiAlreadyAnalyzed
+                      }
+                    >
+                      {reconcileMutation.isPending ? "Running..." : "Run AI"}
+                    </Button>
+                  )}
+                </div>
+                {reconcileSuggestion && (
+                  <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                    {reconcileSuggestion.adjustments.length === 0 ? (
+                      <p>No removable lines suggested.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-muted-foreground">
+                          Suggested removals: {reconcileSuggestion.adjustments.length} line
+                          {reconcileSuggestion.adjustments.length > 1 ? "s" : ""}:
+                        </p>
+                        {reconcileSuggestion.adjustments.map((adjustment) => {
+                          const item = itemById.get(adjustment.item_id);
+                          if (!item) return null;
+
+                          return (
+                            <div
+                              key={adjustment.item_id}
+                              className="rounded-md border border-border/40 p-2"
+                            >
+                              <div className="font-medium text-foreground">
+                                {item.name}
+                              </div>
+                              {adjustment.reason && (
+                                <div className="mt-1">{adjustment.reason}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleApplyAiSuggestions}
+                            disabled={isReconciling}
+                          >
+                            {isReconciling ? "Applying..." : "Apply"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-md border border-border/60 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Set receipt total to items sum</p>
+                    <p className="text-xs text-muted-foreground">
+                      Keeps item lines unchanged and updates only the receipt total.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSetReceiptTotal}
+                    disabled={updateMutation.isPending}
+                  >
+                    {updateMutation.isPending ? "Applying..." : "Apply"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Image Preview Dialog */}
       {receipt.image_path && (
         <Dialog open={imagePreviewOpen} onOpenChange={setImagePreviewOpen}>
@@ -560,7 +915,7 @@ export default function ReceiptDetailPage({ params }: PageProps) {
             </DialogHeader>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/${receipt.image_path}`}
+              src={`/api/receipts/${receipt.id}/image`}
               alt="Receipt"
               className="w-full h-full max-h-[85vh] object-contain"
             />

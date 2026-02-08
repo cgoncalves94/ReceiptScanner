@@ -1,3 +1,4 @@
+import mimetypes
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -5,9 +6,9 @@ from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, File, Query, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
-from app.auth.deps import CurrentUser, require_user_id
+from app.auth.deps import CurrentUser, CurrentUserFromRequest, require_user_id
 from app.receipt.deps import ReceiptDeps
 from app.receipt.models import (
     Receipt,
@@ -16,6 +17,7 @@ from app.receipt.models import (
     ReceiptItemRead,
     ReceiptItemUpdate,
     ReceiptRead,
+    ReceiptReconcileSuggestion,
     ReceiptUpdate,
 )
 from app.receipt.services import ReceiptFilters
@@ -72,7 +74,7 @@ async def create_receipt_from_scan(
     current_user: CurrentUser,
     service: ReceiptDeps,
     image: Annotated[UploadFile, File()],
-) -> Receipt:
+) -> ReceiptRead:
     """
     Upload and scan a receipt image.
     The image will be analyzed using AI to extract information.
@@ -297,6 +299,23 @@ async def get_receipt(
 
 
 @router.get(
+    "/{receipt_id}/image",
+    status_code=status.HTTP_200_OK,
+)
+async def get_receipt_image(
+    receipt_id: int,
+    current_user: CurrentUserFromRequest,
+    service: ReceiptDeps,
+) -> FileResponse:
+    """Get a receipt image for the current user."""
+    user_id = require_user_id(current_user)
+    receipt = await service.get(receipt_id, user_id=user_id)
+    image_path = service.resolve_image_path(receipt.image_path)
+    media_type, _ = mimetypes.guess_type(image_path.name)
+    return FileResponse(image_path, media_type=media_type or "application/octet-stream")
+
+
+@router.get(
     "/category/{category_id}/items",
     response_model=list[ReceiptItemRead],
     status_code=status.HTTP_200_OK,
@@ -332,6 +351,21 @@ async def update_receipt(
     """Update a receipt."""
     user_id = require_user_id(current_user)
     return await service.update(receipt_id, receipt_in, user_id=user_id)
+
+
+@router.post(
+    "/{receipt_id}/reconcile",
+    response_model=ReceiptReconcileSuggestion,
+    status_code=status.HTTP_200_OK,
+)
+async def reconcile_receipt(
+    receipt_id: int,
+    current_user: CurrentUser,
+    service: ReceiptDeps,
+) -> ReceiptReconcileSuggestion:
+    """Suggest AI adjustments to reconcile receipt items with the receipt total."""
+    user_id = require_user_id(current_user)
+    return await service.reconcile_items(receipt_id, user_id=user_id)
 
 
 @router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -375,7 +409,7 @@ async def create_receipt_item(
 ) -> Receipt:
     """Create a new item for a receipt.
 
-    Creates the item and updates the receipt total automatically.
+    Creates the item and returns the updated receipt.
     """
     user_id = require_user_id(current_user)
     return await service.create_item(receipt_id, item_in, user_id=user_id)
@@ -394,8 +428,7 @@ async def delete_receipt_item(
 ) -> Receipt:
     """Delete a receipt item.
 
-    Deletes the item and updates the receipt total automatically.
-    Returns the updated receipt with remaining items.
+    Deletes the item and returns the updated receipt with remaining items.
     """
     user_id = require_user_id(current_user)
     return await service.delete_item(receipt_id, item_id, user_id=user_id)
