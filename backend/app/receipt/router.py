@@ -17,6 +17,7 @@ from app.receipt.models import (
     ReceiptItemRead,
     ReceiptItemUpdate,
     ReceiptRead,
+    ReceiptReconcileSuggestion,
     ReceiptUpdate,
 )
 from app.receipt.services import ReceiptFilters
@@ -73,7 +74,7 @@ async def create_receipt_from_scan(
     current_user: CurrentUser,
     service: ReceiptDeps,
     image: Annotated[UploadFile, File()],
-) -> Receipt:
+) -> ReceiptRead:
     """
     Upload and scan a receipt image.
     The image will be analyzed using AI to extract information.
@@ -352,6 +353,21 @@ async def update_receipt(
     return await service.update(receipt_id, receipt_in, user_id=user_id)
 
 
+@router.post(
+    "/{receipt_id}/reconcile",
+    response_model=ReceiptReconcileSuggestion,
+    status_code=status.HTTP_200_OK,
+)
+async def reconcile_receipt(
+    receipt_id: int,
+    current_user: CurrentUser,
+    service: ReceiptDeps,
+) -> ReceiptReconcileSuggestion:
+    """Suggest AI adjustments to reconcile receipt items with the receipt total."""
+    user_id = require_user_id(current_user)
+    return await service.reconcile_items(receipt_id, user_id=user_id)
+
+
 @router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_receipt(
     receipt_id: int,
@@ -393,7 +409,7 @@ async def create_receipt_item(
 ) -> Receipt:
     """Create a new item for a receipt.
 
-    Creates the item and updates the receipt total automatically.
+    Creates the item and returns the updated receipt.
     """
     user_id = require_user_id(current_user)
     return await service.create_item(receipt_id, item_in, user_id=user_id)
@@ -412,8 +428,7 @@ async def delete_receipt_item(
 ) -> Receipt:
     """Delete a receipt item.
 
-    Deletes the item and updates the receipt total automatically.
-    Returns the updated receipt with remaining items.
+    Deletes the item and returns the updated receipt with remaining items.
     """
     user_id = require_user_id(current_user)
     return await service.delete_item(receipt_id, item_id, user_id=user_id)
