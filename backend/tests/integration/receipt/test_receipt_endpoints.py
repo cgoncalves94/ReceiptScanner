@@ -253,8 +253,8 @@ async def test_delete_receipt_item(
 ) -> None:
     """Test deleting a receipt item.
 
-    We first create an item via the API (which updates the total),
-    then delete it and verify the total is adjusted back.
+    We first create an item via the API, then delete it and verify the
+    receipt total remains authoritative (unchanged).
     """
     # Create an item first via API to ensure totals are correctly tracked
     item_data = {
@@ -272,7 +272,7 @@ async def test_delete_receipt_item(
     assert create_response.status_code == 201
     created_data = create_response.json()
     item_id = created_data["items"][0]["id"]
-    total_after_create = float(created_data["total_amount"])
+    original_total = float(test_receipt.total_amount)
 
     # Now delete the item
     response = test_client.delete(
@@ -283,9 +283,8 @@ async def test_delete_receipt_item(
     data = response.json()
     # Check the item was removed
     assert len(data["items"]) == 0
-    # Check the receipt total was updated (reduced by the item total)
-    expected_total = total_after_create - 5.00
-    assert abs(float(data["total_amount"]) - expected_total) < 0.01
+    # Receipt total remains authoritative and is not auto-recomputed.
+    assert abs(float(data["total_amount"]) - original_total) < 0.01
 
 
 @pytest.mark.asyncio
