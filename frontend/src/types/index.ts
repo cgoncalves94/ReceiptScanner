@@ -65,6 +65,15 @@ export interface ReceiptItemCreate {
   category_id?: number | null;
 }
 
+export interface ScanRemovedItem {
+  name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  currency: string;
+  category_id?: number | null;
+}
+
 export interface Receipt {
   id: number;
   store_name: string;
@@ -80,6 +89,7 @@ export interface Receipt {
   tags: string[];
   payment_method: PaymentMethod | null;
   tax_amount: number | null;
+  scan_removed_items?: ScanRemovedItem[] | null;
 }
 
 export interface ReceiptUpdate {
@@ -92,6 +102,23 @@ export interface ReceiptUpdate {
   tags?: string[] | null;
   payment_method?: PaymentMethod | null;
   tax_amount?: number | null;
+}
+
+export interface ReceiptReconcileAdjustment {
+  item_id: number;
+  remove: true;
+  reason?: string | null;
+}
+
+export interface ReceiptReconcileSuggestion {
+  receipt_id: number;
+  receipt_total: number;
+  items_total: number;
+  difference: number;
+  adjusted_items_total: number;
+  remaining_difference: number;
+  adjustments: ReceiptReconcileAdjustment[];
+  notes?: string | null;
 }
 
 // Scan result from AI analysis

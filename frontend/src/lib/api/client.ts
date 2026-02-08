@@ -6,6 +6,7 @@ import type {
   CategoryUpdate,
   LoginCredentials,
   Receipt,
+  ReceiptReconcileSuggestion,
   ReceiptUpdate,
   ReceiptItemCreate,
   ReceiptItemUpdate,
@@ -179,6 +180,12 @@ class ApiClient {
     return this.request<Receipt>(`/receipts/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
+    });
+  }
+
+  async reconcileReceipt(id: number): Promise<ReceiptReconcileSuggestion> {
+    return this.request<ReceiptReconcileSuggestion>(`/receipts/${id}/reconcile`, {
+      method: "POST",
     });
   }
 
